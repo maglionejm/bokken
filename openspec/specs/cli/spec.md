@@ -92,3 +92,16 @@ The CLI SHALL provide `bokken handoff <name>` generating the OpenSpec handoff pa
 
 - **WHEN** `bokken run mars-lander` returns `completed` for the first time
 - **THEN** the Dossier and the handoff package are generated without further commands, and a second `run` does not regenerate them
+
+### Requirement: Export verb
+
+`bokken export <name>` SHALL regenerate both report files via the core and
+print their paths; `--json` SHALL print a JSON object with both paths. It
+SHALL exit `2` when the session does not exist or has no events to report.
+
+#### Scenario: Export from the terminal
+
+- **WHEN** `bokken export mars-lander --json` is invoked on a completed
+  session
+- **THEN** stdout is one JSON document with the `pptx` and `html` paths and
+  the exit code is 0

@@ -13,6 +13,7 @@ dependencies = [
     "typer>=0.15",
     "rich>=13.9",
     "mcp>=1.5",
+    "python-pptx>=1.0.2",
 ]
 
 [project.scripts]
@@ -39,6 +40,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Presentation templates: PPTX/HTML markup strings do not wrap at 100 chars.
+"src/bokken/report/deck.py" = ["E501"]
+"src/bokken/report/page.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

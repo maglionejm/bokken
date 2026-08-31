@@ -1,4 +1,4 @@
-"""Run finalization: after a run completes, produce the Dossier, then the handoff."""
+"""Run finalization: after a run completes, produce the Dossier, the handoff, the report."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ class FinalizeResult:
     dossier_generated: bool = False
     handoff_generated: bool = False
     handoff_skipped: str | None = None
+    report_generated: bool = False
 
     def summary(self) -> str:
         parts = []
@@ -24,6 +25,8 @@ class FinalizeResult:
             parts.append("handoff specs generated")
         if self.handoff_skipped:
             parts.append(f"handoff skipped: {self.handoff_skipped}")
+        if self.report_generated:
+            parts.append("report exported (pptx + html)")
         return "; ".join(parts) or "already finalized"
 
 
@@ -35,7 +38,7 @@ def _dossier_exists(session_dir: Path) -> bool:
 
 
 def finalize_session(session_dir: Path, router_factory: RouterFactory) -> FinalizeResult:
-    """Idempotent: generates only what does not exist yet. Dossier first, then handoff."""
+    """Idempotent: generates only what does not exist yet. Dossier, then handoff, then report."""
     state = replay(read_events(session_dir))
     if state.stage != "complete":
         return FinalizeResult(handoff_skipped="session is not complete")
@@ -47,10 +50,25 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
         generate(session_dir)
         dossier_generated = True
 
-    if handoff_exists(session_dir):
-        return FinalizeResult(dossier_generated=dossier_generated)
-    try:
-        generate_handoff(session_dir, router_factory)
-        return FinalizeResult(dossier_generated=dossier_generated, handoff_generated=True)
-    except HandoffRefusedError as refusal:
-        return FinalizeResult(dossier_generated=dossier_generated, handoff_skipped=str(refusal))
+    handoff_generated = False
+    handoff_skipped: str | None = None
+    if not handoff_exists(session_dir):
+        try:
+            generate_handoff(session_dir, router_factory)
+            handoff_generated = True
+        except HandoffRefusedError as refusal:
+            handoff_skipped = str(refusal)
+
+    report_generated = False
+    from bokken.report.generate import generate_report, report_exists
+
+    if not report_exists(session_dir):
+        generate_report(session_dir)
+        report_generated = True
+
+    return FinalizeResult(
+        dossier_generated=dossier_generated,
+        handoff_generated=handoff_generated,
+        handoff_skipped=handoff_skipped,
+        report_generated=report_generated,
+    )

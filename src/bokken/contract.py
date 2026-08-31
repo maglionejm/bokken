@@ -84,6 +84,12 @@ class DossierResult(BaseModel):
     status: Literal["complete", "partial"]
 
 
+class ExportResult(BaseModel):
+    kind: Literal["export"] = "export"
+    pptx_path: str
+    html_path: str
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"
