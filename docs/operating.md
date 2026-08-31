@@ -131,12 +131,14 @@ the recommendation is `kill`.
 claude mcp add bokken -- uv run --directory /path/to/bokken bokken serve
 ```
 
-Then any MCP client can drive the same loop: `create_session_tool` →
-`run_session` → (`resolve_gate` | `submit_input`) → … → `generate_dossier`.
-Founder-mode questions surface as `input_pending` with a `pending_question_id`;
-answer with `submit_input` and run again. Agent actions are journaled with the
-client's handshake identity — the ledger always shows who (human or agent)
-approved what. See `docs/mcp.md` for the full tool/resource table.
+Then any MCP client drives the same loop: `create_session_tool` →
+`run_session` → (`resolve_gate` | `submit_input`) → … until `completed`, at
+which point finalization produces the Dossier and the OpenSpec handoff
+automatically. Founder-mode questions surface as `input_pending` with a
+`pending_question_id`; answer with `submit_input` and run again. Agent actions
+are journaled with the client's handshake identity — the ledger always shows
+who (human or agent) approved what. Full reference — 12 tools, 4 resources,
+result shapes, error semantics, a worked agent transcript: `docs/mcp.md`.
 
 ## Scripting (`--json` contract)
 

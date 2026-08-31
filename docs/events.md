@@ -123,6 +123,7 @@ budgets are enforceable from replay.
 bokken journal <name> --type option --stage ideate     # the lineage as it happened
 bokken journal <name> --type facilitation              # every move, executed or suppressed
 bokken journal <name> --since 120 --follow             # tail live from seq 120
+bokken journal <name> --since 2026-08-31T18:00:00Z     # or from a timestamp
 bokken journal <name> --json | jq 'select(.type=="decision.recorded") | .payload.dissent'
 ```
 

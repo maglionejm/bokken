@@ -114,7 +114,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 | | |
 | --- | --- |
 | **CLI** | `new · run · step · stop · status · list · gate · back · journal · dossier · handoff · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
-| **MCP** | `bokken serve` (stdio): 11 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
+| **MCP** | `bokken serve` (stdio): 12 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation
 

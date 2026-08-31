@@ -97,6 +97,22 @@ def test_illegal_loopback_exits_2_naming_legal_edges(brief_file: Path) -> None:
     assert "legal targets" in result.stderr
 
 
+def test_journal_since_accepts_seq_and_timestamp(brief_file: Path) -> None:
+    new_session(brief_file, "since1", "--gates", "none")
+    runner.invoke(app, ["run", "since1", "--json"])
+    by_seq = runner.invoke(app, ["journal", "since1", "--since", "5", "--json"])
+    lines = [json.loads(line) for line in by_seq.stdout.strip().splitlines()]
+    assert lines and all(line["seq"] >= 5 for line in lines)
+
+    pivot_ts = lines[0]["ts"]
+    by_ts = runner.invoke(app, ["journal", "since1", "--since", pivot_ts, "--json"])
+    ts_lines = [json.loads(line) for line in by_ts.stdout.strip().splitlines()]
+    assert ts_lines and all(line["ts"] >= pivot_ts for line in ts_lines)
+
+    bad = runner.invoke(app, ["journal", "since1", "--since", "yesterday-ish"])
+    assert bad.exit_code == 2 and "ISO timestamp" in bad.stderr
+
+
 def test_journal_filters_and_jsonl(brief_file: Path) -> None:
     new_session(brief_file, "j1", "--gates", "none")
     run = runner.invoke(app, ["run", "j1", "--json"])

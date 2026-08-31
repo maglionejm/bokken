@@ -10,7 +10,7 @@ state, which is what makes every run crash-safe and resumable by construction.
                           │                     │
              ┌────────────┴─────┐   ┌───────────┴────────────┐
   SURFACES   │  CLI (typer)     │   │  MCP server (stdio)    │   src/bokken/cli
-             │  new run step .. │   │  11 tools, 4 resources │   src/bokken/mcp
+             │  new run step .. │   │  12 tools, 4 resources │   src/bokken/mcp
              └────────┬─────────┘   └───────────┬────────────┘
                       └────────┬────────────────┘
                                │  shared result shapes: src/bokken/contract.py

@@ -318,7 +318,8 @@ def journal(
     stage: Annotated[str | None, typer.Option("--stage")] = None,
     actor: Annotated[str | None, typer.Option("--actor", help="human, agent, or system")] = None,
     since: Annotated[
-        int | None, typer.Option("--since", help="Only events after this seq.")
+        str | None,
+        typer.Option("--since", help="Seq number or ISO timestamp; only later events."),
     ] = None,
     limit: Annotated[int | None, typer.Option("--limit")] = None,
     follow: Annotated[
@@ -328,6 +329,7 @@ def journal(
 ) -> None:
     """Print ledger events (filters compose); --json emits canonical JSONL."""
     session_dir = resolve_session_dir(name)
+    since_seq, since_ts = _parse_since(since)
 
     def render(event: Any) -> None:
         if as_json:
@@ -343,8 +345,8 @@ def journal(
 
         stop_event = threading.Event()
         try:
-            for event in follow_events(session_dir, since_seq=since or 0, stop=stop_event):
-                if _matches(event, type_filter, stage, actor):
+            for event in follow_events(session_dir, since_seq=since_seq or 0, stop=stop_event):
+                if _matches(event, type_filter, stage, actor, since_ts):
                     render(event)
         except KeyboardInterrupt:
             return
@@ -354,13 +356,40 @@ def journal(
             type=type_filter,
             stage=stage,  # type: ignore[arg-type]
             actor=actor,  # type: ignore[arg-type]
-            since_seq=since,
+            since_seq=since_seq,
+            since_ts=since_ts,
             limit=limit,
         ):
             render(event)
 
 
-def _matches(event: Any, type_filter: str | None, stage: str | None, actor: str | None) -> bool:
+def _parse_since(since: str | None):
+    """--since accepts a seq number or an ISO timestamp (naive = UTC)."""
+    if since is None:
+        return None, None
+    if since.isdigit():
+        return int(since), None
+    from datetime import UTC, datetime
+
+    try:
+        ts = datetime.fromisoformat(since)
+    except ValueError:
+        _fail(f"--since must be a seq number or an ISO timestamp, got {since!r}", 2)
+        raise  # unreachable; keeps type-checkers honest
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    return None, ts
+
+
+def _matches(
+    event: Any,
+    type_filter: str | None,
+    stage: str | None,
+    actor: str | None,
+    since_ts: Any = None,
+) -> bool:
+    if since_ts is not None and event.ts < since_ts:
+        return False
     from bokken.journal.query import _type_matches
 
     if type_filter is not None and not _type_matches(event.type, type_filter):
