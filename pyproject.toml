@@ -1,6 +1,6 @@
 [project]
 name = "bokken"
-version = "0.1.0"
+version = "0.2.0"
 description = "An agentic harness for Design Thinking - one executable, instrumented loop. Test with wood; commit steel when it counts."
 readme = "README.md"
 requires-python = ">=3.12"
