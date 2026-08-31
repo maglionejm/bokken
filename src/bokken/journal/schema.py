@@ -30,7 +30,7 @@ Mode = Literal["founder", "dojo"]
 StopReason = Literal[
     "completed", "budget_exhausted", "novelty_floor", "criteria_met", "human_stop", "error"
 ]
-RoutingClass = Literal["cognition", "extraction", "generation"]
+RoutingClass = Literal["research", "challenge", "cognition", "extraction", "generation"]
 SuppressionReason = Literal["budget_exhausted", "out_of_stage", "mode_config", "superseded"]
 
 

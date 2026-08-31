@@ -44,7 +44,10 @@ def store(tmp_path: Path):
 
 def test_routing_defaults_and_overrides() -> None:
     routing = resolve_routing(None)
+    assert routing["research"] == "claude-fable-5"
+    assert routing["challenge"] == "claude-fable-5"
     assert routing["cognition"] == "claude-opus-4-8"
+    assert routing["generation"] == "claude-opus-4-8"
     assert routing["extraction"] == "claude-haiku-4-5"
     assert resolve_routing({"cognition": "claude-sonnet-4-6"})["cognition"] == "claude-sonnet-4-6"
     with pytest.raises(RoutingConfigError, match="allowlist"):

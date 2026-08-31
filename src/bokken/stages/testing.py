@@ -45,7 +45,7 @@ class TestEngine:
             persona = reviewers[i % len(reviewers)]
             evaluation = structured(
                 router,
-                "cognition",
+                "challenge",
                 "test/evaluate",
                 Evaluation,
                 stage="test",
@@ -115,7 +115,7 @@ class TestEngine:
         )
         recommendation = structured(
             router,
-            "cognition",
+            "challenge",
             "test/recommend",
             Recommendation,
             stage="test",

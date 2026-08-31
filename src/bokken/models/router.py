@@ -17,13 +17,21 @@ from bokken.journal import Actor, JournalStore, RoutingClass, Stage, replay
 from bokken.models.prompts import render_prompt
 
 DEFAULT_ROUTING: dict[RoutingClass, str] = {
+    "research": "claude-fable-5",
+    "challenge": "claude-fable-5",
     "cognition": "claude-opus-4-8",
     "extraction": "claude-haiku-4-5",
     "generation": "claude-opus-4-8",
 }
 
 MODEL_ALLOWLIST = frozenset(
-    {"claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"}
+    {
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+    }
 )
 
 ROUTER_ACTOR = Actor(kind="agent", name="model-router")

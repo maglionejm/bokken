@@ -110,7 +110,7 @@ class IdeateEngine:
         if skeptic is not None:
             challenge = structured(
                 router,
-                "cognition",
+                "challenge",
                 "ideate/skeptic_challenge",
                 SkepticChallenge,
                 stage="ideate",
@@ -157,7 +157,7 @@ class IdeateEngine:
         else:
             votes = structured(
                 router,
-                "cognition",
+                "challenge",
                 "ideate/converge",
                 Votes,
                 stage="ideate",

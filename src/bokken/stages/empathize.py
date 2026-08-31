@@ -38,7 +38,7 @@ class EmpathizeEngine:
         )
         program = structured(
             router,
-            "cognition",
+            "research",
             "empathize/interview_program",
             InterviewProgram,
             stage="empathize",
@@ -83,7 +83,7 @@ class EmpathizeEngine:
             )
             followup = structured(
                 router,
-                "cognition",
+                "research",
                 "empathize/followup",
                 FollowUp,
                 stage="empathize",

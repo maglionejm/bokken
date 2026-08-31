@@ -49,11 +49,20 @@ class AnthropicProvider:
     ) -> ProviderResult:
         messages = [{"role": "user", "content": rendered}]
         kwargs: dict = {"model": model, "max_tokens": max_tokens, "messages": messages}
-        if routing_class in ("cognition", "generation"):
-            kwargs["thinking"] = {"type": "adaptive"}
+        is_fable = model.startswith("claude-fable")
+        if routing_class in ("research", "challenge", "cognition", "generation"):
+            kwargs["output_config"] = {"effort": "high"}
+            if not is_fable:
+                # Fable's thinking is always on and rejects the parameter.
+                kwargs["thinking"] = {"type": "adaptive"}
+        if is_fable:
+            # Safety-classifier declines are re-served by Opus inside the same call.
+            kwargs["betas"] = ["server-side-fallback-2026-06-01"]
+            kwargs["fallbacks"] = [{"model": "claude-opus-4-8"}]
 
+        surface = self.client.beta.messages if is_fable else self.client.messages
         if schema is not None:
-            response = self.client.messages.parse(**kwargs, output_format=schema)
+            response = surface.parse(**kwargs, output_format=schema)
             return ProviderResult(
                 text=_text_of(response),
                 data=response.parsed_output,
@@ -64,10 +73,10 @@ class AnthropicProvider:
             )
 
         if stream:
-            with self.client.messages.stream(**kwargs) as message_stream:
+            with surface.stream(**kwargs) as message_stream:
                 response = message_stream.get_final_message()
         else:
-            response = self.client.messages.create(**kwargs)
+            response = surface.create(**kwargs)
         return ProviderResult(
             text=_text_of(response) if response.stop_reason != "refusal" else "",
             data=None,
