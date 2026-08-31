@@ -9,11 +9,20 @@ from typing import Any
 # journals keep the version each run actually used.
 PROMPTS: dict[str, tuple[str, str]] = {
     "empathize/interview_program": (
-        "v1",
-        "You are designing a user-research interview program for the brief below.\n"
+        "v2",
+        "You are designing a research program for the brief below. The interviewees are "
+        "personas who can only state facts found in the session's evidence corpus - they "
+        "abstain on anything it cannot support.\n"
         "Brief: {brief}\n"
-        "Write 2-4 open, non-leading interview questions per target segment. Ask about "
-        "concrete past behavior, not hypotheticals.\n",
+        "Evidence corpus available: {inputs_available}\n"
+        "Write 2-4 questions per target segment, calibrated to that corpus:\n"
+        "- If the corpus contains interview/discussion material, ask about concrete past "
+        "behavior (laddering into specific incidents).\n"
+        "- If the corpus is mostly product code, docs, or metrics, ask questions those "
+        "sources CAN answer (what the product does at key moments, what its docs assume "
+        "about users, what the numbers show) - phrased from the persona's perspective.\n"
+        "- Include at most one behavioral question per segment that the corpus likely "
+        "cannot answer; its abstention becomes explicit research debt for real users.\n",
     ),
     "empathize/followup": (
         "v1",

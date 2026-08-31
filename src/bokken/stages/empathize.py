@@ -11,6 +11,19 @@ from bokken.stages.persona_gen import RouterTurnGenerator
 from bokken.stages.schemas import FollowUp, InterviewProgram
 
 
+def _describe_inputs(inputs: dict) -> str:
+    parts = []
+    if inputs.get("repo"):
+        parts.append("an application repository (source code and configuration)")
+    if inputs.get("metrics"):
+        parts.append(f"{len(inputs['metrics'])} business/performance metrics file(s)")
+    if inputs.get("discussions"):
+        parts.append(f"{len(inputs['discussions'])} interview/discussion transcript(s)")
+    if inputs.get("documents"):
+        parts.append(f"{len(inputs['documents'])} document(s)")
+    return "; ".join(parts) or "no tangible inputs - only the brief itself"
+
+
 class EmpathizeEngine:
     def __init__(self, router_factory: RouterFactory) -> None:
         self.router_factory = router_factory
@@ -29,7 +42,10 @@ class EmpathizeEngine:
             "empathize/interview_program",
             InterviewProgram,
             stage="empathize",
-            params={"brief": dumps(ctx.state.brief)},
+            params={
+                "brief": dumps(ctx.state.brief),
+                "inputs_available": _describe_inputs(ctx.state.brief.get("inputs", {})),
+            },
         )
         if program is None:
             return None

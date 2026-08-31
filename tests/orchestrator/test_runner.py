@@ -173,6 +173,22 @@ def test_human_loopback_legal_and_illegal() -> None:
     assert "human loop-back" in state.transitions[-1]["condition"]
 
 
+def test_loopback_forces_engine_rework_before_fast_forward() -> None:
+    session_dir = founder_session()
+    runner = Runner(session_dir, engines=full_engine_suite())
+    runner.step()  # -> empathize
+    runner.step()  # -> define (empathize criteria now satisfied)
+    evidence_before = len(replay(read_events(session_dir)).evidence)
+    runner.request_loopback(to_stage="empathize", reason="segment unheard", actor=HUMAN)
+    # Without rework, empathize criteria are already met and the run would fast-forward.
+    result = Runner(session_dir, engines=full_engine_suite()).run()
+    assert result.halt == "completed"
+    state = replay(read_events(session_dir))
+    assert len(state.evidence) > evidence_before  # the engine actually ran again
+    reworked = [t for t in state.transitions if t["from"] == "empathize"]
+    assert len(reworked) == 2  # original pass + post-loop-back rework
+
+
 def test_stop_is_journaled_human_stop() -> None:
     session_dir = founder_session()
     Runner(session_dir).stop(actor=HUMAN, detail="lunch")

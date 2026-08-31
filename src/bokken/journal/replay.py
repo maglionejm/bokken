@@ -114,6 +114,7 @@ class SessionState:
     moves_suppressed: list[dict[str, str]] = field(default_factory=list)
     token_usage: dict[str, dict[str, int]] = field(default_factory=dict)
     transitions: list[dict[str, Any]] = field(default_factory=list)
+    events_since_transition: int = 0  # substantive (non-session.*) events
     last_seq: int = 0
     last_ts: datetime | None = None
 
@@ -150,6 +151,10 @@ def _apply(state: SessionState, event: Event) -> None:
     state.last_seq = event.seq
     state.last_ts = event.ts
     state.session_id = event.session_id
+    if event.type == "transition.fired":
+        state.events_since_transition = 0
+    elif not event.type.startswith("session."):
+        state.events_since_transition += 1
 
     if event.type == "session.created":
         state.name = p["name"]
@@ -267,6 +272,7 @@ def _apply(state: SessionState, event: Event) -> None:
                 "to": p["to_stage"],
                 "condition": p["condition"],
                 "refs": list(event.refs),
+                "seq": event.seq,
             }
         )
     elif event.type == "model.called":

@@ -124,7 +124,7 @@ def test_dojo_full_run_offline(tmp_path: Path) -> None:
     # Every model call is in the ledger with prompt provenance.
     model_calls = [e for e in events if e.type == "model.called"]
     assert model_calls and all(
-        e.payload["prompt_version"] == "v1" and e.payload["request_id"] for e in model_calls
+        e.payload["prompt_version"].startswith("v") and e.payload["request_id"] for e in model_calls
     )
     assert state.tokens_spent() == 70 * len(model_calls)
 

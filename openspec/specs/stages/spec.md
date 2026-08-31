@@ -7,7 +7,7 @@ The stages capability defines what each Design Thinking stage actually does when
 
 ### Requirement: Empathize engine
 
-The Empathize engine SHALL run an interview program derived from the brief: structured interview scripts per target segment that adapt follow-ups to prior answers (laddering). In Founder mode the interviewee is the human at the terminal plus optional synthetic panels; in Dojo mode, the cast persona panel. Every answer SHALL be captured as `evidence.captured` with speaker/persona provenance and correct confidence class (`observed`/`reported` for humans, `simulated` for personas); unanswerable questions SHALL be logged as research debt, never papered over. The engine SHALL exit only per the orchestrator's Empathize exit criteria.
+The Empathize engine SHALL run an interview program derived from the brief and calibrated to the declared inputs: when discussion/interview material exists, structured behavioral scripts per target segment with laddering follow-ups; when the corpus is chiefly product code, documentation, or metrics, questions those sources can actually answer (what the product does at key moments, what its documentation assumes about users, what the numbers show), with at most one explicitly human-research question per segment whose abstention becomes research debt. In Founder mode the interviewee is the human at the terminal plus optional synthetic panels; in Dojo mode, the cast persona panel. Every answer SHALL be captured as `evidence.captured` with speaker/persona provenance and correct confidence class (`observed`/`reported` for humans, `simulated` for personas); unanswerable questions SHALL be logged as research debt, never papered over. The engine SHALL exit only per the orchestrator's Empathize exit criteria.
 
 #### Scenario: Adaptive follow-up is asked
 
@@ -28,6 +28,11 @@ The Empathize engine SHALL run an interview program derived from the brief: stru
 
 - **WHEN** the brief declares an app repository, metrics files, or discussion transcripts as inputs
 - **THEN** the interview program and persona grounding draw on them, and the resulting evidence carries the source kind (`code`, `metrics`, `discussion`) in its citations
+
+#### Scenario: Code-and-docs corpus still yields grounded evidence
+
+- **WHEN** the only inputs are a repository and documents (no discussion transcripts)
+- **THEN** the interview program asks predominantly corpus-answerable questions so the stage produces citable evidence, and purely behavioral questions are limited and logged as research debt when personas abstain
 
 ### Requirement: Define engine
 

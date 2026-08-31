@@ -330,10 +330,11 @@ def build_model(session_dir: Path) -> DossierModel:
     ]
 
     def decision_for(stage: str, question_fragment: str) -> DecisionNode | None:
-        for node in decisions.values():
+        found = None
+        for node in decisions.values():  # insertion-ordered: keep the latest match
             if node.stage == stage and question_fragment in node.question:
-                return node
-        return None
+                found = node
+        return found
 
     pivotal = _pivotal_moments(transitions, options, decisions, moves, gates_rejected)
     reached = _STAGE_ORDER.index(state.stage)

@@ -313,7 +313,7 @@ class Runner:
                 continue
 
             verdict = can_exit(state.stage, state)
-            if verdict.ok:
+            if verdict.ok and not self._rework_pending(state):
                 if self._maybe_request_gate(store, state):
                     continue  # loop re-reads state and halts on the pending gate
                 self._fire(store, state, FORWARD[state.stage], "exit criteria met")
@@ -329,6 +329,15 @@ class Runner:
             result = self._run_engine(store, state, verdict)
             if result is not None:
                 return result
+
+    @staticmethod
+    def _rework_pending(state: SessionState) -> bool:
+        """A fresh loop-back means rework: the target stage's engine must run at
+        least once before exit criteria may fast-forward the session again."""
+        if not state.transitions:
+            return False
+        last = state.transitions[-1]
+        return is_loopback(last["from"], last["to"]) and state.events_since_transition == 0
 
     def _budget_exhausted(self, state: SessionState) -> bool:
         total = state.config.get("budgets", {}).get("total_tokens")
