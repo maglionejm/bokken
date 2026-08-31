@@ -142,6 +142,9 @@ def new(
     repo: Annotated[
         Path | None, typer.Option(help="App repository to explore (code input).")
     ] = None,
+    app_url: Annotated[
+        str | None, typer.Option(help="Running instance of the product to walk through.")
+    ] = None,
     metrics: Annotated[
         list[Path] | None, typer.Option(help="Business/performance metrics file.")
     ] = None,
@@ -172,6 +175,8 @@ def new(
     inputs = brief_data.setdefault("inputs", {})
     if repo:
         inputs["repo"] = str(repo.resolve())
+    if app_url:
+        inputs["app_url"] = app_url
     if metrics:
         inputs.setdefault("metrics", []).extend(str(p.resolve()) for p in metrics)
     if discussion:

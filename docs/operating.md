@@ -132,8 +132,10 @@ kicker, statement titles, footer with page numbers) and `report/report.html`
 (the same story as one self-contained page). Both cover the entire process and
 its intermediate outputs — the arc with loop-backs, evidence with confidence
 classes, problem-statement losers and why they lost, the concept decision with
-dissent, prototype artifacts, the scored register, research debt, and journaled
-model usage with a list-price cost estimate — and end with an appendix that
+dissent, prototype artifacts, the scored register, the Ulwick opportunity
+ranking, the functional UI review (screenshots included in the HTML), research
+debt, and journaled model usage with a list-price cost estimate — and end with
+an appendix that
 summarizes each handoff spec in one sentence plus a pointer to the full file
 (or states the refusal reason for killed runs). Deterministic, journal-only,
 no model calls; the simulated-run banner cannot be dropped.
@@ -177,10 +179,10 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | --- | --- | --- |
 | Mode | `--mode` | `founder` (interactive) / `dojo` (autonomous). |
 | Gate policy | `--gates` | `none` (founder default) · `stage_boundaries` (dojo default) · CSV of stages, e.g. `define,test` |
-| Token budget | `--budget` | total tokens for the run; per-class sub-budgets (`cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
+| Token budget | `--budget` | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
-| Inputs | `--repo`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo` |
-| Model routing | core `config.routing` | per-class overrides within the allowlist (`claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: cognition/generation → opus-4-8, extraction → haiku-4-5 |
+| Inputs | `--repo`, `--app-url`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance: the dojo walks its UI and journals a documented functional review |
+| Model routing | core `config.routing` | per-class overrides within the allowlist (`claude-fable-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: research/challenge → fable-5 at effort high (server-side refusal fallback to opus-4-8), cognition/generation → opus-4-8 at effort high, extraction → haiku-4-5 |
 
 **Brief format** (`--brief brief.json`):
 

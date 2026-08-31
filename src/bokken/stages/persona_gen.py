@@ -19,7 +19,7 @@ class RouterTurnGenerator:
         self, persona: Persona, question: str, context: str
     ) -> GroundedAnswer | ProfileOpinion | Abstention:
         outcome = self.router.invoke(
-            "cognition",
+            "research",
             "empathize/persona_turn",
             stage=self.stage,  # type: ignore[arg-type]
             params={

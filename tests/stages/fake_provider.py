@@ -52,6 +52,44 @@ class ScriptedProvider:
             )
         if prompt_id == "empathize/followup":
             return s.FollowUp(question=None)
+        if prompt_id == "empathize/outcomes":
+            evidence_ids = HEX32.findall(rendered)
+            return s.OutcomeList(
+                outcomes=[
+                    s.OutcomeDraft(
+                        statement="Minimize the time it takes to plan around arrivals",
+                        job_step="plan",
+                        evidence_ids=evidence_ids[:1],
+                    ),
+                    s.OutcomeDraft(
+                        statement="Increase certainty the shuttle arrives when promised",
+                        job_step="ride",
+                        evidence_ids=evidence_ids[:1],
+                    ),
+                    s.OutcomeDraft(
+                        statement="Minimize the effort to recover from a missed shuttle",
+                        job_step="recover",
+                    ),
+                ]
+            )
+        if prompt_id == "empathize/outcome_scores":
+            return s.OutcomeScores(
+                scores=[
+                    s.OutcomeScore(
+                        outcome_index=0, importance=9, satisfaction=2, reason="unpredictable"
+                    ),
+                    s.OutcomeScore(outcome_index=1, importance=8, satisfaction=3),
+                    s.OutcomeScore(outcome_index=2, importance=5, satisfaction=5),
+                ]
+            )
+        if prompt_id == "empathize/ui_review":
+            assert "[screen 1]" in rendered  # observed facts reach the reviewer
+            return s.UIReview(
+                markdown="# Functional UI review\n\nThe now-card loads in 240 ms - fast "
+                "first contact.\n\n- home -> 1 console error -> erodes trust -> fix the "
+                "manifest 404\n\nTop 3: fix the 404; label the upload button; add an "
+                "empty-state hint.\n"
+            )
         if prompt_id == "empathize/persona_turn":
             sources = SOURCE.findall(rendered)
             if not sources:
@@ -116,17 +154,56 @@ class ScriptedProvider:
             return s.SkepticChallenge(challenge="the demand claim rests on one metric line")
         if prompt_id == "ideate/converge":
             option_ids = HEX32.findall(rendered)
+            if "adversarial feasibility" in rendered:
+                # The feasibility lens must actually see the product corpus.
+                assert "Product corpus excerpt" in rendered
+                return s.Votes(
+                    votes=[
+                        s.VoteScore(
+                            option_id=option_ids[0],
+                            scores={"feasibility": 5},
+                            position="buildable on existing seams",
+                            verdict="green",
+                            effort="S",
+                            first_slice="publish next-day schedule as static JSON",
+                        ),
+                        s.VoteScore(
+                            option_id=option_ids[-1],
+                            scores={"feasibility": 1},
+                            position="not honestly buildable as scoped",
+                            verdict="red",
+                            effort="L",
+                        ),
+                    ]
+                )
+            if "RICE" in rendered:
+                # Firewall: the PO lens never sees code.
+                assert "Product corpus excerpt" not in rendered
+                return s.Votes(
+                    votes=[
+                        s.VoteScore(
+                            option_id=option_ids[0],
+                            scores={"viability": 4},
+                            position="RICE 3.0 (reach 9 x impact 2 x conf 1.0 / 6 pw)",
+                        ),
+                        s.VoteScore(
+                            option_id=option_ids[-1],
+                            scores={"viability": 2},
+                            position="RICE 0.5; risk: operators may reject it",
+                        ),
+                    ]
+                )
             return s.Votes(
                 votes=[
                     s.VoteScore(
                         option_id=option_ids[0],
-                        scores={"desirability": 5, "feasibility": 4, "viability": 4},
-                        position="strongest fit",
+                        scores={"desirability": 5},
+                        position="serves the top-opportunity outcome directly",
                     ),
                     s.VoteScore(
                         option_id=option_ids[-1],
-                        scores={"desirability": 2, "feasibility": 3, "viability": 2},
-                        position="risk: operators may reject it",
+                        scores={"desirability": 2},
+                        position="weak fit with the outcome ranking",
                     ),
                 ]
             )

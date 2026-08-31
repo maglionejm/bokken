@@ -160,8 +160,10 @@ Bokken is built spec-first with [OpenSpec](https://github.com/Fission-AI/OpenSpe
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md) (the project
 constitution).
 
-Models: `claude-opus-4-8` for cognition and generation, `claude-haiku-4-5` for
-lightweight signal extraction — every call journaled with prompt version, token
+Models: `claude-fable-5` (effort high, Opus fallback) for research and challenge
+agents, `claude-opus-4-8` (effort high) for execution and documentation,
+`claude-haiku-4-5` for lightweight signal extraction — every call journaled with
+prompt version, token
 usage, and request id. The entire test suite runs offline.
 
 ## Naming

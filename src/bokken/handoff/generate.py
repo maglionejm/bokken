@@ -116,7 +116,7 @@ def generate_handoff(session_dir: Path, router_factory: RouterFactory) -> dict:
     with JournalStore.open(session_dir) as store:
         router = router_factory(store)
         outcome = router.invoke(
-            "cognition",
+            "generation",
             "handoff/specify",
             stage="complete" if model.stage == "complete" else None,  # type: ignore[arg-type]
             params=_prompt_params(model, ctx),

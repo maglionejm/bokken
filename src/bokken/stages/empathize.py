@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
+from bokken.journal import replay
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
-from bokken.stages.base import FOUNDER, RouterFactory, dumps, open_stage, structured
+from bokken.stages.base import (
+    FACILITATOR,
+    FOUNDER,
+    RouterFactory,
+    dumps,
+    evidence_lines,
+    open_stage,
+    structured,
+)
 from bokken.stages.persona_gen import RouterTurnGenerator
-from bokken.stages.schemas import FollowUp, InterviewProgram
+from bokken.stages.schemas import FollowUp, InterviewProgram, OutcomeList, OutcomeScores
+from bokken.stages.walkthrough import run_walkthrough
+
+OPPORTUNITY_BANDS = ((15.0, "severely underserved"), (12.0, "underserved"), (10.0, "moderate"))
+SEGMENT_SPIKE = 17.0
+
+
+def opportunity_band(score: float) -> str:
+    for floor, band in OPPORTUNITY_BANDS:
+        if score >= floor:
+            return band
+    return "served"
 
 
 def _describe_inputs(inputs: dict) -> str:
@@ -38,7 +59,7 @@ class EmpathizeEngine:
         )
         program = structured(
             router,
-            "cognition",
+            "research",
             "empathize/interview_program",
             InterviewProgram,
             stage="empathize",
@@ -83,7 +104,7 @@ class EmpathizeEngine:
             )
             followup = structured(
                 router,
-                "cognition",
+                "research",
                 "empathize/followup",
                 FollowUp,
                 stage="empathize",
@@ -138,3 +159,141 @@ class EmpathizeEngine:
             targets = [p for p in segment_personas if p.segment == q.segment] or segment_personas
             for persona in targets:
                 interviewer.ask(persona, q.question, stage="empathize", segment=q.segment)
+        # Observed facts about the running product feed the outcome derivation.
+        run_walkthrough(ctx, router)
+        self._outcome_ranking(ctx, router, segment_personas)
+
+    def _outcome_ranking(self, ctx: StageContext, router, personas) -> None:
+        """JTBD: derive desired outcomes, score I/S per persona, journal the
+        deterministic Ulwick opportunity ranking (Opp = I + max(I - S, 0))."""
+        state = replay(ctx.store.events())
+        if not state.evidence or any(i.kind == "opportunity" for i in state.insights.values()):
+            return
+        outcome_list = structured(
+            router,
+            "research",
+            "empathize/outcomes",
+            OutcomeList,
+            stage="empathize",
+            params={"brief": dumps(state.brief), "evidence": evidence_lines(ctx.store)},
+        )
+        if outcome_list is None:
+            return
+        known = set(state.evidence)
+        outcome_events = []
+        for draft in outcome_list.outcomes:
+            refs = [e for e in draft.evidence_ids if e in known]
+            outcome_events.append(
+                ctx.store.append(
+                    type="interpretation.derived",
+                    stage="empathize",
+                    actor=FACILITATOR,
+                    payload={
+                        "kind": "desired_outcome",
+                        "statement": draft.statement,
+                        "ungrounded": not refs,
+                        "job_step": draft.job_step,
+                    },
+                    refs=refs,
+                )
+            )
+        outcomes_text = "\n".join(
+            f"{i}. {e.payload['statement']}" for i, e in enumerate(outcome_events)
+        )
+        # importance/satisfaction per persona; extreme scores must carry reasons
+        matrix: dict[int, list[tuple[str, int, int]]] = {i: [] for i in range(len(outcome_events))}
+        score_refs: dict[int, list[str]] = {i: [] for i in range(len(outcome_events))}
+        for persona in personas:
+            scores = structured(
+                router,
+                "research",
+                "empathize/outcome_scores",
+                OutcomeScores,
+                stage="empathize",
+                params={"persona": dumps(persona.model_dump()), "outcomes": outcomes_text},
+            )
+            if scores is None:
+                return
+            for s in scores.scores:
+                if not 0 <= s.outcome_index < len(outcome_events):
+                    continue
+                event = ctx.store.append(
+                    type="interpretation.derived",
+                    stage="empathize",
+                    actor=persona.actor(),
+                    payload={
+                        "kind": "outcome_score",
+                        "statement": (
+                            f"{persona.name} scores outcome {s.outcome_index}: "
+                            f"importance {s.importance}, satisfaction {s.satisfaction}"
+                            + (f" - {s.reason}" if s.reason else "")
+                        ),
+                        "ungrounded": False,
+                        "importance": s.importance,
+                        "satisfaction": s.satisfaction,
+                        "persona_id": persona.persona_id,
+                    },
+                    refs=[outcome_events[s.outcome_index].id],
+                )
+                matrix[s.outcome_index].append((persona.name, s.importance, s.satisfaction))
+                score_refs[s.outcome_index].append(event.id)
+
+        ranked = []
+        for i, outcome in enumerate(outcome_events):
+            entries = matrix[i]
+            if not entries:
+                continue
+            per_persona = {
+                name: importance + max(importance - satisfaction, 0)
+                for name, importance, satisfaction in entries
+            }
+            mean = round(sum(per_persona.values()) / len(per_persona), 1)
+            band = opportunity_band(mean)
+            spikes = sorted(n for n, v in per_persona.items() if v >= SEGMENT_SPIKE)
+            ctx.store.append(
+                type="interpretation.derived",
+                stage="empathize",
+                actor=FACILITATOR,
+                payload={
+                    "kind": "opportunity",
+                    "statement": (
+                        f"O{i}: {outcome.payload['statement']} - opportunity {mean} ({band})"
+                        + (f"; segment spike: {', '.join(spikes)}" if spikes else "")
+                    ),
+                    "ungrounded": False,
+                    "score": mean,
+                    "band": band,
+                    "per_persona": per_persona,
+                },
+                refs=[outcome.id, *score_refs[i]],
+            )
+            ranked.append((mean, band, i, outcome.payload["statement"], per_persona, spikes))
+
+        ranked.sort(reverse=True)
+        lines = [
+            "# Opportunity ranking (Ulwick: Opp = Importance + max(Importance - Satisfaction, 0))",
+            "",
+            "| Rank | Outcome | Mean | Band | Per persona | Segment spike |",
+            "|------|---------|------|------|-------------|---------------|",
+        ]
+        for rank, (mean, band, i, statement, per_persona, spikes) in enumerate(ranked, 1):
+            persona_cells = ", ".join(f"{n} {v}" for n, v in sorted(per_persona.items()))
+            lines.append(
+                f"| {rank} | O{i} {statement} | {mean} | {band} "
+                f"| {persona_cells} | {', '.join(spikes) or '-'} |"
+            )
+        content = "\n".join(lines) + "\n"
+        path = ctx.store.session_dir / "artifacts" / "empathize" / "opportunity_ranking.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        ctx.store.append(
+            type="artifact.generated",
+            stage="empathize",
+            actor=FACILITATOR,
+            payload={
+                "path": "artifacts/empathize/opportunity_ranking.md",
+                "kind": "opportunity_ranking",
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+            },
+            refs=[e.id for e in outcome_events],
+        )

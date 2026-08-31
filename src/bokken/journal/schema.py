@@ -30,7 +30,7 @@ Mode = Literal["founder", "dojo"]
 StopReason = Literal[
     "completed", "budget_exhausted", "novelty_floor", "criteria_met", "human_stop", "error"
 ]
-RoutingClass = Literal["cognition", "extraction", "generation"]
+RoutingClass = Literal["research", "challenge", "cognition", "extraction", "generation"]
 SuppressionReason = Literal["budget_exhausted", "out_of_stage", "mode_config", "superseded"]
 
 
@@ -55,6 +55,7 @@ class BriefInputs(Payload):
     performance metrics, and human discussions/interviews/needs statements."""
 
     repo: str | None = None
+    app_url: str | None = None
     metrics: list[str] = Field(default_factory=list)
     discussions: list[str] = Field(default_factory=list)
     documents: list[str] = Field(default_factory=list)
@@ -117,7 +118,9 @@ class EvidenceAbstained(Payload):
 
 
 class InterpretationDerived(Payload):
-    kind: Literal["insight", "theme", "pov", "hmw"]
+    kind: Literal[
+        "insight", "theme", "pov", "hmw", "desired_outcome", "outcome_score", "opportunity"
+    ]
     statement: str
     ungrounded: bool = False
 

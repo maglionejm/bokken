@@ -31,6 +31,27 @@ class PersonaTurn(BaseModel):
     gap: str = ""
 
 
+class OutcomeDraft(BaseModel):
+    statement: str
+    job_step: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class OutcomeList(BaseModel):
+    outcomes: list[OutcomeDraft] = Field(min_length=3, max_length=12)
+
+
+class OutcomeScore(BaseModel):
+    outcome_index: int
+    importance: int = Field(ge=1, le=10)
+    satisfaction: int = Field(ge=1, le=10)
+    reason: str = ""
+
+
+class OutcomeScores(BaseModel):
+    scores: list[OutcomeScore] = Field(min_length=1)
+
+
 class InsightDraft(BaseModel):
     statement: str
     evidence_ids: list[str] = Field(default_factory=list)
@@ -83,6 +104,9 @@ class VoteScore(BaseModel):
     option_id: str
     scores: dict[str, int] = Field(default_factory=dict)
     position: str = ""
+    verdict: Literal["green", "amber", "red"] | None = None  # feasibility lens only
+    first_slice: str = ""
+    effort: Literal["S", "M", "L"] | None = None
 
 
 class Votes(BaseModel):
@@ -116,6 +140,10 @@ class FidelityChoice(BaseModel):
 class Evaluation(BaseModel):
     score: Literal["supported", "contradicted", "untested"]
     reaction: str
+
+
+class UIReview(BaseModel):
+    markdown: str
 
 
 class Recommendation(BaseModel):

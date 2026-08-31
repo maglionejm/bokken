@@ -33,8 +33,9 @@ state, which is what makes every run crash-safe and resumable by construction.
              │              │             │  sycophancy       │
              ├──────────────┴─────────────┴───────────────────┤
   MODEL OPS  │  MODEL ROUTER   src/bokken/models              │
-             │  routing classes → models (cognition/generation│
-             │  → claude-opus-4-8, extraction → claude-haiku- │
+             │  routing classes → models (research/challenge →│
+             │  claude-fable-5 high, cognition/generation →   │
+             │  claude-opus-4-8 high, extraction → claude-haiku-│
              │  4-5), budget pre-check, structured outputs,   │
              │  versioned prompts, every call → model.called  │
              │  └── AnthropicProvider (SDK; swappable seam)   │
@@ -104,6 +105,13 @@ state, which is what makes every run crash-safe and resumable by construction.
   contamination firewall, criteria freeze, skeptic quota, synthetic labeling,
   and the self-escalation guard are all enforced by code paths with journaled
   outcomes.
+- **Market frameworks in the engines**: Empathize derives JTBD desired
+  outcomes and journals a deterministic Ulwick opportunity ranking; Ideate
+  converges through three firewalled lenses (adversarial feasibility against
+  the repo with green/amber/red verdicts and veto, independent RICE with no
+  code access, outcome desirability); concept one-pagers are Hills
+  (Who/What/Wow) with a Lean-UX hypothesis; a declared `app_url` adds a
+  documented functional UI walkthrough as observed evidence.
 - **One model seam**: nothing outside `bokken.models` touches the Anthropic
   SDK; the whole harness runs offline against a fake provider in tests.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
@@ -114,7 +122,7 @@ state, which is what makes every run crash-safe and resumable by construction.
 | Blueprint layer (§7) | MVP implementation |
 | --- | --- |
 | L6 Governance plane | gates, budgets/stopping, self-escalation guard, panel governance |
-| L5 The Journal | `bokken.journal` (+ `bokken.dossier` and `bokken.handoff` for the derived deliverables) |
+| L5 The Journal | `bokken.journal` (+ `bokken.dossier`, `bokken.handoff`, `bokken.report` for the derived deliverables) |
 | L4 DT Orchestrator | `bokken.orchestrator` + `bokken.stages` + Dojo panel |
 | L3 The Facilitator | `bokken.kata` (moves as prompts/injections; no realtime loop yet) |
 | L2 Voice & perception | out of MVP scope (input ports instead of ASR/TTS) |

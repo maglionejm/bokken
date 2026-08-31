@@ -57,7 +57,7 @@ Invariants enforced at the append boundary: persona evidence must be
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw), statement, ungrounded` | `refs` point at supporting evidence; empty refs force `ungrounded: true` |
+| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw\|desired_outcome\|outcome_score\|opportunity), statement, ungrounded; outcome scores carry importance/satisfaction/persona_id, opportunity records carry score/band/per_persona` | `refs` point at supporting evidence or outcome events; empty refs force `ungrounded: true` |
 
 ### `option.*` — the idea lineage graph
 
@@ -105,7 +105,7 @@ firewall verification (`question: "contamination firewall check"`).
 
 | Type | Payload |
 | --- | --- |
-| `model.called` | `routing_class (cognition\|extraction\|generation), model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated), duration_ms` |
+| `model.called` | `routing_class (research\|challenge\|cognition\|extraction\|generation), model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated), duration_ms` |
 
 Prompt *content* never enters the ledger — the id, version, and content hash
 do, so any output is traceable to the exact prompt that produced it, and token
@@ -115,7 +115,7 @@ budgets are enforceable from replay.
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`), `panel_manifest` (with `persona_ids` for the firewall), `dossier_markdown`/`dossier_json`, and `handoff_spec`/`handoff_package` |
+| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
 
 ## Reading the ledger
 

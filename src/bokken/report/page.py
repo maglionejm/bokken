@@ -105,6 +105,7 @@ outcome <strong>{_e(outcome)}</strong></div>""")
         ("process", "Process"),
         ("inputs", "Inputs"),
         ("empathize", "Empathize"),
+        *([("ui", "UI review")] if c.ui_review else []),
         ("define", "Define"),
         ("ideate", "Ideate"),
         ("prototype", "Prototype"),
@@ -186,7 +187,28 @@ criteria hold; loop-backs are first-class and leave the trail intact.</p><ol cla
         add(
             f"<p class='lede'>{len(m.abstentions)} question(s) were honestly abstained and carried as research debt.</p>"
         )
+    if c.opportunities:
+        add(
+            "<h3 style='margin-top:26px'>Opportunity ranking "
+            "(Ulwick: Opp = Importance + max(Importance &minus; Satisfaction, 0))</h3>"
+        )
+        for statement in c.opportunities[:8]:
+            add(f"<div class='debt'>{_e(statement)}</div>")
     add("</section>")
+
+    # Functional UI review
+    if c.ui_review:
+        add("""<section id="ui" class="reveal"><div class="kicker">observed · functional UI review</div>
+<h2>The product, exercised first-hand</h2>
+<p class="lede">A browser walkthrough of the running app - screenshots and facts are observed
+evidence, not simulation.</p>""")
+        for shot in c.ui_screenshots:
+            add(
+                f"<img src='../{_e(shot)}' alt='UI screenshot' style='max-width:100%;border:1px solid var(--line);border-radius:8px;margin:10px 0'>"
+            )
+        review_html = _e(c.ui_review).replace("\n", "<br>")
+        add(f"<div class='card' style='margin-top:14px'>{review_html}</div>")
+        add("</section>")
 
     # Define
     add("""<section id="define" class="reveal"><div class="kicker">intermediate output · define</div>

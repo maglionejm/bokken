@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from pptx import Presentation
@@ -264,6 +265,28 @@ class Deck:
                 bold=True,
                 before=10,
             )
+        if self.ctx.opportunities:
+            self.block_title(frame, "Opportunity ranking (Ulwick)", first=False)
+            self.bullets(frame, [o[:180] for o in self.ctx.opportunities[:5]], size=9.5)
+
+    def ui_review(self):
+        c = self.ctx
+        if not c.ui_review:
+            return
+        s = self.slide()
+        self.header(s, "observed · functional UI review", "The product, exercised first-hand")
+        frame = self.text(
+            s, MARGIN, Inches(1.6), Inches(7.4) if c.ui_screenshots else BODY_W, Inches(5.2)
+        )
+        lines = [ln.strip() for ln in c.ui_review.splitlines() if ln.strip()][:16]
+        for i, line in enumerate(lines):
+            self.para(frame, line.lstrip("#- ")[:150], size=9.5, first=i == 0)
+        if c.ui_screenshots:
+            shot = c.session_dir / c.ui_screenshots[0]
+            if shot.exists():
+                # An unreadable image must not kill the export; facts still stand.
+                with contextlib.suppress(OSError):
+                    s.shapes.add_picture(str(shot), Inches(8.2), Inches(1.6), width=Inches(4.5))
 
     def define(self):
         m = self.ctx.model
@@ -462,6 +485,7 @@ class Deck:
         self.process()
         self.inputs()
         self.empathize()
+        self.ui_review()
         self.define()
         self.ideate()
         self.prototype()
