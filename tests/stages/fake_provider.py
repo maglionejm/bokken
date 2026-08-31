@@ -82,6 +82,14 @@ class ScriptedProvider:
                     s.OutcomeScore(outcome_index=2, importance=5, satisfaction=5),
                 ]
             )
+        if prompt_id == "empathize/ui_review":
+            assert "[screen 1]" in rendered  # observed facts reach the reviewer
+            return s.UIReview(
+                markdown="# Functional UI review\n\nThe now-card loads in 240 ms - fast "
+                "first contact.\n\n- home -> 1 console error -> erodes trust -> fix the "
+                "manifest 404\n\nTop 3: fix the 404; label the upload button; add an "
+                "empty-state hint.\n"
+            )
         if prompt_id == "empathize/persona_turn":
             sources = SOURCE.findall(rendered)
             if not sources:

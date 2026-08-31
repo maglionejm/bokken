@@ -7,7 +7,7 @@ The CLI is Bokken's terminal surface: barista-style lifecycle verbs over named, 
 
 ### Requirement: Session lifecycle verbs
 
-The CLI SHALL provide: `bokken new <name>` (create; interactive brief intake by default, `--brief <file>` for non-interactive; options for `--mode founder|dojo`, `--gates`, `--budget`, typed inputs — `--repo <path>` for an app repository to explore, `--metrics <path>` for business/performance data, `--discussion <path>` for interview transcripts and needs statements, `--doc <path>` for other documents (each repeatable) — and routing overrides), `bokken run <name>` (resume-and-continue; halts at pending gate, pending human input, stop, or completion), `bokken step <name>` (at most one stage), `bokken stop <name>`, `bokken status <name>`, and `bokken list`. All verbs SHALL address sessions by name and operate purely through the core (no CLI-side state).
+The CLI SHALL provide: `bokken new <name>` (create; interactive brief intake by default, `--brief <file>` for non-interactive; options for `--mode founder|dojo`, `--gates`, `--budget`, typed inputs — `--repo <path>` for an app repository to explore, `--app-url <url>` for a running instance of the product to walk through, `--metrics <path>` for business/performance data, `--discussion <path>` for interview transcripts and needs statements, `--doc <path>` for other documents (each repeatable) — and routing overrides), `bokken run <name>` (resume-and-continue; halts at pending gate, pending human input, stop, or completion), `bokken step <name>` (at most one stage), `bokken stop <name>`, `bokken status <name>`, and `bokken list`. All verbs SHALL address sessions by name and operate purely through the core (no CLI-side state).
 
 #### Scenario: New then run then interrupt then run
 

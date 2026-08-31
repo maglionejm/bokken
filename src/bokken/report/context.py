@@ -12,6 +12,8 @@ from bokken.dossier.model import ArtifactNode, DossierModel
 EXCLUDED_ARTIFACT_KINDS = {
     "panel_manifest",
     "opportunity_ranking",
+    "ui_review",
+    "ui_screenshot",
     "dossier_markdown",
     "dossier_json",
     "handoff_spec",
@@ -47,6 +49,7 @@ class SpecEntry:
 
 @dataclass(frozen=True)
 class ReportContext:
+    session_dir: Path
     model: DossierModel
     usage: list[ModelUsageLine]
     total_cost_usd: float
@@ -57,6 +60,8 @@ class ReportContext:
     loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
     opportunities: list[str] = field(default_factory=list)
+    ui_review: str | None = None
+    ui_screenshots: list[str] = field(default_factory=list)
     dossier_paths: list[str] = field(default_factory=list)
 
     @property
@@ -127,6 +132,14 @@ def _ranked_opportunities(model: DossierModel) -> list[str]:
     return sorted(records, key=score, reverse=True)
 
 
+def _ui_review(session_dir: Path, model: DossierModel) -> str | None:
+    artifact = next((a for a in model.artifacts if a.kind == "ui_review"), None)
+    if artifact is None:
+        return None
+    path = session_dir / artifact.path
+    return path.read_text(encoding="utf-8") if path.exists() else None
+
+
 def _handoff_refusal(model: DossierModel) -> str | None:
     if model.recommendation and model.recommendation.resolution == "kill":
         return "the test recommendation is 'kill': a killed concept has no build handoff"
@@ -163,6 +176,7 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         p for p in ("dossier/dossier.md", "dossier/dossier.json") if (session_dir / p).exists()
     ]
     return ReportContext(
+        session_dir=session_dir,
         model=model,
         usage=usage,
         total_cost_usd=sum(u.cost_usd for u in usage),
@@ -177,5 +191,7 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         ],
         prototype_artifacts=[a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS],
         opportunities=_ranked_opportunities(model),
+        ui_review=_ui_review(session_dir, model),
+        ui_screenshots=[a.path for a in model.artifacts if a.kind == "ui_screenshot"],
         dossier_paths=dossier_paths,
     )

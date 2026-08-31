@@ -19,6 +19,7 @@ from bokken.stages.base import (
 )
 from bokken.stages.persona_gen import RouterTurnGenerator
 from bokken.stages.schemas import FollowUp, InterviewProgram, OutcomeList, OutcomeScores
+from bokken.stages.walkthrough import run_walkthrough
 
 OPPORTUNITY_BANDS = ((15.0, "severely underserved"), (12.0, "underserved"), (10.0, "moderate"))
 SEGMENT_SPIKE = 17.0
@@ -158,6 +159,8 @@ class EmpathizeEngine:
             targets = [p for p in segment_personas if p.segment == q.segment] or segment_personas
             for persona in targets:
                 interviewer.ask(persona, q.question, stage="empathize", segment=q.segment)
+        # Observed facts about the running product feed the outcome derivation.
+        run_walkthrough(ctx, router)
         self._outcome_ranking(ctx, router, segment_personas)
 
     def _outcome_ranking(self, ctx: StageContext, router, personas) -> None:

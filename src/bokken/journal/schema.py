@@ -55,6 +55,7 @@ class BriefInputs(Payload):
     performance metrics, and human discussions/interviews/needs statements."""
 
     repo: str | None = None
+    app_url: str | None = None
     metrics: list[str] = Field(default_factory=list)
     discussions: list[str] = Field(default_factory=list)
     documents: list[str] = Field(default_factory=list)

@@ -142,6 +142,10 @@ class Evaluation(BaseModel):
     reaction: str
 
 
+class UIReview(BaseModel):
+    markdown: str
+
+
 class Recommendation(BaseModel):
     recommendation: Literal["kill", "iterate", "proceed"]
     confidence: str

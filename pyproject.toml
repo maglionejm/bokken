@@ -33,6 +33,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/bokken"]
 
+[project.optional-dependencies]
+ui = ["playwright>=1.49"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

@@ -79,6 +79,21 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "satisfaction in what the evidence says the product does today. Give a one-line "
         "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
     ),
+    "empathize/ui_review": (
+        "v1",
+        QUALITY_CONTRACT
+        + "You just walked through the running product as a first-time user. Below are "
+        "the observed facts per screen (real observations, not simulations).\n"
+        "Problem space: {brief}\n"
+        "Observations:\n{observations}\n"
+        "Write a functional UI review in markdown for the founder: (1) what the "
+        "product does well at first contact - be specific and generous where earned; "
+        "(2) findings, each as 'screen -> observed fact -> why it matters -> concrete "
+        "suggestion', quantified where the observations allow (load times, error "
+        "counts, number of actions on screen); (3) the three highest-leverage "
+        "improvements, ordered by expected impact. Ground every claim in an observed "
+        "fact; never invent screens or numbers.\n",
+    ),
     "define/cluster": (
         "v2",
         QUALITY_CONTRACT
