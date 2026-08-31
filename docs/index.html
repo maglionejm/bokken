@@ -572,7 +572,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="p">$</span> bokken run mars-lander
 <span class="o">...</span>
 <span class="o">halt: completed</span>
-<span class="o">finalization: dossier generated; handoff specs generated</span>
+<span class="o">finalization: dossier generated; handoff specs generated; report exported (pptx + html)</span>
 
 <span class="p">$</span> bokken dossier mars-lander
 <span class="o">dossier/dossier.md    <span class="c"># outcomes · process narrative · honesty section</span></span>
@@ -582,7 +582,11 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="o">handoff (schedule-publication):</span>
 <span class="o">handoff/openspec/changes/build-mvp-mars-lander/  <span class="c"># OpenSpec specs for the</span></span>
 <span class="o">                                                 <span class="c"># validated MVP, evidence-traced,</span></span>
-<span class="o">                                                 <span class="c"># ready for a coding agent</span></span></pre>
+<span class="o">                                                 <span class="c"># ready for a coding agent</span></span>
+
+<span class="p">$</span> bokken export mars-lander
+<span class="o">report/report.pptx    <span class="c"># the whole run as a deck: process, intermediate</span></span>
+<span class="o">report/report.html    <span class="c"># + final outputs, spec appendix — journal-derived</span></span></pre>
   </div>
   <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
   <div class="dossier" aria-label="The Session Dossier and the handoff">
@@ -623,7 +627,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
           <tr>
             <td class="hn">completed</td>
             <td>the loop finished</td>
-            <td><code>bokken dossier &lt;name&gt;</code> — finalization has already produced the Dossier and the handoff</td>
+            <td><code>bokken dossier &lt;name&gt;</code> — finalization has already produced the Dossier, the handoff, and the report</td>
           </tr>
         </tbody>
       </table>
@@ -698,7 +702,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     <div class="row"><span class="halt">gate_pending</span><span class="then">→</span><span class="act">resolve_gate</span><span class="note">approve, or reject with a reason — the stage is kept for rework</span></div>
     <div class="row"><span class="halt">input_pending</span><span class="then">→</span><span class="act">submit_input</span><span class="note">answer the Founder-mode question by its id, then run again</span></div>
     <div class="row"><span class="halt">stopped</span><span class="then">→</span><span class="act">resume or leave</span><span class="note">budgets and stops are journaled; sessions stay resumable</span></div>
-    <div class="row"><span class="halt">completed</span><span class="then">→</span><span class="act">finalization</span><span class="note">Dossier, then the OpenSpec handoff — automatic and idempotent</span></div>
+    <div class="row"><span class="halt">completed</span><span class="then">→</span><span class="act">finalization</span><span class="note">Dossier, then the OpenSpec handoff, then the PPTX + HTML report — automatic and idempotent</span></div>
   </div>
 
   <div class="toolgrid">
@@ -733,7 +737,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="p">→</span> resolve_gate {"name": "retention", "resolution": "approve"}
 <span class="p">→</span> run_session {"name": "retention"}  <span class="c"># ... one gate per boundary ...</span>
 <span class="o">{"halt": "completed",
- "finalization": "dossier generated; handoff specs generated"}</span></pre>
+ "finalization": "dossier generated; handoff specs generated; report exported (pptx + html)"}</span></pre>
     </div>
     <div>
       <div class="term" style="margin-top:0">

@@ -62,6 +62,7 @@ state, which is what makes every run crash-safe and resumable by construction.
              ├── artifacts/             prototypes, panel manifests
              ├── dossier/               dossier.md + dossier.json
              ├── handoff/               OpenSpec MVP specs + traceability.json
+             ├── report/                report.pptx + report.html (journal-derived)
              └── pending_question.json / answers.json  (MCP input mailbox)
 ```
 
@@ -88,7 +89,10 @@ state, which is what makes every run crash-safe and resumable by construction.
    the validated concept, deterministic renderers and a structural validator
    guarantee the format, and honesty carries over in code (contradicted
    assumptions become exclusions, validation debt becomes mandatory tasks).
-   Finalization is idempotent and skipped for `kill` recommendations.
+   Finalization ends with the **report** exports — the run as a PPTX deck
+   and a self-contained HTML page, both deterministic renderings of the
+   Journal with a one-line-per-spec appendix. Finalization is idempotent;
+   the handoff (only) is skipped for `kill` recommendations.
 
 ## Design invariants
 

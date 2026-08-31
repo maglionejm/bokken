@@ -121,7 +121,8 @@ class Deck:
         self.para(
             f, "BOKKEN · DESIGN THINKING RUN REPORT", size=16, bold=True, color=ACCENT, first=True
         )
-        self.para(f, m.brief.get("problem_space", m.name), size=42, bold=True, before=10)
+        headline = self.ctx.headline
+        self.para(f, headline, size=40 if len(headline) <= 70 else 28, bold=True, before=10)
         outcome = m.recommendation.resolution if m.recommendation else m.stage
         self.para(
             f,

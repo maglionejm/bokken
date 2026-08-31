@@ -101,11 +101,13 @@ bokken journal retention --json | jq ...               # canonical JSONL for scr
 
 The process does not stop at the Dossier: a completed run is **finalized
 automatically** — Dossier first, then build-ready OpenSpec specifications for
-the validated concept (the handoff). Both can also be produced on demand:
+the validated concept (the handoff), then the report exports. All can also be
+produced on demand:
 
 ```sh
 bokken dossier retention
 bokken handoff retention
+bokken export retention     # report/report.pptx + report/report.html
 ```
 
 **Dossier** — `dossier/dossier.md` (Part A outcomes + Part B process narrative +
@@ -125,6 +127,17 @@ exclusions), and untested / simulated-evidence items become mandatory
 real-world validation tasks. Refused when there is no convergence decision or
 the recommendation is `kill`.
 
+**Report** — `report/report.pptx` (a PowerPoint deck in the house grammar:
+kicker, statement titles, footer with page numbers) and `report/report.html`
+(the same story as one self-contained page). Both cover the entire process and
+its intermediate outputs — the arc with loop-backs, evidence with confidence
+classes, problem-statement losers and why they lost, the concept decision with
+dissent, prototype artifacts, the scored register, research debt, and journaled
+model usage with a list-price cost estimate — and end with an appendix that
+summarizes each handoff spec in one sentence plus a pointer to the full file
+(or states the refusal reason for killed runs). Deterministic, journal-only,
+no model calls; the simulated-run banner cannot be dropped.
+
 ## Operating over MCP
 
 ```sh
@@ -133,8 +146,8 @@ claude mcp add bokken -- uv run --directory /path/to/bokken bokken serve
 
 Then any MCP client drives the same loop: `create_session_tool` →
 `run_session` → (`resolve_gate` | `submit_input`) → … until `completed`, at
-which point finalization produces the Dossier and the OpenSpec handoff
-automatically. Founder-mode questions surface as `input_pending` with a
+which point finalization produces the Dossier, the OpenSpec handoff, and the
+report exports automatically. Founder-mode questions surface as `input_pending` with a
 `pending_question_id`; answer with `submit_input` and run again. Agent actions
 are journaled with the client's handshake identity — the ledger always shows
 who (human or agent) approved what. Full reference — 12 tools, 4 resources,

@@ -89,7 +89,7 @@ def render_page(ctx: ReportContext) -> str:
 <title>Bokken run report — {_e(m.name)}</title><style>{_CSS}</style></head><body>
 <header class="hero"><div class="wrap">
 <div class="kicker">Bokken · design thinking run report</div>
-<h1>{_e(m.brief.get("problem_space", m.name))}</h1>
+<h1>{_e(c.headline)}</h1>
 <div class="meta">Session {_e(m.name)} · mode {_e(m.mode)} · status {_e(m.status)} ·
 outcome <strong>{_e(outcome)}</strong></div>""")
     if m.dojo_banner:

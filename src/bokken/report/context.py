@@ -56,6 +56,13 @@ class ReportContext:
     prototype_artifacts: list[ArtifactNode]
     dossier_paths: list[str] = field(default_factory=list)
 
+    @property
+    def headline(self) -> str:
+        """A title-sized line: the problem space's first sentence, capped for display."""
+        space = str(self.model.brief.get("problem_space", "") or self.model.name)
+        line = first_sentence(space)
+        return line if len(line) <= 140 else line[:137].rstrip() + "..."
+
 
 def split_losers(options: list[str]) -> list[tuple[str, str]]:
     """Decision options encode losers inline as '<statement> [lost: <why>]'."""
