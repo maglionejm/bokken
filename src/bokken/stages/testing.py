@@ -158,11 +158,14 @@ class TestEngine:
             )
         return None
 
-    @staticmethod
-    def _primary_artifact(ctx) -> tuple[str, str]:
-        if not ctx.state.artifacts:
+    _PROTOTYPE_KINDS = ("concept_one_pager", "landing_copy", "storyboard", "demo_script")
+
+    @classmethod
+    def _primary_artifact(cls, ctx) -> tuple[str, str]:
+        candidates = [a for a in ctx.state.artifacts if a.kind in cls._PROTOTYPE_KINDS]
+        if not candidates:
             return "(no artifact on file)", "none"
-        artifact = ctx.state.artifacts[0]
+        artifact = candidates[0]
         path = ctx.store.session_dir / artifact.path
         text = path.read_text(encoding="utf-8") if path.exists() else "(artifact file missing)"
         return text, artifact.kind

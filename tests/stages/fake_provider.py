@@ -153,6 +153,8 @@ class ScriptedProvider:
         if prompt_id == "prototype/artifact":
             return "# Adaptive shuttle\n\nPlannable arrivals for your commute.\n"
         if prompt_id == "test/evaluate":
+            # Evaluators must see the prototype artifact, never a panel manifest.
+            assert "Adaptive shuttle" in rendered and '"panel_kind"' not in rendered
             score = "contradicted" if n == 1 else "supported"
             return s.Evaluation(score=score, reaction=f"reaction run {n}: {score}")
         if prompt_id == "test/recommend":
