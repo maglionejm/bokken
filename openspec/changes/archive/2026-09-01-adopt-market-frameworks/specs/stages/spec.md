@@ -1,9 +1,6 @@
-# stages Specification
+# stages
 
-## Purpose
-The stages capability defines what each Design Thinking stage actually does when it runs: how evidence is gathered, insights framed, ideas generated and converged, prototypes shaped around assumptions, and tests scored — identically governed in Founder (human-in-the-loop) and Dojo (synthetic panel) modes.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Empathize engine
 
@@ -129,12 +126,3 @@ The Test engine SHALL evaluate prototype artifacts against the assumption regist
 
 - **WHEN** the recommendation rests solely on synthetic panel evidence
 - **THEN** the recommendation decision carries `requires_real_validation` and its rendered form states that validation with real users is pending
-
-### Requirement: Stage engines honor mode parity
-
-Each engine SHALL implement the same stage contract in both modes, sourcing participation through the orchestrator's input port and panel interfaces only, so that mode changes never alter the event families produced, the criteria evaluated, or the governance rules applied.
-
-#### Scenario: Same engine, both modes
-
-- **WHEN** the Define engine runs in Founder mode and in Dojo mode on equivalent evidence
-- **THEN** both runs produce the same event families (interpretations, decisions with dissent) and differ only in actor provenance and confidence classes

@@ -5,12 +5,25 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+# Prepended to every reasoning prompt. The founder reads these outputs raw:
+# they must stand alone, teach as they go, and always point forward.
+QUALITY_CONTRACT = (
+    "Output contract (non-negotiable): you are writing for the founder of this "
+    "product, who will read your output verbatim. Be constructive - every "
+    "criticism comes with what to do about it. Be self-explanatory - expand "
+    "every framework term and score the first time you use it; no internal "
+    "jargon. Be quantitative wherever the material allows - cite counts, "
+    "scores, euros, percentages, and name their source. Be specific to THIS "
+    "product and corpus, never generic.\n\n"
+)
+
 # prompt_id -> (version, template). Bump the version whenever a template changes;
 # journals keep the version each run actually used.
 PROMPTS: dict[str, tuple[str, str]] = {
     "empathize/interview_program": (
-        "v2",
-        "You are designing a research program for the brief below. The interviewees are "
+        "v3",
+        QUALITY_CONTRACT
+        + "You are designing a research program for the brief below. The interviewees are "
         "personas who can only state facts found in the session's evidence corpus - they "
         "abstain on anything it cannot support.\n"
         "Brief: {brief}\n"
@@ -25,48 +38,87 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "cannot answer; its abstention becomes explicit research debt for real users.\n",
     ),
     "empathize/followup": (
-        "v1",
+        "v2",
         "Interview context. Question asked: {question}\nAnswer given: {answer}\n"
         "If the answer mentions a concrete difficulty or recent incident worth laddering "
         "into, produce one specific follow-up question about that instance (e.g. 'tell me "
         "about the last time...'). If not, produce no follow-up.\n",
     ),
     "empathize/persona_turn": (
-        "v1",
+        "v2",
         "You are the persona described below, answering a research interview question.\n"
         "Persona: {persona}\n"
         "Corpus (the only source you may state facts from, cite line spans):\n{context}\n"
         "Question: {question}\n"
-        "Answer only from the corpus with citations; if the corpus cannot support a "
-        "factual answer, abstain and say what is missing. Personal preferences may come "
-        "from the persona profile and must be marked as such.\n",
+        "Answer only from the corpus with citations; quote concrete numbers, feature "
+        "names, and file facts when the corpus has them. If the corpus cannot support a "
+        "factual answer, abstain and say precisely what research with real users would "
+        "close the gap. Personal preferences may come from the persona profile and must "
+        "be marked as such.\n",
+    ),
+    "empathize/outcomes": (
+        "v1",
+        QUALITY_CONTRACT
+        + "From the interview evidence below, derive the desired-outcome statements "
+        "(Jobs-to-be-Done style) for the job the target segments are trying to get done.\n"
+        "Brief: {brief}\n"
+        "Evidence items (id: content):\n{evidence}\n"
+        "Write 5-10 outcome statements in Ulwick form ('Minimize the time it takes "
+        "to...', 'Increase the likelihood that...'), each naming the job step it belongs "
+        "to and the evidence ids that ground it. Outcomes must be solution-free and "
+        "measurable. Do not invent evidence.\n",
+    ),
+    "empathize/outcome_scores": (
+        "v1",
+        "You are the persona described below.\n"
+        "Persona: {persona}\n"
+        "Desired outcomes (index. statement):\n{outcomes}\n"
+        "Score EVERY outcome for Importance (1-10: how much achieving it matters to you) "
+        "and Satisfaction (1-10: how well your current options - including the product "
+        "as described in the evidence - already serve it). Stay in character; ground "
+        "satisfaction in what the evidence says the product does today. Give a one-line "
+        "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
     ),
     "define/cluster": (
-        "v1",
-        "Cluster the evidence below into insights for the problem space {problem_space}.\n"
+        "v2",
+        QUALITY_CONTRACT
+        + "Cluster the evidence below into insights for the problem space {problem_space}.\n"
         "Evidence items (id: content):\n{evidence}\n"
-        "Each insight must list the evidence ids that support it. Do not invent evidence.\n",
+        "Opportunity ranking (Ulwick: Opportunity = Importance + max(Importance - "
+        "Satisfaction, 0); >=15 severely underserved, 12-15 underserved, <10 served):\n"
+        "{opportunities}\n"
+        "Each insight must list the evidence ids that support it, name the affected "
+        "segment, and tie itself to the underserved outcomes with their scores. Do not "
+        "invent evidence.\n",
     ),
     "define/candidates": (
-        "v1",
-        "From these insights, draft point-of-view problem-statement candidates.\n"
+        "v2",
+        QUALITY_CONTRACT
+        + "From these insights, draft point-of-view problem-statement candidates.\n"
         "Insights (id: statement):\n{insights}\n"
-        "For each candidate: the statement, the insight ids it rests on, an evidence-"
-        "coverage score 0-1, whether it embeds a solution (solution_shaped), and if so a "
-        "'How might we' reframe.\n",
+        "Opportunity ranking on file:\n{opportunities}\n"
+        "For each candidate: the statement (naming the segment, the underserved outcomes "
+        "and their opportunity scores, and the size of the gap in numbers where the "
+        "evidence provides them), the insight ids it rests on, an evidence-coverage "
+        "score 0-1, whether it embeds a solution (solution_shaped), and if so a 'How "
+        "might we' reframe.\n",
     ),
     "define/select": (
-        "v1",
-        "Select the strongest problem statement.\nCandidates:\n{candidates}\n"
-        "Pick one winner by evidence coverage and clarity; for every loser state briefly "
-        "why it lost.\n",
+        "v2",
+        QUALITY_CONTRACT + "Select the strongest problem statement.\nCandidates:\n{candidates}\n"
+        "Pick one winner by evidence coverage, opportunity coverage (does it address the "
+        "highest-opportunity outcomes?), and clarity; for every loser state briefly and "
+        "constructively why it lost.\n",
     ),
     "ideate/diverge": (
-        "v1",
-        "Divergent ideation for: {problem_statement}\n"
+        "v2",
+        QUALITY_CONTRACT + "Divergent ideation for: {problem_statement}\n"
+        "Desired outcomes on file (index. statement - opportunity score):\n{outcomes}\n"
         "You contribute as: {participant}\n"
         "Already on the table (do not repeat): {existing}\n"
-        "Produce {quota} distinct options. Private reasoning goes in private_thought; the "
+        "Produce {quota} distinct options. Every option summary must be specific enough "
+        "to build from (what it does, for whom) and end by naming the outcome(s) it "
+        "serves, e.g. '[serves: O2, O5]'. Private reasoning goes in private_thought; the "
         "public contribution is the option summary.\n",
     ),
     "ideate/novelty": (
@@ -82,54 +134,75 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "new direction.\n",
     ),
     "ideate/converge": (
-        "v1",
-        "Convergence. Problem: {problem_statement}\nCriteria (frozen): {criteria}\n"
+        "v2",
+        QUALITY_CONTRACT
+        + "Convergence vote. Problem: {problem_statement}\nCriteria (frozen): {criteria}\n"
         "Options (id: summary):\n{options}\n"
-        "As {participant}, score each option per criterion 0-5 and state a position.\n",
+        "You vote as {participant}.\n{lens}\n"
+        "Score each option per criterion 0-5 and state a position that a founder can "
+        "act on: name the strongest option and the concrete risk of the weakest.\n",
     ),
     "ideate/skeptic_challenge": (
-        "v1",
-        "You are the skeptic. Before convergence closes on:\n{options}\n"
-        "State the strongest objection on record: what claim is weakest, what would break "
-        "first. Depersonalized - challenge claims, not people.\n",
+        "v2",
+        QUALITY_CONTRACT + "You are the skeptic. Before convergence closes on:\n{options}\n"
+        "State the strongest objection on record: which claim is weakest, what evidence "
+        "it lacks (cite what the record does and does not contain), and what would break "
+        "first in practice. End with the cheapest test that would settle the objection. "
+        "Depersonalized - challenge claims, not people.\n",
     ),
     "prototype/assumptions": (
-        "v1",
-        "The selected concept: {concept}\nProblem statement: {problem_statement}\n"
-        "Enumerate the assumptions this concept rests on. Classify each impact and "
-        "uncertainty as low/medium/high.\n",
+        "v2",
+        QUALITY_CONTRACT
+        + "The selected concept: {concept}\nProblem statement: {problem_statement}\n"
+        "Enumerate the assumptions this concept rests on - demand, behavior change, "
+        "willingness to act, technical, and viability assumptions. Classify each impact "
+        "and uncertainty as low/medium/high and phrase each so a cheap test could score "
+        "it supported or contradicted.\n",
     ),
     "prototype/fidelity": (
-        "v1",
-        "Assumption register (riskiest first):\n{register}\n"
+        "v2",
+        QUALITY_CONTRACT + "Assumption register (riskiest first):\n{register}\n"
         "Choose the cheapest artifact set that tests the riskiest assumption. Available "
         "kinds: concept_one_pager, landing_copy, storyboard, demo_script. Map every "
-        "chosen artifact to the assumption ids it exercises and give the rationale.\n",
+        "chosen artifact to the assumption ids it exercises and explain the rationale "
+        "so the founder understands why cheaper beats higher fidelity here.\n",
     ),
     "prototype/artifact": (
-        "v1",
-        "Generate the artifact.\nKind: {kind}\nConcept: {concept}\n"
+        "v2",
+        QUALITY_CONTRACT + "Generate the artifact.\nKind: {kind}\nConcept: {concept}\n"
         "Problem statement: {problem_statement}\nAssumptions it must exercise: "
-        "{assumptions}\nWrite complete, plain markdown. No emojis.\n",
+        "{assumptions}\n"
+        "If the kind is concept_one_pager, open with a Hill - three lines: WHO (the "
+        "specific user), WHAT (what they can now do), WOW (the measurable differentiator) "
+        "- followed by a Lean-UX hypothesis: 'We believe [outcome] for [segment], "
+        "measured by [signal]'. For every kind: write complete, plain markdown a founder "
+        "could hand to a designer today. Use the product's own vocabulary and real "
+        "numbers from the record. No emojis.\n",
     ),
     "test/evaluate": (
-        "v1",
+        "v2",
         "You are the persona described below, evaluating a prototype.\n"
         "Persona: {persona}\nArtifact ({kind}):\n{artifact}\n"
         "Assumption under test: {assumption}\n"
-        "React honestly from the persona's perspective: does your reaction support or "
-        "contradict the assumption, or leave it untested? Explain briefly.\n",
+        "React honestly from the persona's perspective to THIS artifact - quote the "
+        "parts that trigger your reaction. Does your reaction support or contradict the "
+        "assumption, or leave it untested? Be candid about problems and constructive "
+        "about what would change your mind.\n",
     ),
     "test/recommend": (
-        "v1",
-        "Assumption register with scores:\n{register}\n"
-        "Recommend kill, iterate, or proceed, with a confidence statement and the main "
-        "driver. If any contradicted assumption undermines an earlier insight or the "
-        "problem statement, say which.\n",
+        "v2",
+        QUALITY_CONTRACT + "Assumption register with scores:\n{register}\n"
+        "Recommend kill, iterate, or proceed. Quantify the register in your confidence "
+        "statement (how many supported / contradicted / untested, and which contradiction "
+        "strikes which insight or outcome). Whatever the verdict, end constructively: "
+        "the single most valuable next step for the founder - on kill, name what was "
+        "learned and the cheapest pivot worth exploring. If any contradicted assumption "
+        "undermines an earlier insight or the problem statement, say which.\n",
     ),
     "handoff/specify": (
-        "v1",
-        "Turn a validated concept into build-ready OpenSpec specifications for its MVP.\n"
+        "v2",
+        QUALITY_CONTRACT
+        + "Turn a validated concept into build-ready OpenSpec specifications for its MVP.\n"
         "Problem statement: {problem_statement}\n"
         "Validated concept: {concept}\n"
         "Supported assumptions (index. statement):\n{supported}\n"
@@ -139,8 +212,9 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "Prototype artifacts available as reference: {artifacts}\n"
         "Produce a spec package: 1-3 kebab-case capabilities, each with a purpose and "
         "testable requirements (normative SHALL statements) with WHEN/THEN scenarios. "
-        "Reference the assumption indexes each requirement rests on. Keep the MVP light: "
-        "specify only what the validated concept needs.\n",
+        "Reference the assumption indexes each requirement rests on. Slice for an "
+        "honest first release: the smallest scope that tests the hypothesis. Keep the "
+        "MVP light: specify only what the validated concept needs.\n",
     ),
 }
 

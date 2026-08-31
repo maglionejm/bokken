@@ -264,6 +264,9 @@ class Deck:
                 bold=True,
                 before=10,
             )
+        if self.ctx.opportunities:
+            self.block_title(frame, "Opportunity ranking (Ulwick)", first=False)
+            self.bullets(frame, [o[:180] for o in self.ctx.opportunities[:5]], size=9.5)
 
     def define(self):
         m = self.ctx.model

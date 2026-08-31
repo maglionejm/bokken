@@ -186,6 +186,13 @@ criteria hold; loop-backs are first-class and leave the trail intact.</p><ol cla
         add(
             f"<p class='lede'>{len(m.abstentions)} question(s) were honestly abstained and carried as research debt.</p>"
         )
+    if c.opportunities:
+        add(
+            "<h3 style='margin-top:26px'>Opportunity ranking "
+            "(Ulwick: Opp = Importance + max(Importance &minus; Satisfaction, 0))</h3>"
+        )
+        for statement in c.opportunities[:8]:
+            add(f"<div class='debt'>{_e(statement)}</div>")
     add("</section>")
 
     # Define

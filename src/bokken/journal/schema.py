@@ -117,7 +117,9 @@ class EvidenceAbstained(Payload):
 
 
 class InterpretationDerived(Payload):
-    kind: Literal["insight", "theme", "pov", "hmw"]
+    kind: Literal[
+        "insight", "theme", "pov", "hmw", "desired_outcome", "outcome_score", "opportunity"
+    ]
     statement: str
     ungrounded: bool = False
 

@@ -125,3 +125,19 @@ def test_provider_exception_is_journaled_as_error(store) -> None:
     assert outcome.status == "error" and "network down" in outcome.detail
     event = next(e for e in store.events() if e.type == "model.called")
     assert event.payload["status"] == "error"
+
+
+def test_prompt_registry_carries_the_quality_contract_and_hill() -> None:
+    from bokken.models.prompts import PROMPTS, QUALITY_CONTRACT, render_prompt
+
+    assert QUALITY_CONTRACT in PROMPTS["test/recommend"][1]
+    _, rendered, _ = render_prompt(
+        "prototype/artifact",
+        kind="concept_one_pager",
+        concept="c",
+        problem_statement="p",
+        assumptions="a",
+    )
+    assert "WHO" in rendered and "We believe" in rendered
+    _, rendered, _ = render_prompt("empathize/outcomes", brief="b", evidence="(none)")
+    assert "Ulwick" in rendered or "Jobs-to-be-Done" in rendered

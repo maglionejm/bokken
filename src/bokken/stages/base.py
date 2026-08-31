@@ -63,6 +63,14 @@ def open_stage(ctx: StageContext, *, goal: str, method: str, exit_bar: str) -> N
     )
 
 
+def opportunities_text(state) -> str:
+    """The Ulwick ranking journaled by Empathize, as prompt-ready lines."""
+    records = [i for i in state.insights.values() if i.kind == "opportunity"]
+    if not records:
+        return "(no opportunity ranking on file)"
+    return "\n".join(f"- {r.statement}" for r in records)
+
+
 def evidence_lines(store: JournalStore) -> str:
     """Render captured evidence as '- id: content' lines for clustering prompts."""
     lines = []

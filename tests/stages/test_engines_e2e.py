@@ -102,6 +102,36 @@ def test_dojo_full_run_offline(tmp_path: Path) -> None:
     first_option_seq = min(e.seq for e in events if e.type.startswith("option."))
     assert criteria_seq < first_option_seq
 
+    # JTBD: outcomes derived and scored; deterministic opportunity ranking journaled.
+    outcomes = [i for i in state.insights.values() if i.kind == "desired_outcome"]
+    opportunities = [i for i in state.insights.values() if i.kind == "opportunity"]
+    assert outcomes and opportunities
+    top = next(i for i in opportunities if "plan around arrivals" in i.statement)
+    assert "16" in top.statement and "severely underserved" in top.statement  # 9 + (9-2)
+    ranking = next(e for e in events if e.payload.get("kind") == "opportunity_ranking")
+    assert (session_dir / ranking.payload["path"]).exists()
+
+    # Convergence: three firewalled lenses voted; the red verdict is dissent on record.
+    concept = next(
+        e
+        for e in events
+        if e.type == "decision.recorded"
+        and e.payload["question"] == "which concept advances to prototype"
+    )
+    lens_actors = {p["actor"] for p in concept.payload["positions"]}
+    assert {"feasibility", "viability", "desirability"} <= lens_actors
+    assert any(
+        d["actor"] == "feasibility" and "red" in d["reservation"]
+        for d in concept.payload["dissent"]
+    )
+    statement_decision = next(
+        e
+        for e in events
+        if e.type == "decision.recorded"
+        and e.payload["question"] == "which problem statement do we take forward"
+    )
+    assert "opportunity coverage" in statement_decision.payload["criteria"]
+
     # Kata: stage contracts fired; skeptic on record; loop-back proposed on contradiction.
     executed = [e.payload["move_id"] for e in events if e.type == "facilitation.move_executed"]
     assert "stage_contract" in executed

@@ -11,7 +11,16 @@ from bokken.panel import (
     journal_manifest,
     require_skeptic_challenge,
 )
-from bokken.stages.base import FACILITATOR, FOUNDER, RouterFactory, dumps, open_stage, structured
+from bokken.panel.corpus import Corpus
+from bokken.stages.base import (
+    FACILITATOR,
+    FOUNDER,
+    RouterFactory,
+    dumps,
+    open_stage,
+    opportunities_text,
+    structured,
+)
 from bokken.stages.schemas import IdeaBatch, NoveltyVerdict, SkepticChallenge, Votes
 
 NOVELTY_WINDOW = 6
@@ -61,6 +70,7 @@ class IdeateEngine:
                 stage="ideate",
                 params={
                     "problem_statement": problem_statement,
+                    "outcomes": opportunities_text(replay(ctx.store.events())),
                     "participant": name,
                     "existing": "; ".join(clusters) or "(none)",
                     "quota": quota,
@@ -155,34 +165,78 @@ class IdeateEngine:
             positions = [{"actor": "founder", "position": winner.payload["summary"]}]
             dissent: list[dict[str, str]] = []
         else:
-            votes = structured(
-                router,
-                "challenge",
-                "ideate/converge",
-                Votes,
-                stage="ideate",
-                params={
-                    "problem_statement": problem_statement,
-                    "criteria": ", ".join(criteria),
-                    "options": self._options_text(options),
-                    "participant": "the panel (skeptic, feasibility, viability, segments)",
-                },
-            )
-            if votes is None:
-                return None
+            code_context = self._code_context(ctx)
+            lenses = [
+                (
+                    "feasibility",
+                    "Lens: adversarial feasibility review. Below is the actual product "
+                    "corpus - review each option against what the code and docs really "
+                    "support. For each option set verdict green (buildable on existing "
+                    "seams), amber (buildable with a named gap), or red (not honestly "
+                    "buildable as scoped - a veto), plus first_slice (the first honest "
+                    "slice worth shipping) and effort S/M/L.\n\nProduct corpus "
+                    "excerpt:\n" + code_context,
+                ),
+                (
+                    "viability",
+                    "Lens: independent product-owner RICE scoring. You have NO access "
+                    "to the codebase - judge from the option summaries and problem "
+                    "alone. For each option state Reach, Impact, Confidence, and "
+                    "Effort in person-weeks in your position, and fold RICE = "
+                    "(Reach x Impact x Confidence) / Effort into your scores.",
+                ),
+                (
+                    "desirability",
+                    "Lens: segment desirability against the desired-outcome ranking "
+                    "below - score how directly each option serves the "
+                    "highest-opportunity outcomes.\n\nOutcome ranking:\n"
+                    + opportunities_text(state),
+                ),
+            ]
             totals: dict[str, int] = {}
             positions = []
-            for vote in votes.votes:
-                totals[vote.option_id] = totals.get(vote.option_id, 0) + sum(vote.scores.values())
-                positions.append({"actor": vote.option_id, "position": vote.position})
+            vetoes: dict[str, str] = {}
+            for lens_name, lens in lenses:
+                votes = structured(
+                    router,
+                    "challenge",
+                    "ideate/converge",
+                    Votes,
+                    stage="ideate",
+                    params={
+                        "problem_statement": problem_statement,
+                        "criteria": ", ".join(criteria),
+                        "options": self._options_text(options),
+                        "participant": f"the {lens_name} lens",
+                        "lens": lens,
+                    },
+                )
+                if votes is None:
+                    return None
+                for vote in votes.votes:
+                    totals[vote.option_id] = totals.get(vote.option_id, 0) + sum(
+                        vote.scores.values()
+                    )
+                    position = vote.position
+                    if lens_name == "feasibility" and vote.verdict:
+                        position = (
+                            f"verdict {vote.verdict}"
+                            + (f", effort {vote.effort}" if vote.effort else "")
+                            + (f", first slice: {vote.first_slice}" if vote.first_slice else "")
+                            + f" - {position}"
+                        )
+                        if vote.verdict == "red":
+                            vetoes[vote.option_id] = position
+                    positions.append({"actor": lens_name, "position": position})
             by_id = {o.id: o for o in options}
-            winner_id = max(totals, key=lambda k: totals[k]) if totals else options[0].id
+            ranked_ids = sorted(totals, key=lambda k: totals[k], reverse=True) or [options[0].id]
+            # A red feasibility verdict is a veto: prefer the best non-red option.
+            winner_id = next((i for i in ranked_ids if i not in vetoes), ranked_ids[0])
             winner = by_id.get(winner_id, options[0])
             dissent = [
-                {"actor": "skeptic", "reservation": p["position"]}
-                for p in positions
-                if "concern" in p["position"].lower() or "risk" in p["position"].lower()
-            ][:1]
+                {"actor": "feasibility", "reservation": f"red verdict on {oid}: {why}"}
+                for oid, why in vetoes.items()
+            ]
 
         for option in options:
             if option.id != winner.id:
@@ -224,6 +278,17 @@ class IdeateEngine:
                     payload={"summary": idea.strip()},
                 )
             )
+
+    @staticmethod
+    def _code_context(ctx: StageContext) -> str:
+        from pathlib import Path
+
+        config = ctx.state.config.get("panel", {})
+        corpus = Corpus.ingest_inputs(
+            ctx.state.brief.get("inputs", {}), base=Path(config.get("input_base", "."))
+        )
+        scope = corpus.ids_of_kind("code", "document") or corpus.source_ids
+        return corpus.context_for(scope) or "(no repository on file)"
 
     def _dojo_panel(self, ctx: StageContext):
         config = ctx.state.config.get("panel", {})

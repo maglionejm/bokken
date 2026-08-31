@@ -10,6 +10,7 @@ from bokken.stages.base import (
     RouterFactory,
     evidence_lines,
     open_stage,
+    opportunities_text,
     structured,
 )
 from bokken.stages.schemas import Candidates, ClusterResult, Selection
@@ -36,6 +37,7 @@ class DefineEngine:
             params={
                 "problem_space": ctx.state.brief.get("problem_space", ""),
                 "evidence": evidence_lines(ctx.store),
+                "opportunities": opportunities_text(replay(ctx.store.events())),
             },
         )
         if clusters is None:
@@ -65,7 +67,10 @@ class DefineEngine:
             "define/candidates",
             Candidates,
             stage="define",
-            params={"insights": insights_text},
+            params={
+                "insights": insights_text,
+                "opportunities": opportunities_text(replay(ctx.store.events())),
+            },
         )
         if candidates is None:
             return None
@@ -113,7 +118,12 @@ class DefineEngine:
             payload={
                 "question": "which problem statement do we take forward",
                 "options": options,
-                "criteria": ["evidence coverage", "clarity", "not solution-shaped"],
+                "criteria": [
+                    "evidence coverage",
+                    "opportunity coverage",
+                    "clarity",
+                    "not solution-shaped",
+                ],
                 "positions": [{"actor": "facilitator", "position": winner_statement}],
                 "resolution": winner_statement,
                 "dissent": [],
