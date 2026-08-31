@@ -1,0 +1,44 @@
+schema: spec-driven
+
+context: |
+  Bokken is an agentic harness for Design Thinking: it encodes the
+  Empathize -> Define -> Ideate -> Prototype -> Test loop as an executable,
+  instrumented, governed process. The MVP is terminal-first (CLI) and
+  MCP-consumable — no GUI, no meeting/voice plumbing.
+
+  Consumption model (barista.sh-style): a *session* (one DT run) is the
+  durable, named unit of work. Sessions are created, run, paused, and
+  resumed by name; state is never held only in memory. The Journal — an
+  append-only, event-sourced ledger (JSONL) — is the single source of
+  truth; session state is a fold (replay) over the journal. Crash-safe by
+  construction.
+
+  MVP run modes:
+  - Founder mode (interactive): a human at the terminal is the counterpart;
+    Bokken's agents interview, synthesize, ideate, prototype, and test with
+    the human in the loop.
+  - Dojo mode (autonomous, L4): a governed synthetic persona panel replaces
+    humans; the run is headless and everything queues for human review.
+
+  Tech stack: Python >= 3.12, managed with uv. Pydantic v2 for schemas,
+  Typer + Rich for the CLI, official `mcp` SDK for the MCP server,
+  `anthropic` SDK for LLM calls (default model claude-opus-4-8 with
+  adaptive thinking; claude-haiku-4-5 only for the lightweight
+  signal-extraction routing class). Ruff for lint/format, pytest for tests.
+  `make check` is the definition of done.
+
+  Conventions: repository code and docs in English. No emojis in CLI
+  output; utilitarian tone. Own the DT loop logic (no LangGraph-class
+  dependency) — the orchestrator is the product. Keep it light: prefer
+  stdlib and small explicit code over frameworks. Every LLM call, every
+  facilitation move, every stage transition, and every decision is a
+  Journal event; synthetic contributions are always labeled synthetic.
+
+rules:
+  proposal:
+    - Reference the concept blueprint section (e.g., "Blueprint §5") that motivates the change where applicable
+  specs:
+    - Requirements use SHALL; every requirement has at least one scenario
+    - Governance/honesty constraints (synthetic labeling, no silent self-escalation, stopping rules) are spec-level requirements, not implementation notes
+  tasks:
+    - Every task states its verification (test, command, or observable artifact)

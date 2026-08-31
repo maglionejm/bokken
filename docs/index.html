@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F6F5F1">
+<title>Bokken — an agentic harness for Design Thinking</title>
+<meta name="description" content="Bokken encodes Empathize → Define → Ideate → Prototype → Test as an executable, event-sourced, governed process. Terminal-first, MCP-consumable, and every step lands in an append-only, hash-chained ledger: the Journal.">
+<meta property="og:title" content="Bokken — an agentic harness for Design Thinking">
+<meta property="og:description" content="Test with wood; commit steel when it counts. One executable loop, two modes — Founder and the Dojo — and a process ledger that shows its work.">
+<meta property="og:type" content="website">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="8" fill="%23B33A2B"/><text x="32" y="44" font-size="34" text-anchor="middle" fill="%23F6F5F1" font-family="serif">木</text></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F5F1;
+  --paper-deep:#EEECE4;
+  --panel:#FBFAF7;
+  --ink:#1A1C1E;
+  --ink-soft:#4A4E54;
+  --ink-faint:#8B9096;
+  --indigo:#2B4C7E;
+  --indigo-deep:#16294A;
+  --indigo-night:#101D33;
+  --oak:#C89B6A;
+  --oak-deep:#A5713D;
+  --oak-pale:#E9DCC8;
+  --oak-text:#7E5426;
+  --seal:#B33A2B;
+  --rule:#D8D4C8;
+  --term-ink:#C9CDD3;
+  --term-dim:#8E97A6;
+  --term-flag:#F2A08D;
+  --max:1120px;
+  --measure:66ch;
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --kanji:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[id]{scroll-margin-top:76px}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16.5px;
+  line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--indigo);color:var(--paper)}
+a{color:var(--indigo);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--indigo-deep)}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:3px;border-radius:2px}
+.skip{position:absolute;left:-999px;top:0;background:var(--ink);color:var(--paper);padding:.6rem 1rem;z-index:99}
+.skip:focus{left:12px;top:12px}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+
+h1,h2,h3{font-family:var(--mono);line-height:1.22;text-wrap:balance}
+h2{font-size:clamp(1.4rem,2.9vw,1.85rem);font-weight:700;letter-spacing:-.02em;max-width:30ch}
+h3{font-size:1rem;font-weight:700}
+p{max-width:var(--measure);text-wrap:pretty}
+.lede{color:var(--ink-soft);font-size:1.03rem;margin-top:.9rem}
+section{padding:clamp(3.2rem,7vw,5.6rem) 0}
+.hairline{border:0;border-top:1px solid var(--rule)}
+code,kbd{font-family:var(--mono);font-size:.86em;background:#F1EFE6;border:1px solid var(--rule);border-radius:3px;padding:.08em .35em}
+
+/* ---------- kanji section marks ---------- */
+.mark{display:flex;align-items:baseline;gap:.7rem;margin-bottom:1rem}
+.mark .kj{font-family:var(--kanji);font-size:1.45rem;color:var(--oak-deep);line-height:1}
+.mark .rm{font-family:var(--mono);font-size:.78rem;color:var(--ink-soft);letter-spacing:.04em}
+
+/* ---------- nav ---------- */
+.nav{
+  position:sticky;top:0;z-index:50;
+  background:rgba(246,245,241,.92);
+  background:color-mix(in srgb,var(--paper) 92%,transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--rule);
+}
+.nav-inner{display:flex;align-items:center;gap:1.8rem;height:60px}
+.wordmark{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--ink);font-family:var(--mono);font-weight:700;font-size:1rem;letter-spacing:-.01em}
+.wordmark .mk{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:var(--seal);color:var(--paper);border-radius:5px;font-size:.9rem;line-height:1;font-family:var(--kanji)}
+.nav-links{display:flex;gap:1.3rem;margin-left:auto;align-items:center}
+.nav-links a{font-family:var(--mono);font-size:.8rem;text-decoration:none;color:var(--ink-soft);padding:.4rem 0;display:inline-block}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a.btn,.nav-links a.btn:hover{color:var(--paper)}
+.btn .gh{width:15px;height:15px;vertical-align:-2px;margin-right:.45rem;fill:currentColor}
+.btn{
+  display:inline-block;background:var(--indigo);color:var(--paper);
+  font-family:var(--mono);font-weight:500;font-size:.85rem;text-decoration:none;
+  padding:.58rem 1.1rem;border-radius:3px;border:1px solid var(--indigo-deep);
+}
+.btn:hover{background:var(--indigo-deep);color:var(--paper)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--indigo);border:1px solid var(--indigo)}
+.btn.ghost:hover{background:var(--indigo);color:var(--paper)}
+.nav .btn{padding:.4rem .85rem;font-size:.78rem}
+@media (max-width:680px){.nav-links a:not(.btn){display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding:clamp(3rem,7vw,5.2rem) 0 0}
+.hero-head{max-width:840px}
+.hero .jp{display:block;font-family:var(--kanji);font-size:clamp(.95rem,2vw,1.2rem);color:var(--oak-deep);letter-spacing:.5em;margin-bottom:.8rem}
+.hero h1{font-size:clamp(1.9rem,5.2vw,3rem);font-weight:700;letter-spacing:-.03em;max-width:24ch}
+.hero .sub{margin-top:1.3rem;font-size:1.05rem;color:var(--ink-soft);max-width:62ch}
+.hero-cta{display:flex;gap:.8rem;margin-top:1.9rem;flex-wrap:wrap}
+.tagline{margin-top:2rem;font-family:var(--mono);font-size:.92rem;color:var(--seal)}
+.tagline small{display:block;font-family:var(--sans);color:var(--ink-soft);font-size:.85rem;margin-top:.35rem;max-width:56ch}
+
+/* ---------- sword figure ---------- */
+.sword{margin-top:clamp(1.8rem,4.5vw,3.2rem);position:relative}
+.sword svg{width:100%;height:auto;display:block}
+.sword .blade-fill{opacity:0;transition:opacity .8s ease .9s}
+.sword .draw{stroke-dasharray:1600;stroke-dashoffset:1600;animation:draw 1.4s cubic-bezier(.6,.05,.25,1) .15s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.sword.on .blade-fill{opacity:1}
+.station{opacity:0;transform:translateY(6px);transition:opacity .5s ease,transform .5s ease}
+.sword.on .station{opacity:1;transform:none}
+.sword.on .st1{transition-delay:1.05s}.sword.on .st2{transition-delay:1.2s}
+.sword.on .st3{transition-delay:1.35s}.sword.on .st4{transition-delay:1.5s}
+.sword.on .st5{transition-delay:1.65s}
+.sword.on .loopbacks{opacity:1;transition-delay:1.9s}
+.loopbacks{opacity:0;transition:opacity .7s ease}
+@media (prefers-reduced-motion:reduce){
+  .sword .draw{animation:none;stroke-dashoffset:0}
+  .sword .blade-fill,.station,.loopbacks{opacity:1 !important;transform:none !important;transition:none !important}
+}
+.st-kj{font-family:var(--kanji);font-size:15px;fill:var(--oak-text);font-weight:700}
+.st-en{font-family:var(--mono);font-size:12px;fill:var(--ink);font-weight:700}
+.st-note{font-family:var(--sans);font-size:10.5px;fill:var(--ink-soft)}
+.loop-label{font-family:var(--mono);font-size:10.5px;fill:var(--indigo)}
+.sword-caption{font-size:.85rem;color:var(--ink-soft);margin-top:.5rem;max-width:none;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+
+/* mobile stage list */
+.stage-list{display:none;margin-top:1.8rem;border-left:3px solid var(--oak);padding-left:1.1rem}
+.stage-list li{list-style:none;padding:.55rem 0}
+.stage-list .kj{font-family:var(--kanji);color:var(--oak-deep);font-weight:700;margin-right:.5rem}
+.stage-list .en{font-family:var(--mono);font-weight:700;font-size:.92rem}
+.stage-list .nt{display:block;font-size:.88rem;color:var(--ink-soft)}
+@media (max-width:719px){
+  .sword{display:none}
+  .stage-list{display:block}
+}
+
+/* ---------- generic grids / cards ---------- */
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(1.8rem,4.5vw,3.6rem);align-items:start}
+@media (max-width:860px){.duo{grid-template-columns:1fr}}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1.8rem}
+@media (max-width:860px){.cards{grid-template-columns:1fr}}
+.card{border:1px solid var(--rule);border-radius:4px;padding:1.15rem 1.2rem;background:var(--panel)}
+.card h3{margin-bottom:.4rem}
+.card .flag{font-family:var(--mono);font-size:.78rem;color:var(--oak-text);display:block;margin-bottom:.55rem}
+.card p{font-size:.92rem;color:var(--ink-soft);max-width:none}
+.alt{background:var(--paper-deep);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.alt .card,.alt .mode:not(.dojo),.alt .lex{background:var(--paper)}
+
+/* ---------- journal sample ---------- */
+.jr{border:1px solid var(--rule);border-radius:4px;background:var(--panel);overflow:hidden;position:relative}
+.jr-entry{padding:1rem 1.15rem;border-bottom:1px solid var(--rule);position:relative}
+.jr-entry:last-of-type{border-bottom:0}
+.jr-kind{font-family:var(--mono);font-size:.74rem;color:var(--ink-soft);display:flex;gap:.8rem;flex-wrap:wrap}
+.jr-kind b{color:var(--indigo);font-weight:700}
+.jr-kind .hash{margin-left:auto;color:var(--ink-faint)}
+.jr-entry p{font-size:.92rem;max-width:none;margin-top:.35rem}
+.jr-meta{font-size:.8rem;color:var(--ink-soft);margin-top:.3rem;max-width:none}
+.jr-dissent{margin-top:.5rem;border-left:3px solid var(--seal);padding:.3rem .7rem;font-size:.85rem;background:#F7EFEC;max-width:none}
+.jr-chain{padding:.55rem 1.15rem;background:var(--paper-deep);border-top:1px solid var(--rule);font-family:var(--mono);font-size:.72rem;color:var(--ink-soft)}
+.jr-seal{
+  position:absolute;right:.95rem;bottom:3.4rem;width:38px;height:38px;border-radius:6px;
+  background:var(--seal);color:var(--paper);display:flex;align-items:center;justify-content:center;
+  font-family:var(--kanji);font-size:1.1rem;transform:rotate(-6deg);
+}
+
+/* ---------- architecture stack ---------- */
+.stack{margin-top:1.8rem;max-width:820px}
+.stack-consumers{font-family:var(--mono);font-size:.78rem;color:var(--ink-soft);text-align:center;max-width:none}
+.layer{border:1px solid var(--rule);border-radius:4px;background:var(--panel);padding:1rem 1.15rem;border-left:4px solid var(--indigo)}
+.layer.core{border-left-color:var(--oak-deep)}
+.layer.models{border-left-color:var(--oak-text)}
+.layer.outputs{border-left-color:var(--indigo)}
+.layer-head{display:flex;gap:.9rem;align-items:baseline;flex-wrap:wrap}
+.layer-head .ln{font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--indigo);letter-spacing:.05em;text-transform:uppercase}
+.layer.core .layer-head .ln,.layer.models .layer-head .ln{color:var(--oak-text)}
+.layer-head .lt{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft)}
+.layer p{font-size:.92rem;color:var(--ink-soft);max-width:none;margin-top:.4rem}
+.layer .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.55rem}
+.layer .chip{font-family:var(--mono);font-size:.76rem;border:1px solid var(--oak-text);color:var(--oak-text);padding:.12rem .55rem;border-radius:999px;background:var(--oak-pale)}
+.layer .chip.lead{background:var(--oak-deep);color:var(--paper)}
+.layer .route{font-family:var(--mono);font-size:.8rem;margin-top:.55rem;color:var(--ink);max-width:none;line-height:1.9}
+.layer .route .rc{color:var(--oak-text)}
+.layer .route .arr{color:var(--ink-faint)}
+.layer.journal{background:var(--indigo-night);border-color:var(--indigo-night);border-left-color:var(--seal)}
+.layer.journal .layer-head .ln{color:var(--oak)}
+.layer.journal .layer-head .lt{color:var(--term-dim)}
+.layer.journal p{color:var(--term-ink)}
+.larrow{font-family:var(--mono);font-size:.78rem;color:var(--ink-faint);text-align:center;padding:.35rem 0;max-width:none}
+.invariant{
+  margin-top:1.6rem;border:1px solid var(--oak-deep);background:var(--panel);
+  border-left:4px solid var(--oak-deep);padding:1rem 1.2rem;max-width:820px;
+}
+.invariant b{font-family:var(--mono);font-size:.8rem;color:var(--oak-text);letter-spacing:.04em;text-transform:uppercase;display:block;margin-bottom:.25rem}
+.invariant p{font-size:.95rem;max-width:none}
+
+/* ---------- modes ---------- */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.8rem}
+@media (max-width:860px){.modes{grid-template-columns:1fr}}
+.mode{border:1px solid var(--rule);border-radius:4px;background:var(--panel);padding:1.3rem 1.3rem 1.2rem;display:flex;flex-direction:column;gap:.6rem;border-top:4px solid var(--indigo)}
+.mode .mhead{font-family:var(--mono);font-size:.78rem;color:var(--indigo)}
+.mode .kj{font-family:var(--kanji);font-size:1.25rem;font-weight:700;color:var(--indigo)}
+.mode h3{font-size:1rem}
+.mode p{font-size:.93rem;color:var(--ink-soft);max-width:none}
+.mode .gates{margin-top:auto;padding-top:.85rem;border-top:1px dashed var(--rule);font-family:var(--mono);font-size:.76rem;color:var(--ink-soft)}
+.mode.dojo{background:var(--indigo-night);border-color:var(--indigo-night);border-top-color:var(--oak-deep);color:var(--term-ink)}
+.mode.dojo h3{color:#F2F1E8}
+.mode.dojo p{color:#B9BFC9}
+.mode.dojo .mhead{color:var(--oak)}
+.mode.dojo .kj{color:var(--oak)}
+.mode.dojo .gates{color:var(--term-dim);border-top-color:#2A3A55}
+.modes-note{font-size:.9rem;color:var(--ink-soft);margin-top:1rem;max-width:none}
+
+/* ---------- terminal ---------- */
+.term{
+  background:var(--indigo-night);color:var(--term-ink);border-radius:5px;
+  font-family:var(--mono);font-size:.82rem;line-height:1.75;
+  margin-top:1.6rem;overflow:hidden;border:1px solid var(--indigo-deep);
+}
+.term-bar{display:flex;align-items:center;gap:.7rem;padding:.5rem .95rem;border-bottom:1px solid #22304C;color:var(--term-dim);font-size:.74rem}
+.term pre{padding:1.05rem 1.15rem;overflow-x:auto}
+.term .p{color:var(--oak)}
+.term .c{color:var(--term-dim)}
+.term .o{color:#9AA1A9}
+.term .hl{color:var(--term-flag)}
+.term-note{font-size:.88rem;color:var(--ink-soft);margin-top:.7rem;max-width:none}
+
+/* ---------- dossier cards ---------- */
+.dossier{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:1.8rem}
+@media (max-width:860px){.dossier{grid-template-columns:1fr 1fr}}
+@media (max-width:540px){.dossier{grid-template-columns:1fr}}
+.dossier div{border:1px solid var(--rule);border-radius:4px;padding:.9rem 1rem;font-size:.86rem;background:var(--paper);color:var(--ink-soft)}
+.dossier b{display:block;font-family:var(--mono);font-size:.78rem;color:var(--ink);margin-bottom:.3rem}
+.dossier .hand{border-style:dashed;border-color:var(--oak-deep)}
+.dossier .hand b{color:var(--oak-text)}
+
+/* ---------- operating ---------- */
+.tbl-scroll{overflow-x:auto;margin-top:1.6rem}
+table.halts{width:100%;border-collapse:collapse;border:1px solid var(--rule);background:var(--panel);font-size:.9rem}
+.halts th{font-family:var(--mono);font-size:.76rem;text-align:left;letter-spacing:.04em;color:var(--ink-soft);padding:.6rem .9rem;border-bottom:1px solid var(--rule);background:var(--paper-deep)}
+.halts td{padding:.7rem .9rem;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink-soft)}
+.halts tr:last-child td{border-bottom:0}
+.halts .hn{font-family:var(--mono);font-size:.8rem;font-weight:700;color:var(--indigo);white-space:nowrap}
+.verbs{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:1.1rem}
+@media (max-width:860px){.verbs{grid-template-columns:1fr 1fr}}
+@media (max-width:540px){.verbs{grid-template-columns:1fr}}
+.verbs div{border:1px solid var(--rule);border-radius:4px;background:var(--panel);padding:.55rem .75rem;font-size:.82rem;color:var(--ink-soft)}
+.verbs b{font-family:var(--mono);font-size:.8rem;color:var(--ink);display:block}
+.op-strip{
+  margin-top:1.6rem;border:1px solid var(--rule);border-radius:4px;background:var(--panel);
+  padding:.8rem 1rem;font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
+  display:flex;gap:1.6rem;flex-wrap:wrap;max-width:none;
+}
+.op-strip .k{color:var(--oak-text);font-weight:700}
+.pipeline{
+  margin-top:1rem;border-left:4px solid var(--seal);background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--seal);
+  border-radius:4px;padding:.8rem 1rem;font-family:var(--mono);font-size:.82rem;color:var(--ink);max-width:none;
+}
+.pipeline .arr{color:var(--ink-faint)}
+.op-h{font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--oak-text);letter-spacing:.05em;text-transform:uppercase;margin-top:2rem}
+
+/* ---------- governance band ---------- */
+.gov{background:var(--indigo-night);color:#E9E9DF;border-top:1px solid var(--indigo-deep);border-bottom:1px solid var(--indigo-deep)}
+.gov h2{color:#F2F1E8}
+.gov .lede{color:#B9BFC9}
+.gov .mark .kj{color:var(--oak)}
+.gov .mark .rm{color:var(--term-dim)}
+.gov code{background:#182742;border-color:#2A3A55;color:#E9E9DF}
+.rules{margin-top:1.8rem;border:1px solid #2A3A55;border-radius:4px;background:#14233D}
+.rule-row{display:grid;grid-template-columns:210px 1fr;gap:1.2rem;padding:1rem 1.2rem;border-bottom:1px solid #22304C}
+.rule-row:last-child{border-bottom:0}
+@media (max-width:719px){.rule-row{grid-template-columns:1fr;gap:.25rem}}
+.rule-row .rn{font-family:var(--mono);font-size:.8rem;font-weight:700;color:var(--oak)}
+.rule-row p{font-size:.92rem;color:#B9BFC9;max-width:none}
+
+/* ---------- lexicon ---------- */
+.lex{border:1px solid var(--rule);border-radius:4px;background:var(--panel)}
+.lex-row{display:grid;grid-template-columns:82px 1fr;gap:1rem;padding:.85rem 1.15rem;border-bottom:1px dashed var(--rule);align-items:baseline}
+.lex-row:last-child{border-bottom:0}
+.lex-row .kj{font-family:var(--kanji);font-size:1.25rem;color:var(--oak-deep);font-weight:700}
+.lex-row b{display:block;font-family:var(--mono);font-size:.84rem}
+.lex-row p{font-size:.88rem;max-width:none;color:var(--ink-soft)}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--rule);padding:2.6rem 0 3.4rem;background:var(--paper-deep)}
+.foot{display:flex;gap:2rem;justify-content:space-between;flex-wrap:wrap;align-items:flex-start}
+footer p{font-size:.88rem;color:var(--ink-soft)}
+.foot-links{display:flex;gap:1.3rem;flex-wrap:wrap}
+.foot-links a{font-family:var(--mono);font-size:.82rem}
+.foot-meta{font-family:var(--mono);font-size:.74rem;color:var(--ink-faint);margin-top:.5rem}
+.status{
+  display:inline-block;border:1px solid var(--oak-text);color:var(--oak-text);
+  font-family:var(--mono);font-size:.74rem;padding:.15rem .6rem;border-radius:999px;margin-bottom:.7rem;
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Main">
+  <div class="wrap nav-inner">
+    <a class="wordmark" href="#top"><span class="mk" aria-hidden="true">木</span>bokken</a>
+    <div class="nav-links">
+      <a href="#how">how it works</a>
+      <a href="#architecture">architecture</a>
+      <a href="#operating">operating</a>
+      <a href="#honesty">governance</a>
+      <a href="#mcp">mcp</a>
+      <a class="btn" href="https://github.com/maglionejm/bokken"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+<header class="hero wrap" id="top">
+  <div class="hero-head">
+    <span class="jp" aria-hidden="true">木刀</span>
+    <h1>Design Thinking, as an executable process.</h1>
+    <p class="sub">Bokken encodes the <strong>Empathize → Define → Ideate → Prototype → Test</strong> loop as an executable, event-sourced, governed process. It runs interactively with you in the loop, or fully autonomously against a governed synthetic persona panel — and records every step, including the paths not taken. Terminal-first, MCP-consumable, written in Python. No GUI.</p>
+    <div class="hero-cta">
+      <a class="btn" href="https://github.com/maglionejm/bokken"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>View on GitHub</a>
+      <a class="btn ghost" href="#how">How it works</a>
+    </div>
+    <p class="tagline">Test with wood; commit steel when it counts.
+      <small>A bokken is the wooden practice sword: you rehearse with wood until failure is boring, and commit steel only when the risk is understood.</small>
+    </p>
+  </div>
+
+  <figure class="sword" id="sword" aria-label="The Design Thinking loop laid along a wooden practice sword: Empathize, Define, Ideate, Prototype, Test, with loop-backs from Test to Define and Empathize.">
+    <svg viewBox="0 0 1200 300" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="oakgrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#A5713D"/>
+          <stop offset="0.14" stop-color="#C89B6A"/>
+          <stop offset="0.92" stop-color="#B98A55"/>
+          <stop offset="1" stop-color="#A5713D"/>
+        </linearGradient>
+      </defs>
+      <!-- loop-back arcs -->
+      <g class="loopbacks">
+        <path d="M 1010 166 C 900 92, 560 96, 484 188" fill="none" stroke="#2B4C7E" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <path d="M 1010 166 C 880 60, 340 62, 304 190" fill="none" stroke="#2B4C7E" stroke-width="1.6" stroke-dasharray="5 5" opacity=".65"/>
+        <text class="loop-label" x="545" y="90">when a test contradicts an insight, the loop goes back</text>
+        <polygon points="484,192 478,180 491,182" fill="#2B4C7E"/>
+        <polygon points="304,194 298,182 311,184" fill="#2B4C7E"/>
+      </g>
+      <!-- bokken: handle left, curved blade to the right, tip at far right -->
+      <path class="draw" d="M 60 208 C 320 208, 760 196, 1140 172" fill="none" stroke="#A5713D" stroke-width="2.4"/>
+      <g class="blade-fill">
+        <path d="M 60 196 C 340 198, 760 186, 1120 163 C 1140 161, 1148 166, 1150 170 C 1140 176, 1128 180, 1108 181 C 740 204, 340 218, 60 220 Z" fill="url(#oakgrad)"/>
+        <!-- tsuka wrap -->
+        <path d="M 60 196 L 220 197 L 220 219 L 60 220 Z" fill="#8E5E30"/>
+        <g stroke="#6E4620" stroke-width="2" opacity=".8">
+          <line x1="86" y1="196" x2="80" y2="220"/>
+          <line x1="112" y1="196" x2="106" y2="220"/>
+          <line x1="138" y1="197" x2="132" y2="219"/>
+          <line x1="164" y1="197" x2="158" y2="219"/>
+          <line x1="190" y1="197" x2="184" y2="219"/>
+        </g>
+        <!-- tsuba line -->
+        <rect x="222" y="188" width="7" height="34" rx="3" fill="#6E4620"/>
+      </g>
+      <!-- stations -->
+      <g class="station st1">
+        <circle cx="300" cy="205" r="7" fill="#F6F5F1" stroke="#2B4C7E" stroke-width="2.5"/>
+        <text class="st-kj" x="300" y="246" text-anchor="middle">共感</text>
+        <text class="st-en" x="300" y="264" text-anchor="middle">Empathize</text>
+        <text class="st-note" x="300" y="281" text-anchor="middle">interviews, evidence in</text>
+      </g>
+      <g class="station st2">
+        <circle cx="480" cy="200" r="7" fill="#F6F5F1" stroke="#2B4C7E" stroke-width="2.5"/>
+        <text class="st-kj" x="480" y="246" text-anchor="middle">定義</text>
+        <text class="st-en" x="480" y="264" text-anchor="middle">Define</text>
+        <text class="st-note" x="480" y="281" text-anchor="middle">the problem, chosen on record</text>
+      </g>
+      <g class="station st3">
+        <circle cx="660" cy="194" r="7" fill="#F6F5F1" stroke="#2B4C7E" stroke-width="2.5"/>
+        <text class="st-kj" x="660" y="246" text-anchor="middle">発想</text>
+        <text class="st-en" x="660" y="264" text-anchor="middle">Ideate</text>
+        <text class="st-note" x="660" y="281" text-anchor="middle">every idea keeps its lineage</text>
+      </g>
+      <g class="station st4">
+        <circle cx="840" cy="187" r="7" fill="#F6F5F1" stroke="#2B4C7E" stroke-width="2.5"/>
+        <text class="st-kj" x="840" y="246" text-anchor="middle">試作</text>
+        <text class="st-en" x="840" y="264" text-anchor="middle">Prototype</text>
+        <text class="st-note" x="840" y="281" text-anchor="middle">the cheapest honest test</text>
+      </g>
+      <g class="station st5">
+        <circle cx="1010" cy="176" r="7" fill="#F6F5F1" stroke="#2B4C7E" stroke-width="2.5"/>
+        <text class="st-kj" x="1010" y="246" text-anchor="middle">検証</text>
+        <text class="st-en" x="1010" y="264" text-anchor="middle">Test</text>
+        <text class="st-note" x="1010" y="281" text-anchor="middle">assumptions scored, not vibes</text>
+      </g>
+    </svg>
+    <figcaption class="sword-caption">
+      <span>One loop, held on one piece of wood: five stages, with loop-backs when the evidence disagrees.</span>
+      <span>The whole run is written to the Journal.</span>
+    </figcaption>
+  </figure>
+
+  <ul class="stage-list" aria-label="The five stages of the loop">
+    <li><span class="kj">共感</span><span class="en">Empathize</span><span class="nt">Interviews and evidence in — real inputs, or a clearly labeled synthetic panel.</span></li>
+    <li><span class="kj">定義</span><span class="en">Define</span><span class="nt">The problem statement, chosen on the record with its justification chain.</span></li>
+    <li><span class="kj">発想</span><span class="en">Ideate</span><span class="nt">Structured divergence and convergence; every idea keeps its lineage.</span></li>
+    <li><span class="kj">試作</span><span class="en">Prototype</span><span class="nt">The cheapest artifact that tests the riskiest assumption.</span></li>
+    <li><span class="kj">検証</span><span class="en">Test</span><span class="nt">Assumptions scored against results; the loop goes back when evidence disagrees.</span></li>
+  </ul>
+</header>
+
+<section id="how" class="wrap">
+  <div class="mark"><span class="kj" aria-hidden="true">帳</span><span class="rm">chō — the register / 01 how it works</span></div>
+  <h2>One loop. One ledger. No side state.</h2>
+  <div class="duo" style="margin-top:1.5rem">
+    <div>
+      <p class="lede">The Design Thinking loop is a hand-written state machine: five stage engines, explicit exit criteria, human gates at stage boundaries, and legal loop-back edges when a test contradicts an insight. Every run advances to a halt — <code>gate_pending</code>, <code>input_pending</code>, <code>stopped</code>, or <code>completed</code> — so no call is unbounded.</p>
+      <p style="margin-top:1rem">Underneath sits <strong>the Journal</strong>: an append-only JSONL ledger with a SHA-256 hash chain. Every utterance, LLM call, facilitation move, idea, decision, and dissent is an event with provenance. Session state is never stored anywhere else — replaying the ledger <em>is</em> the state. Kill the process at any point, <code>bokken run</code> resumes. Tamper with a record, chain verification reports the first broken sequence number.</p>
+      <p style="margin-top:1rem">Facilitation itself is encoded as <strong>the Kata</strong> — nine named, budgeted moves, every execution (or suppression) journaled with its trigger. Method stops being a scarce craft and becomes a repeatable one.</p>
+    </div>
+    <div>
+      <div class="jr" aria-label="Three linked Journal entries: evidence, insight, decision with dissent">
+        <div class="jr-entry">
+          <p class="jr-kind"><b>evidence</b> interview 04 · class: observed <span class="hash">seq 0141</span></p>
+          <p>"I stopped using the app because re-ordering took four screens."</p>
+          <p class="jr-meta">Source: participant P-07, discussion input. Opinion and observation are never filed as the same thing.</p>
+        </div>
+        <div class="jr-entry">
+          <p class="jr-kind"><b>insight</b> derived · stage: define <span class="hash">seq 0158</span></p>
+          <p>Repeat purchase fails at navigation cost, not price. Rests on evidence 12, 14, 19; contradicted by none.</p>
+          <p class="jr-meta">If a later test disagrees, this link is what fires the loop-back.</p>
+        </div>
+        <div class="jr-entry">
+          <p class="jr-kind"><b>decision</b> D-2 · dissent preserved <span class="hash">seq 0177</span></p>
+          <p>Prototype one-tap re-order. Options weighed: loyalty pricing, subscriptions, navigation redesign. Criterion: riskiest assumption first.</p>
+          <div class="jr-dissent">Dissent, kept: "Subscriptions could mask the navigation problem — revisit if the retest fails."</div>
+        </div>
+        <div class="jr-chain">append-only · SHA-256 hash chain · single writer · replay → state</div>
+        <span class="jr-seal" aria-hidden="true">承</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture" class="alt">
+  <div class="wrap">
+    <div class="mark"><span class="kj" aria-hidden="true">構造</span><span class="rm">kōzō — the structure / 02 architecture</span></div>
+    <h2>Layers around one invariant.</h2>
+    <p class="lede">Bokken is a small set of layers around one rule: the Journal is the only source of truth. Everything above it appends events; everything below it derives views.</p>
+
+    <div class="stack" role="img" aria-label="The layer stack: surfaces (CLI and MCP), core (orchestrator, stage engines, Kata, panel), model ops (the model router), the Journal as source of truth, and outputs (Dossier and handoff).">
+      <p class="stack-consumers">consumers — a human at a terminal, or agents &amp; IDEs over MCP</p>
+      <div class="larrow" aria-hidden="true">↓</div>
+      <div class="layer">
+        <div class="layer-head"><span class="ln">Surfaces</span><span class="lt">CLI (typer) · MCP server (stdio) — 11 tools, 4 resources</span></div>
+        <p>Two doors into the same core: CLI <code>--json</code> output and MCP tool results are the same shapes, from one shared contract.</p>
+      </div>
+      <div class="larrow" aria-hidden="true">↓</div>
+      <div class="layer core">
+        <div class="layer-head"><span class="ln">Core</span><span class="lt">the harness</span></div>
+        <p>The hand-written stage machine — exit criteria, human gates, budgets, stopping rules, loop-backs — dispatches five stage engines, nine budgeted Kata moves, and the governed synthetic panel.</p>
+        <div class="chips" aria-hidden="true">
+          <span class="chip lead">Orchestrator</span>
+          <span class="chip">Stage engines</span>
+          <span class="chip">Kata</span>
+          <span class="chip">Panel</span>
+        </div>
+      </div>
+      <div class="larrow" aria-hidden="true">↓</div>
+      <div class="layer models">
+        <div class="layer-head"><span class="ln">Model ops</span><span class="lt">the model router — the one seam to the Anthropic SDK</span></div>
+        <p>Every LLM call passes through one router with budget pre-checks, structured outputs, and versioned prompts — each call journaled.</p>
+        <p class="route"><span class="rc">cognition · generation</span> <span class="arr">→</span> claude-opus-4-8<br><span class="rc">extraction</span> <span class="arr">→</span> claude-haiku-4-5</p>
+      </div>
+      <div class="larrow" aria-hidden="true">↓</div>
+      <div class="layer journal">
+        <div class="layer-head"><span class="ln">The Journal</span><span class="lt">the source of truth</span></div>
+        <p>An append-only JSONL ledger — 22 event types, SHA-256 hash chain, single-writer lock — whose replay <em>is</em> the session state.</p>
+      </div>
+      <div class="larrow" aria-hidden="true">↓</div>
+      <div class="layer outputs">
+        <div class="layer-head"><span class="ln">Outputs</span><span class="lt">Dossier · Handoff</span></div>
+        <p>The Session Dossier (outcomes, narrative, evidence graph) and the OpenSpec handoff are derived from the ledger alone, at any point.</p>
+      </div>
+    </div>
+
+    <div class="invariant">
+      <b>The invariant</b>
+      <p>State is a replay of the ledger; every layer appends events or derives views. That is what makes every run crash-safe and resumable by construction.</p>
+    </div>
+  </div>
+</section>
+
+<section id="modes" class="wrap">
+  <div class="mark"><span class="kj" aria-hidden="true">場</span><span class="rm">ba — the place where it runs / 03 two modes, one machine</span></div>
+  <h2>Founder mode, or the Dojo.</h2>
+  <p class="lede">Both modes execute the same state machine, the same exit criteria, the same gates, the same event schema. They differ only in who supplies participation.</p>
+  <div class="modes">
+    <article class="mode">
+      <span class="kj" aria-hidden="true">同行</span>
+      <p class="mhead">--mode founder</p>
+      <h3>Founder — you in the loop</h3>
+      <p>An interactive terminal session where you are the counterpart: Bokken interviews you, you pick the winning option, you score the assumptions. Questions surface as <code>input_pending</code>; answer and run again.</p>
+      <p class="gates">gates default: none</p>
+    </article>
+    <article class="mode dojo">
+      <span class="kj" aria-hidden="true">道場</span>
+      <p class="mhead">--mode dojo</p>
+      <h3>The Dojo — no one in the room</h3>
+      <p>Fully autonomous against a governed synthetic persona panel — cast from your evidence, required to abstain where the evidence runs out, with a protected skeptic and a contamination firewall between ideation and testing.</p>
+      <p class="gates">gates default: stage_boundaries — the run halts before every transition until a human approves</p>
+    </article>
+  </div>
+  <p class="modes-note">Gate policy is tunable per session: <code>--gates none</code>, <code>--gates stage_boundaries</code>, or only the boundaries you care about (<code>--gates define,test</code>). Sessions are the durable unit — addressable by name across create, run, pause, and resume. The process is disposable; the session is not.</p>
+</section>
+
+<section id="inputs" class="alt">
+  <div class="wrap">
+    <div class="mark"><span class="kj" aria-hidden="true">素材</span><span class="rm">sozai — the raw material / 04 inputs</span></div>
+    <h2>Give it something real to work from.</h2>
+    <p class="lede">A session starts from tangible material, typed at intake so provenance survives all the way to the Dossier.</p>
+    <div class="cards">
+      <article class="card">
+        <span class="flag">--repo</span>
+        <h3>An app repository</h3>
+        <p>The codebase to explore — what the product actually does today, not what the deck says it does.</p>
+      </article>
+      <article class="card">
+        <span class="flag">--metrics</span>
+        <h3>Business &amp; performance data</h3>
+        <p>KPIs, funnels, churn — the numbers that decide which assumption is actually the risky one.</p>
+      </article>
+      <article class="card">
+        <span class="flag">--discussion</span>
+        <h3>Human interviews &amp; notes</h3>
+        <p>What real people have already said. Grounds the synthetic panel and keeps it honest — personas may not invent evidence.</p>
+      </article>
+    </div>
+    <p class="modes-note">Without <code>--brief</code>, <code>bokken new &lt;name&gt;</code> runs an interactive intake instead.</p>
+  </div>
+</section>
+
+<section id="run" class="wrap">
+  <div class="mark"><span class="kj" aria-hidden="true">実演</span><span class="rm">jitsuen — a session, end to end / 05</span></div>
+  <h2>Create. Run. Gate. Dossier. Handoff.</h2>
+  <div class="term">
+    <div class="term-bar">bokken — terminal</div>
+    <pre><span class="p">$</span> bokken new mars-lander --mode dojo --brief brief.md \
+    --repo ./app --metrics data/kpis.csv --discussion research/interviews.md
+<span class="o">created session mars-lander  ·  gates: stage_boundaries</span>
+
+<span class="p">$</span> bokken run mars-lander
+<span class="o">halt: gate_pending  (empathize → define)</span>
+
+<span class="p">$</span> bokken gate mars-lander approve
+<span class="p">$</span> bokken run mars-lander
+<span class="o">...</span>
+<span class="o">halt: completed</span>
+<span class="o">finalization: dossier generated; handoff specs generated</span>
+
+<span class="p">$</span> bokken dossier mars-lander
+<span class="o">dossier/dossier.md    <span class="c"># outcomes · process narrative · honesty section</span></span>
+<span class="o">dossier/dossier.json  <span class="c"># the machine-readable evidence graph</span></span>
+
+<span class="p">$</span> bokken handoff mars-lander
+<span class="o">handoff (schedule-publication):</span>
+<span class="o">handoff/openspec/changes/build-mvp-mars-lander/  <span class="c"># OpenSpec specs for the</span></span>
+<span class="o">                                                 <span class="c"># validated MVP, evidence-traced,</span></span>
+<span class="o">                                                 <span class="c"># ready for a coding agent</span></span></pre>
+  </div>
+  <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
+  <div class="dossier" aria-label="The Session Dossier and the handoff">
+    <div><b>A — outcomes</b>What was decided, built, and committed to, by whom.</div>
+    <div><b>B — narrative</b>How the run actually went: pivots, dead ends, dissent, loop-backs.</div>
+    <div><b>C — evidence graph</b>Every claim traceable back to its source, machine-readable.</div>
+    <div class="hand"><b>→ openspec handoff</b>Specs for the validated MVP, ready for a coding agent.</div>
+  </div>
+</section>
+
+<section id="operating" class="alt">
+  <div class="wrap">
+    <div class="mark"><span class="kj" aria-hidden="true">運用</span><span class="rm">un'yō — day-to-day operation / 06 operating</span></div>
+    <h2>Every run returns at a halt. Here is what each one means.</h2>
+    <p class="lede">No call is unbounded: <code>bokken run</code> always comes back with one of four halts, and each halt tells you the next move.</p>
+
+    <div class="tbl-scroll">
+      <table class="halts">
+        <thead>
+          <tr><th scope="col">halt</th><th scope="col">meaning</th><th scope="col">what you do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="hn">gate_pending</td>
+            <td>a stage boundary needs sign-off</td>
+            <td><code>bokken gate &lt;name&gt; approve</code> — or <code>reject --reason "..."</code>; the run stays in the stage for rework</td>
+          </tr>
+          <tr>
+            <td class="hn">input_pending</td>
+            <td>Founder mode needs your answer</td>
+            <td>run <code>bokken run</code> interactively and answer the prompt</td>
+          </tr>
+          <tr>
+            <td class="hn">stopped</td>
+            <td>budget exhausted, novelty floor, or human stop</td>
+            <td>raise the budget on resume, or leave it — the stopping reason is a Journal event</td>
+          </tr>
+          <tr>
+            <td class="hn">completed</td>
+            <td>the loop finished</td>
+            <td><code>bokken dossier &lt;name&gt;</code> — finalization has already produced the Dossier and the handoff</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="op-h">The lifecycle verbs</p>
+    <div class="verbs">
+      <div><b>new</b>create a session from a brief and typed inputs</div>
+      <div><b>run</b>advance to the next halt</div>
+      <div><b>step</b>at most one stage, then return</div>
+      <div><b>stop</b>halt the run with a journaled reason</div>
+      <div><b>status</b>where am I, what blocks progress</div>
+      <div><b>list</b>all sessions in the workspace</div>
+      <div><b>gate</b>approve or reject the pending boundary</div>
+      <div><b>back</b>loop back to an earlier stage, with a reason</div>
+      <div><b>journal</b>read or follow the ledger, filtered by type</div>
+      <div><b>dossier</b>generate the Session Dossier (works mid-run, labeled partial)</div>
+      <div><b>handoff</b>generate the OpenSpec change package</div>
+      <div><b>serve</b>expose the same core over MCP (stdio)</div>
+    </div>
+
+    <p class="op-h">Exit codes &amp; finalization</p>
+    <div class="op-strip" role="list" aria-label="Exit codes">
+      <span role="listitem"><span class="k">0</span> success, including clean halts</span>
+      <span role="listitem"><span class="k">1</span> unexpected error</span>
+      <span role="listitem"><span class="k">2</span> invalid / refused — unknown session, illegal transition, validation failure</span>
+    </div>
+    <p class="pipeline">run completes <span class="arr">→</span> Dossier <span class="arr">→</span> OpenSpec handoff specs, ready for a coding agent</p>
+  </div>
+</section>
+
+<section id="honesty" class="gov">
+  <div class="wrap">
+    <div class="mark"><span class="kj" aria-hidden="true">掟</span><span class="rm">okite — the house rules / 07 honesty &amp; governance</span></div>
+    <h2>Governance in code, not prompts.</h2>
+    <p class="lede">The rules are enforced by code paths with journaled outcomes — none of them can be turned off.</p>
+    <div class="rules">
+      <div class="rule-row">
+        <span class="rn">synthetic is labeled</span>
+        <p>Every synthetic contribution is marked <code>simulated</code> at the record level. Confidence classes — <code>observed | reported | assumed | simulated</code> — propagate to everything derived from them. Simulated research is never laundered into "user insights".</p>
+      </div>
+      <div class="rule-row">
+        <span class="rn">flags propagate</span>
+        <p>Decisions resting on simulated evidence carry <code>requires real validation</code>. Dojo dossiers always open with the simulated-run banner. Neither can be disabled.</p>
+      </div>
+      <div class="rule-row">
+        <span class="rn">negative space</span>
+        <p>The Dossier states what Bokken did <em>not</em> do: abstentions, research debt, evidence that ran out, the options considered and dropped.</p>
+      </div>
+      <div class="rule-row">
+        <span class="rn">no self-escalation</span>
+        <p>Dojo runs cannot widen their own brief, contact real humans, or publish externally. Budgets and stopping rules terminate runs; the stopping reason is a Journal event.</p>
+      </div>
+      <div class="rule-row">
+        <span class="rn">structural firewalls</span>
+        <p>Test panels never contain personas that ideated. Scoring criteria are frozen before ideation begins. A skeptic seat is protected on every panel. All of it enforced in code, all of it journaled.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="mcp" class="wrap">
+  <div class="mark"><span class="kj" aria-hidden="true">接続</span><span class="rm">setsuzoku — the connection / 08 mcp</span></div>
+  <h2>Your agent can drive the same loop.</h2>
+  <div class="duo" style="margin-top:1.5rem">
+    <div>
+      <p class="lede"><code>bokken serve</code> exposes the full session lifecycle over MCP (stdio) — the same core the CLI uses, with identical JSON result shapes.</p>
+      <p style="margin-top:1rem">Eleven tools, four resources: <code>create_session_tool → run_session → resolve_gate | submit_input → generate_dossier</code>. State-changing calls arriving over MCP are journaled with <code>actor.kind: agent</code> and the client's handshake identity — the ledger always shows who, human or agent, approved what.</p>
+    </div>
+    <div>
+      <div class="term" style="margin-top:0">
+        <div class="term-bar">add to Claude Code</div>
+        <pre><span class="p">$</span> claude mcp add bokken -- bokken serve</pre>
+      </div>
+      <p class="term-note">Resources: <code>bokken://sessions</code>, per-session status, the full Journal, and the latest <code>dossier.json</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="name" class="alt">
+  <div class="wrap">
+    <div class="mark"><span class="kj" aria-hidden="true">木刀</span><span class="rm">bokken — the wooden sword / 09 the name</span></div>
+    <div class="duo">
+      <div>
+        <h2>Why "Bokken."</h2>
+        <p style="margin-top:1rem">A bokken (木刀) is the wooden practice sword of Japanese swordsmanship: you rehearse the strike with wood until failure is boring, and commit steel only when the risk is understood. That is the whole philosophy — prototype before you build, simulate before you decide, and let humans commit.</p>
+      </div>
+      <div class="lex" aria-label="The naming system">
+        <div class="lex-row"><span class="kj" aria-hidden="true">帳</span><div><b>the Journal</b><p>The append-only, hash-chained process ledger — the single source of truth, and the moat.</p></div></div>
+        <div class="lex-row"><span class="kj" aria-hidden="true">型</span><div><b>the Kata</b><p>The facilitation move library: named, budgeted, repeatable — every move journaled.</p></div></div>
+        <div class="lex-row"><span class="kj" aria-hidden="true">道場</span><div><b>the Dojo</b><p>The autonomous mode: full-contact practice against a governed synthetic panel, no one in the room.</p></div></div>
+        <div class="lex-row"><span class="kj" aria-hidden="true">稽古</span><div><b>sparring</b><p>Runs against synthetic participants — practice bouts before anything real is at stake.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <span class="status">terminal-first · MCP-consumable · no GUI</span>
+      <p style="max-width:52ch">Bokken is open source and under active development. The MVP is terminal-first and MCP-consumable — no GUI, by design.</p>
+      <p class="foot-meta">Python ≥ 3.12 · uv · Apache-2.0 (pending confirmation)</p>
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/maglionejm/bokken">github.com/maglionejm/bokken</a>
+      <a href="#top">back to top</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var sword=document.getElementById('sword');
+  if(sword){requestAnimationFrame(function(){sword.classList.add('on');});}
+})();
+</script>
+</body>
+</html>
