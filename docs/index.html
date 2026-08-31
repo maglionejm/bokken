@@ -204,6 +204,25 @@ code,kbd{font-family:var(--mono);font-size:.86em;background:#F1EFE6;border:1px s
 }
 .invariant b{font-family:var(--mono);font-size:.8rem;color:var(--oak-text);letter-spacing:.04em;text-transform:uppercase;display:block;margin-bottom:.25rem}
 .invariant p{font-size:.95rem;max-width:none}
+.layer.slim{padding:.6rem 1.05rem}
+
+/* ---------- mcp ---------- */
+.mloop{margin-top:1.6rem;border:1px solid var(--rule);border-radius:4px;background:var(--panel);padding:.9rem 1.15rem}
+.mloop .row{display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap;padding:.3rem 0;font-family:var(--mono);font-size:.82rem}
+.mloop .row + .row{border-top:1px dashed var(--rule)}
+.mloop .halt{color:var(--seal);min-width:13ch}
+.mloop .then{color:var(--ink-faint)}
+.mloop .act{color:var(--indigo);font-weight:700}
+.mloop .note{font-family:var(--sans);color:var(--ink-soft);font-size:.85rem}
+.toolgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:1.6rem}
+@media (max-width:980px){.toolgrid{grid-template-columns:1fr 1fr}}
+@media (max-width:540px){.toolgrid{grid-template-columns:1fr}}
+.tg{border:1px solid var(--rule);border-left:4px solid var(--indigo);border-radius:4px;background:var(--panel);padding:.85rem 1rem}
+.tg b{font-family:var(--mono);font-size:.74rem;letter-spacing:.05em;text-transform:uppercase;color:var(--indigo);display:block;margin-bottom:.4rem}
+.tg code{display:block;background:none;border:0;padding:.08rem 0;font-size:.8rem}
+.tg p{font-size:.82rem;color:var(--ink-soft);margin-top:.35rem;max-width:none}
+.tg.alt2{border-left-color:var(--oak-deep)}
+.tg.alt2 b{color:var(--oak-text)}
 
 /* ---------- modes ---------- */
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.8rem}
@@ -458,44 +477,32 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     <p class="lede">Bokken is a small set of layers around one rule: the Journal is the only source of truth. Everything above it appends events; everything below it derives views.</p>
 
     <div class="stack" role="img" aria-label="The layer stack: surfaces (CLI and MCP), core (orchestrator, stage engines, Kata, panel), model ops (the model router), the Journal as source of truth, and outputs (Dossier and handoff).">
-      <p class="stack-consumers">consumers — a human at a terminal, or agents &amp; IDEs over MCP</p>
+      <p class="stack-consumers">a human at a terminal · agents &amp; IDEs over MCP</p>
       <div class="larrow" aria-hidden="true">↓</div>
-      <div class="layer">
-        <div class="layer-head"><span class="ln">Surfaces</span><span class="lt">CLI (typer) · MCP server (stdio) — 12 tools, 4 resources</span></div>
-        <p>Two doors into the same core: CLI <code>--json</code> output and MCP tool results are the same shapes, from one shared contract.</p>
+      <div class="layer slim">
+        <div class="layer-head"><span class="ln">Surfaces</span><span class="lt">CLI · MCP — one shared contract, bounded halts</span></div>
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
-      <div class="layer core">
-        <div class="layer-head"><span class="ln">Core</span><span class="lt">the harness</span></div>
-        <p>The hand-written stage machine — exit criteria, human gates, budgets, stopping rules, loop-backs — dispatches five stage engines, nine budgeted Kata moves, and the governed synthetic panel.</p>
-        <div class="chips" aria-hidden="true">
-          <span class="chip lead">Orchestrator</span>
-          <span class="chip">Stage engines</span>
-          <span class="chip">Kata</span>
-          <span class="chip">Panel</span>
-        </div>
+      <div class="layer slim core">
+        <div class="layer-head"><span class="ln">Core</span><span class="lt">orchestrator · stage engines · Kata · synthetic panel</span></div>
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
-      <div class="layer models">
-        <div class="layer-head"><span class="ln">Model ops</span><span class="lt">the model router — the one seam to the Anthropic SDK</span></div>
-        <p>Every LLM call passes through one router with budget pre-checks, structured outputs, and versioned prompts — each call journaled.</p>
-        <p class="route"><span class="rc">cognition · generation</span> <span class="arr">→</span> claude-opus-4-8<br><span class="rc">extraction</span> <span class="arr">→</span> claude-haiku-4-5</p>
+      <div class="layer slim models">
+        <div class="layer-head"><span class="ln">Model ops</span><span class="lt">one router — every LLM call budgeted and journaled</span></div>
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
-      <div class="layer journal">
-        <div class="layer-head"><span class="ln">The Journal</span><span class="lt">the source of truth</span></div>
-        <p>An append-only JSONL ledger — 22 event types, SHA-256 hash chain, single-writer lock — whose replay <em>is</em> the session state.</p>
+      <div class="layer slim journal">
+        <div class="layer-head"><span class="ln">The Journal</span><span class="lt">append-only, hash-chained — replay is the state</span></div>
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
-      <div class="layer outputs">
-        <div class="layer-head"><span class="ln">Outputs</span><span class="lt">Dossier · Handoff</span></div>
-        <p>The Session Dossier (outcomes, narrative, evidence graph) and the OpenSpec handoff are derived from the ledger alone, at any point.</p>
+      <div class="layer slim outputs">
+        <div class="layer-head"><span class="ln">Outputs</span><span class="lt">Session Dossier · OpenSpec handoff</span></div>
       </div>
     </div>
 
     <div class="invariant">
       <b>The invariant</b>
-      <p>State is a replay of the ledger; every layer appends events or derives views. That is what makes every run crash-safe and resumable by construction.</p>
+      <p>State is a replay of the ledger; every layer appends events or derives views. That is what makes every run crash-safe and resumable by construction. The full picture: <a href="https://github.com/maglionejm/bokken/blob/main/docs/architecture.md">docs/architecture.md</a>.</p>
     </div>
   </div>
 </section>
@@ -681,17 +688,67 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <section id="mcp" class="wrap">
   <div class="mark"><span class="kj" aria-hidden="true">接続</span><span class="rm">setsuzoku — the connection / 08 mcp</span></div>
   <h2>Your agent can drive the same loop.</h2>
-  <div class="duo" style="margin-top:1.5rem">
-    <div>
-      <p class="lede"><code>bokken serve</code> exposes the full session lifecycle over MCP (stdio) — the same core the CLI uses, with identical JSON result shapes.</p>
-      <p style="margin-top:1rem">Eleven tools, four resources: <code>create_session_tool → run_session → resolve_gate | submit_input → generate_dossier</code>. State-changing calls arriving over MCP are journaled with <code>actor.kind: agent</code> and the client's handshake identity — the ledger always shows who, human or agent, approved what.</p>
+  <p class="lede"><code>bokken serve</code> exposes the harness over MCP (stdio): 12 tools and 4 resources
+  on the same core the CLI uses, returning the same JSON shapes from one shared contract.
+  No call is open-ended — <code>run_session</code> always returns at the next halt, so driving
+  a run is a plain loop an agent can program against.</p>
+
+  <div class="mloop" role="img" aria-label="The agent loop: run_session halts with one of four states, each with a corresponding next move.">
+    <div class="row"><span class="act">run_session</span><span class="then">halts with one of four states — and each has one move:</span></div>
+    <div class="row"><span class="halt">gate_pending</span><span class="then">→</span><span class="act">resolve_gate</span><span class="note">approve, or reject with a reason — the stage is kept for rework</span></div>
+    <div class="row"><span class="halt">input_pending</span><span class="then">→</span><span class="act">submit_input</span><span class="note">answer the Founder-mode question by its id, then run again</span></div>
+    <div class="row"><span class="halt">stopped</span><span class="then">→</span><span class="act">resume or leave</span><span class="note">budgets and stops are journaled; sessions stay resumable</span></div>
+    <div class="row"><span class="halt">completed</span><span class="then">→</span><span class="act">finalization</span><span class="note">Dossier, then the OpenSpec handoff — automatic and idempotent</span></div>
+  </div>
+
+  <div class="toolgrid">
+    <div class="tg">
+      <b>Lifecycle</b>
+      <code>create_session_tool</code><code>run_session</code><code>step_session</code><code>stop_session</code>
+      <p>Create with a brief, typed inputs, gates, and budgets; advance to the next halt or by one stage.</p>
+    </div>
+    <div class="tg alt2">
+      <b>Interaction</b>
+      <code>resolve_gate</code><code>submit_input</code><code>request_loopback</code>
+      <p>Gates, Founder-mode answers, and loop-backs on the legal edges only.</p>
+    </div>
+    <div class="tg">
+      <b>Inspection</b>
+      <code>get_status</code><code>list_sessions_tool</code><code>query_journal</code>
+      <p>State and filtered ledger reads, byte-identical to the CLI's <code>--json</code>.</p>
+    </div>
+    <div class="tg alt2">
+      <b>Outputs</b>
+      <code>generate_dossier</code><code>generate_handoff</code>
+      <p>The deliverables on demand; the handoff refuses killed concepts.</p>
+    </div>
+  </div>
+
+  <div class="duo" style="margin-top:1.6rem">
+    <div class="term" style="margin-top:0">
+      <div class="term-bar">an agent driving the Dojo</div>
+      <pre><span class="p">→</span> run_session {"name": "retention"}
+<span class="o">{"halt": "gate_pending",
+ "detail": "gate g-4f2a guards intake -> empathize"}</span>
+<span class="p">→</span> resolve_gate {"name": "retention", "resolution": "approve"}
+<span class="p">→</span> run_session {"name": "retention"}  <span class="c"># ... one gate per boundary ...</span>
+<span class="o">{"halt": "completed",
+ "finalization": "dossier generated; handoff specs generated"}</span></pre>
     </div>
     <div>
       <div class="term" style="margin-top:0">
         <div class="term-bar">add to Claude Code</div>
         <pre><span class="p">$</span> claude mcp add bokken -- bokken serve</pre>
       </div>
-      <p class="term-note">Resources: <code>bokken://sessions</code>, per-session status, the full Journal, and the latest <code>dossier.json</code>.</p>
+      <p class="term-note">Resources: <code>bokken://sessions</code>, per-session status, the full
+      Journal as JSONL, and the latest <code>dossier.json</code>.</p>
+      <div class="invariant" style="margin-top:1.1rem;max-width:none">
+        <b>Attributed by handshake</b>
+        <p>State-changing calls are journaled with <code>actor.kind: agent</code> and the client's
+        <em>handshake</em> identity — stamped server-side, never read from tool arguments, so it
+        cannot be forged. <code>bokken journal &lt;name&gt; --actor agent</code> shows everything
+        agents did.</p>
+      </div>
     </div>
   </div>
 </section>
