@@ -20,8 +20,9 @@ def home(tmp_path: Path, monkeypatch):
 
 
 class FakeWalker:
-    def visit(self, app_url: str, *, max_pages: int = 6):
+    def visit(self, app_url: str, *, max_pages: int = 12, seed_paths=None):
         assert app_url == "http://fake.local"
+        assert seed_paths is not None  # repo routes reach the walker
         return [
             wt.PageObservation(
                 url="http://fake.local/",

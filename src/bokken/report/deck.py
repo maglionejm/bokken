@@ -111,6 +111,65 @@ class Deck:
         under = self.text(slide, x, y + Inches(0.62), w, Inches(1.9))
         self.para(under, body, size=9.5, first=True)
 
+    def apo(self, slide, stage: str, output_line: str):
+        """Agents & activity / Process / Output strip under the title."""
+        d = self.ctx.stage_digest.get(stage, {})
+        who = (
+            ", ".join(list(d.get("personas", []))[:5] + list(d.get("systems", []))) or "facilitator"
+        )
+        calls = ", ".join(f"{v} {k}" for k, v in sorted(d.get("calls", {}).items())) or "none"
+        blocks = [
+            (
+                "AGENTS & ACTIVITY",
+                f"{who}. Calls: {calls} on {', '.join(d.get('models', [])) or '-'}.",
+            ),
+            ("PROCESS", d.get("process", "")),
+            ("OUTPUT", output_line),
+        ]
+        x, w = MARGIN, Inches(3.95)
+        for label, body in blocks:
+            frame = self.text(slide, x, Inches(1.5), w, Inches(1.5))
+            self.para(frame, label, size=9, bold=True, color=ACCENT_DARK, first=True)
+            self.para(frame, body[:330], size=8.5)
+            x += w + Inches(0.12)
+
+    APO_BODY_TOP = Inches(3.15)
+
+    def anatomy(self):
+        m, c = self.ctx.model, self.ctx
+        s = self.slide()
+        self.header(s, "how this run worked", "The sequence, the cast, the machinery")
+        seq = self.text(s, MARGIN, Inches(1.5), BODY_W, Inches(0.5))
+        arrows = "   >   ".join(
+            f"{tr.from_stage}->{tr.to_stage}" + (" (loop-back)" if tr.loopback else "")
+            for tr in m.transitions
+        )
+        self.para(seq, arrows[:220], size=10, bold=True, first=True)
+        by_panel: dict[str, list] = {}
+        for pc in m.personas:
+            by_panel.setdefault(pc.panel_kind, []).append(pc)
+        left = self.text(s, MARGIN, Inches(2.2), Inches(6.4), Inches(4.4))
+        self.block_title(left, "The cast (synthetic, labeled)")
+        for kind in ("interview", "ideation", "test"):
+            cast = by_panel.get(kind, [])
+            if not cast:
+                continue
+            names = "; ".join(f"{pc.name} ({pc.role})" for pc in cast)
+            self.para(left, f"{kind} panel — {names}"[:250], size=9.5, before=6)
+        right = self.text(s, Inches(7.2), Inches(2.2), Inches(5.5), Inches(4.4))
+        self.block_title(right, "System agents and models")
+        self.bullets(
+            right,
+            [
+                "facilitator — stage machinery: programs, clustering, register, verdicts",
+                "ui-walker — real-browser walkthrough of the running app",
+                "lenses — feasibility vs code, RICE, outcome desirability",
+                "skeptic — mandatory on-record challenge",
+            ]
+            + [f"{u.model}: {u.calls} calls" for u in c.usage],
+            size=9.5,
+        )
+
     # -- slides -------------------------------------------------------------
 
     def cover(self):
@@ -243,8 +302,13 @@ class Deck:
         self.header(
             s, "intermediate output · empathize", "Evidence, with its confidence class on record"
         )
+        self.apo(
+            s,
+            "empathize",
+            f"{len(m.evidence)} evidence items, {len(m.abstentions)} abstention(s), {len(self.ctx.opportunities)} ranked outcomes.",
+        )
         grounded = [e for e in m.evidence.values() if e.stage == "empathize"][:5]
-        frame = self.text(s, MARGIN, Inches(1.6), BODY_W, Inches(4.6))
+        frame = self.text(s, MARGIN, self.APO_BODY_TOP, BODY_W, Inches(3.6))
         self.block_title(frame, f"Sample of {len(m.evidence)} captured items (verbatim)")
         for e in grounded:
             who = e.speaker or e.source
@@ -294,7 +358,12 @@ class Deck:
         self.header(
             s, "intermediate output · define", "Problem statement — winner and why the losers lost"
         )
-        frame = self.text(s, MARGIN, Inches(1.6), BODY_W, Inches(4.9))
+        self.apo(
+            s,
+            "define",
+            "One statement selected; losers preserved with reasons; opportunity coverage in the criteria.",
+        )
+        frame = self.text(s, MARGIN, self.APO_BODY_TOP, BODY_W, Inches(3.6))
         if not m.problem_statement:
             self.para(frame, "(define was not reached)", first=True)
             return
@@ -321,7 +390,12 @@ class Deck:
         m = self.ctx.model
         s = self.slide()
         self.header(s, "intermediate output · ideate", "Options on the table, one concept advanced")
-        frame = self.text(s, MARGIN, Inches(1.6), BODY_W, Inches(4.9))
+        self.apo(
+            s,
+            "ideate",
+            f"{len(m.options)} options with lineage; lens verdicts and dissent on record.",
+        )
+        frame = self.text(s, MARGIN, self.APO_BODY_TOP, BODY_W, Inches(3.6))
         self.block_title(frame, f"{len(m.options)} options generated")
         if m.concept:
             self.block_title(frame, "Advanced to prototype", first=False)
@@ -348,7 +422,12 @@ class Deck:
             "intermediate output · prototype",
             "Cheapest artifacts against the riskiest assumptions",
         )
-        frame = self.text(s, MARGIN, Inches(1.6), BODY_W, Inches(4.9))
+        self.apo(
+            s,
+            "prototype",
+            f"{len(m.assumptions)} assumptions; {len(self.ctx.prototype_artifacts)} artifacts hash-journaled.",
+        )
+        frame = self.text(s, MARGIN, self.APO_BODY_TOP, BODY_W, Inches(3.6))
         fidelity = next(
             (d for d in m.decisions.values() if d.question.startswith("prototype fidelity")), None
         )
@@ -374,9 +453,15 @@ class Deck:
         self.header(
             s, "intermediate output · test", "The assumption register, scored by a fresh panel"
         )
-        y = Inches(1.7)
+        counts = self.ctx.register_counts
+        self.apo(
+            s,
+            "test",
+            f"{counts['supported']} supported, {counts['contradicted']} contradicted, {counts['untested']} untested.",
+        )
+        y = self.APO_BODY_TOP
         bar_x, bar_w = Inches(9.9), Inches(2.8)
-        for a in list(m.assumptions.values())[:10]:
+        for a in list(m.assumptions.values())[:8]:
             frame = self.text(s, MARGIN, y, Inches(9.1), Inches(0.5))
             self.para(frame, a.statement[:140], size=9.5, first=True)
             color = SCORE_COLORS[a.score or "untested"]
@@ -482,6 +567,7 @@ class Deck:
     def render(self, out_path: Path) -> None:
         self.cover()
         self.executive_summary()
+        self.anatomy()
         self.process()
         self.inputs()
         self.empathize()

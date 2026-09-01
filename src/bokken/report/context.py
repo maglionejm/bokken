@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -62,6 +63,7 @@ class ReportContext:
     opportunities: list[str] = field(default_factory=list)
     ui_review: str | None = None
     ui_screenshots: list[str] = field(default_factory=list)
+    stage_digest: dict[str, dict] = field(default_factory=dict)
     dossier_paths: list[str] = field(default_factory=list)
 
     @property
@@ -132,6 +134,52 @@ def _ranked_opportunities(model: DossierModel) -> list[str]:
     return sorted(records, key=score, reverse=True)
 
 
+STAGE_PROCESS = {
+    "empathize": "Corpus-calibrated interview program per segment; grounded persona "
+    "interviews with citation-validated answers or honest abstention; functional UI "
+    "walkthrough of the running app; JTBD desired-outcome derivation and per-persona "
+    "Importance/Satisfaction scoring into a deterministic Ulwick opportunity ranking.",
+    "define": "Evidence clustered into insights tied to underserved outcomes; "
+    "point-of-view candidates drafted and reframed (HMW) when solution-shaped; winner "
+    "selected on evidence + opportunity coverage with losers preserved.",
+    "ideate": "Quota-driven work-alone divergence tied to outcome IDs with novelty "
+    "monitoring; skeptic challenge on record; convergence through three firewalled "
+    "lenses - adversarial feasibility vs the codebase (green/amber/red + first honest "
+    "slice), independent RICE, outcome desirability.",
+    "prototype": "Assumption register built and risk-classified (impact x uncertainty); "
+    "cheapest artifact set chosen against the riskiest assumption; artifacts generated "
+    "and hash-journaled with assumption linkage.",
+    "test": "Fresh firewalled panel evaluates the prototype against every register "
+    "entry; quantified kill/iterate/proceed recommendation with loop-back proposal on "
+    "contradiction.",
+}
+
+
+def _stage_digest(model: DossierModel) -> dict[str, dict]:
+    digest: dict[str, dict] = {}
+    for stage in ("empathize", "define", "ideate", "prototype", "test"):
+        traces = [t for t in model.model_traces if t.stage == stage]
+        speakers = sorted(
+            {e.speaker for e in model.evidence.values() if e.stage == stage and e.speaker}
+        )
+        systems = sorted(
+            {
+                e.source
+                for e in model.evidence.values()
+                if e.stage == stage and not e.speaker and e.source == "ui_walkthrough"
+            }
+        )
+        digest[stage] = {
+            "personas": speakers,
+            "systems": (["ui-walker (browser)"] if systems else []) + ["facilitator"],
+            "calls": dict(Counter(t.routing_class for t in traces)),
+            "models": sorted({t.model for t in traces}),
+            "moves": sorted({m.move_id for m in model.moves if m.stage == stage and m.executed}),
+            "process": STAGE_PROCESS[stage],
+        }
+    return digest
+
+
 def _ui_review(session_dir: Path, model: DossierModel) -> str | None:
     artifact = next((a for a in model.artifacts if a.kind == "ui_review"), None)
     if artifact is None:
@@ -193,5 +241,6 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         opportunities=_ranked_opportunities(model),
         ui_review=_ui_review(session_dir, model),
         ui_screenshots=[a.path for a in model.artifacts if a.kind == "ui_screenshot"],
+        stage_digest=_stage_digest(model),
         dossier_paths=dossier_paths,
     )

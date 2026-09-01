@@ -35,7 +35,7 @@ state, which is what makes every run crash-safe and resumable by construction.
   MODEL OPS  │  MODEL ROUTER   src/bokken/models              │
              │  routing classes → models (research/challenge →│
              │  claude-fable-5 high, cognition/generation →   │
-             │  claude-opus-4-8 high, extraction → claude-haiku-│
+             │  claude-fable-5 high, extraction → claude-haiku- │
              │  4-5), budget pre-check, structured outputs,   │
              │  versioned prompts, every call → model.called  │
              │  └── AnthropicProvider (SDK; swappable seam)   │

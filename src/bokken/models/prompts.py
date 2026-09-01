@@ -80,12 +80,15 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
     ),
     "empathize/ui_review": (
-        "v1",
+        "v2",
         QUALITY_CONTRACT
         + "You just walked through the running product as a first-time user. Below are "
         "the observed facts per screen (real observations, not simulations).\n"
         "Problem space: {brief}\n"
+        "Coverage: {coverage}\n"
         "Observations:\n{observations}\n"
+        "Open by stating the coverage so the reader knows what this review does and "
+        "does not cover.\n"
         "Write a functional UI review in markdown for the founder: (1) what the "
         "product does well at first contact - be specific and generous where earned; "
         "(2) findings, each as 'screen -> observed fact -> why it matters -> concrete "
