@@ -3,4 +3,4 @@
 Test with wood; commit steel when it counts.
 """
 
-__version__ = "0.5.1"
+__version__ = "0.5.2"
