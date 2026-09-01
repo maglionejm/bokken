@@ -75,6 +75,10 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
         generate_report(session_dir)
         report_generated = True
 
+    from bokken.library import append_learnings
+
+    append_learnings(session_dir)
+
     return FinalizeResult(
         dossier_generated=dossier_generated,
         handoff_generated=handoff_generated,

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from bokken.journal import replay
 from bokken.journal.schema import content_hash
+from bokken.library import prior_learnings_text
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
 from bokken.stages.base import (
@@ -66,6 +67,9 @@ class EmpathizeEngine:
             params={
                 "brief": dumps(ctx.state.brief),
                 "inputs_available": _describe_inputs(ctx.state.brief.get("inputs", {})),
+                "prior_learnings": prior_learnings_text(
+                    ctx.state.brief, exclude_session=ctx.state.name
+                ),
             },
         )
         if program is None:

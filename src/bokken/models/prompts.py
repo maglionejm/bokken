@@ -23,13 +23,15 @@ CACHE_SPLIT = "\n<<<CACHE>>>\n"  # provider caches everything before the marker
 # journals keep the version each run actually used.
 PROMPTS: dict[str, tuple[str, str]] = {
     "empathize/interview_program": (
-        "v3",
+        "v4",
         QUALITY_CONTRACT
         + "You are designing a research program for the brief below. The interviewees are "
         "personas who can only state facts found in the session's evidence corpus - they "
         "abstain on anything it cannot support.\n"
         "Brief: {brief}\n"
         "Evidence corpus available: {inputs_available}\n"
+        "Learnings from earlier runs on this product (do not re-ask what is settled; "
+        "probe what was contradicted or broken):\n{prior_learnings}\n"
         "Write 2-4 questions per target segment, calibrated to that corpus:\n"
         "- If the corpus contains interview/discussion material, ask about concrete past "
         "behavior (laddering into specific incidents).\n"
