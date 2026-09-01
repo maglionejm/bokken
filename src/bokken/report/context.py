@@ -28,6 +28,9 @@ EXCLUDED_ARTIFACT_KINDS = {
 # List prices per million tokens (input, output); estimates only, labeled as such.
 PRICE_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-fable-5": (10.0, 50.0),
+    "claude-opus-5": (5.0, 25.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "claude-sonnet-4-6": (3.0, 15.0),
     "claude-opus-4-8": (5.0, 25.0),
     "claude-haiku-4-5": (1.0, 5.0),
 }
@@ -82,6 +85,41 @@ class ReportContext:
         space = str(self.model.brief.get("problem_space", "") or self.model.name)
         line = first_sentence(space)
         return line if len(line) <= 140 else line[:137].rstrip() + "..."
+
+
+def cost_rows(model: DossierModel) -> list[dict]:
+    """One row per stage x prompt_id x class from journaled model calls."""
+    rows: dict[tuple, dict] = {}
+    for tr in model.model_traces:
+        key = (tr.stage or "-", tr.prompt_id, tr.routing_class, tr.model)
+        row = rows.setdefault(
+            key,
+            {
+                "stage": key[0],
+                "prompt_id": key[1],
+                "class": key[2],
+                "model": key[3],
+                "calls": 0,
+                "input": 0,
+                "output": 0,
+                "cache_read": 0,
+            },
+        )
+        row["calls"] += 1
+        row["input"] += tr.usage.get("input_tokens", 0)
+        row["output"] += tr.usage.get("output_tokens", 0)
+        row["cache_read"] += tr.usage.get("cache_read_tokens", 0)
+    out = []
+    for row in rows.values():
+        p_in, p_out = PRICE_PER_MTOK.get(row["model"], DEFAULT_PRICE)
+        row["cost_usd"] = round(
+            row["input"] / 1e6 * p_in
+            + row["cache_read"] / 1e6 * p_in * 0.1
+            + row["output"] / 1e6 * p_out,
+            4,
+        )
+        out.append(row)
+    return sorted(out, key=lambda r: -r["cost_usd"])
 
 
 def split_losers(options: list[str]) -> list[tuple[str, str]]:

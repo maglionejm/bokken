@@ -23,14 +23,14 @@ follow-ups, desired-outcome derivation) → `claude-fable-5` at `effort: high`;
 kill/iterate/proceed recommendation) → `claude-fable-5` at `effort: high`;
 `cognition` (stage execution mechanics: clustering, candidate drafting,
 selection, assumption enumeration, fidelity choice, idea generation) →
-`claude-fable-5` at `effort: high`; `generation`
-(long-form artifact and specification writing) → `claude-fable-5` at
-`effort: high` with streaming; `extraction` (lightweight
+`claude-opus-5` with adaptive thinking at `effort: high`; `generation`
+(long-form artifact and specification writing) → `claude-opus-5` with
+adaptive thinking at `effort: high` and streaming; `sidekick` (delegated context reading: corpus retrieval for interview turns, mechanical UI-step selection) → `claude-opus-5`; `extraction` (lightweight
 classification) → `claude-haiku-4-5`. Fable 5 requests SHALL omit the
 `thinking` parameter and SHALL opt into the server-side refusal fallback to
 `claude-opus-4-8`; a refusal that survives the fallback chain is journaled as
 `refused`. Routing SHALL remain configurable per session at creation (model
-per class within an allowlist that includes `claude-fable-5`) and the
+per class within an allowlist that includes `claude-fable-5`, `claude-opus-5`, and `claude-sonnet-5`) and the
 resolved routing table SHALL be journaled in the session config snapshot.
 Requests in reasoning classes SHALL use structured outputs with schema
 validation whenever the consumer expects typed data.
@@ -48,12 +48,17 @@ validation whenever the consumer expects typed data.
 #### Scenario: Execution and documentation run on Opus high
 
 - **WHEN** a define clustering call and a handoff specification call are dispatched with default routing
-- **THEN** both requests target `claude-fable-5` at `output_config.effort` `high`; Opus appears only as the journaled refusal fallback
+- **THEN** both requests target `claude-opus-5` with adaptive thinking and `output_config.effort` `high`
 
 #### Scenario: Routing table is part of the session snapshot
 
 - **WHEN** a session is created with a routing override
 - **THEN** `session.created`'s config snapshot contains the full resolved routing table
+
+#### Scenario: Sidekick handles the mechanical reads
+
+- **WHEN** an interview turn faces a corpus above the delegation threshold
+- **THEN** a `sidekick`-class call retrieves source-marked spans, the research-class turn receives only those slices, and both calls are journaled
 
 ### Requirement: Every call is journaled
 
@@ -113,3 +118,30 @@ option so tests run offline.
 
 - **WHEN** a cognition-class call passes `web_search=True`
 - **THEN** the router rejects the invocation with a typed error
+
+### Requirement: Parallel prompt caches
+
+Prompts MAY declare a cache split: the provider SHALL send everything before
+the split as a cache-controlled block so each lane keeps its own persistent
+cached prefix (the sidekick's corpus, the lens prompts' shared option set).
+Per-call journaled usage SHALL carry cache-read tokens so `bokken costs` can
+report hit rates. Switching lanes SHALL never invalidate the other lane's
+cache (they are per-model by construction).
+
+#### Scenario: The corpus is paid for once
+
+- **WHEN** twelve interview turns run against the same corpus within the cache TTL
+- **THEN** the corpus tokens are written once and read from cache thereafter, and the cost report shows a non-zero cache hit rate
+
+### Requirement: Frontier judgment is never delegated
+
+Calls that feed a `decision.recorded` (selection, lens votes, skeptic,
+recommendation, specification) and persona voice SHALL remain on the
+frontier lanes (`research`/`challenge`/`cognition`/`generation`); the
+sidekick's concluding UI verdict SHALL be confirmed by a research-class
+call before it is journaled.
+
+#### Scenario: Verdicts escalate
+
+- **WHEN** the sidekick proposes a feature-test verdict
+- **THEN** a research-class call confirms it and the journaled verdict comes from the frontier

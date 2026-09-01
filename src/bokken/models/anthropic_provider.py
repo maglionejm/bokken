@@ -48,7 +48,17 @@ class AnthropicProvider:
         max_tokens: int,
         web_search: bool = False,
     ) -> ProviderResult:
-        messages = [{"role": "user", "content": rendered}]
+        from bokken.models.prompts import CACHE_SPLIT
+
+        if CACHE_SPLIT in rendered:
+            prefix, suffix = rendered.split(CACHE_SPLIT, 1)
+            content = [
+                {"type": "text", "text": prefix, "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": suffix},
+            ]
+        else:
+            content = rendered
+        messages = [{"role": "user", "content": content}]
         kwargs: dict = {"model": model, "max_tokens": max_tokens, "messages": messages}
         is_fable = model.startswith("claude-fable")
         if routing_class in ("research", "challenge", "cognition", "generation"):

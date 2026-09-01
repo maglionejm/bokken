@@ -199,7 +199,8 @@ def new(
             if gates in ("none", "stage_boundaries")
             else [s.strip() for s in gates.split(",")]
         )
-    budgets = {"total_tokens": budget} if budget else None
+    # Default guardrail: a run stops honestly instead of surprising on cost.
+    budgets = {"total_tokens": budget} if budget else {"total_tokens": 20_000_000}
     session_dir = create_session(
         name,
         brief=Brief.model_validate(brief_data),
@@ -427,6 +428,36 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
         as_json,
         lambda: out.print(f"dossier ({dossier_status}):\n  {md_path}\n  {json_path}"),
     )
+
+
+@app.command("costs")
+@guarded
+def costs(name: str, as_json: JsonFlag = False) -> None:
+    """Cost report from the journaled model calls (list-price estimate)."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
+    rows = cost_rows(build_model(resolve_session_dir(name)))
+    total = round(sum(r["cost_usd"] for r in rows), 2)
+    hit = sum(r["cache_read"] for r in rows)
+    raw = sum(r["input"] for r in rows)
+    payload = {
+        "rows": rows,
+        "total_usd": total,
+        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+    }
+    if as_json:
+        print(json.dumps(payload, indent=2))
+        return
+    out.print(
+        f"{'stage':<10}{'prompt_id':<30}{'class':<11}{'calls':>6}{'input':>12}{'cached':>10}{'out':>8}{'~$':>8}"
+    )
+    for r in rows:
+        out.print(
+            f"{r['stage']:<10}{r['prompt_id']:<30}{r['class']:<11}{r['calls']:>6}"
+            f"{r['input']:>12,}{r['cache_read']:>10,}{r['output']:>8,}{r['cost_usd']:>8.2f}"
+        )
+    out.print(f"total ~${total} (list prices) · cache hit rate {payload['cache_hit_rate']:.0%}")
 
 
 @app.command("export")

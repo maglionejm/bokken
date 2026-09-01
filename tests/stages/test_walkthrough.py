@@ -187,3 +187,25 @@ def test_concept_research_skipped_without_flag(tmp_path) -> None:
     ]
     assert skip and "allow_web_research" in skip[0].payload["gap"]
     assert not any(e.type == "model.called" and e.payload.get("web_search") for e in events)
+
+
+def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> None:
+    from bokken.journal.store import JournalStore
+    from bokken.models import ModelRouter
+    from bokken.orchestrator import create_session
+    from bokken.stages.persona_gen import RouterTurnGenerator
+
+    session_dir = create_session("sidekick-unit", brief=BRIEF, mode="dojo", gate_policy="none")
+    provider = ScriptedProvider()
+    with JournalStore.open(session_dir) as store:
+        generator = RouterTurnGenerator(ModelRouter(store, provider))
+        big_context = "\n".join(
+            f"[source abcdef123456 (code) L{i}-L{i}] line {i}" for i in range(2000)
+        )
+        sliced = generator._sliced_context("what does the code do?", big_context)
+    assert provider.calls["sidekick/context_query"] == 1
+    assert "[source " in sliced and len(sliced) < len(big_context) / 10
+    events = list(read_events(session_dir))
+    call = next(e for e in events if e.type == "model.called")
+    assert call.payload["routing_class"] == "sidekick"
+    assert call.payload["model"] == "claude-opus-5"

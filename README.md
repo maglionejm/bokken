@@ -166,7 +166,7 @@ with overlap, sourced signals, regulatory notes, risks — that feeds the
 assumption register and the reports.
 
 Models: `claude-fable-5` (effort high, Opus fallback) for research and challenge
-agents, `claude-fable-5` (effort high) for execution and documentation too — Opus only as refusal fallback —,
+agents, `claude-opus-5` (adaptive, effort high) for execution and documentation,
 `claude-haiku-4-5` for lightweight signal extraction — every call journaled with
 prompt version, token
 usage, and request id. The entire test suite runs offline.
