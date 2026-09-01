@@ -11,9 +11,8 @@ debt: a Dojo run never reaches the outside world silently.
 
 from __future__ import annotations
 
-import hashlib
-
 from bokken.journal import Actor
+from bokken.journal.schema import content_hash
 from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import MarketResearch
 
@@ -142,7 +141,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
             payload={
                 "path": f"artifacts/research/{name}",
                 "kind": "market_research",
-                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "content_hash": content_hash(content),
             },
             refs=refs,
         )

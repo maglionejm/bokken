@@ -117,6 +117,12 @@ state, which is what makes every run crash-safe and resumable by construction.
   server-side web search produces a structured market record - competitors
   with overlap, sourced signals, regulatory, risks - journaled as `reported`
   evidence and fed to the assumption register.
+- **Fusion lanes (cost architecture)**: a frontier lane (Fable 5 for
+  research/challenge, Opus 5 for execution/documentation) and a sidekick
+  lane (Opus 5) with parallel per-lane prompt caches. The sidekick reads —
+  corpus retrieval as verbatim spans, UI-step selection — so the frontier
+  judges; anything feeding a `decision.recorded` never leaves the frontier.
+  `bokken costs` reports spend and cache hit-rate from the journal.
 - **One model seam**: nothing outside `bokken.models` touches the Anthropic
   SDK; the whole harness runs offline against a fake provider in tests.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are

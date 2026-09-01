@@ -165,6 +165,9 @@ Once a concept is selected, an authorized deep web research pass
 with overlap, sourced signals, regulatory notes, risks — that feeds the
 assumption register and the reports.
 
+The full actor roster — lanes, models, and what each agent may never do —
+lives in [docs/agents.md](docs/agents.md).
+
 Models: `claude-fable-5` (effort high, Opus fallback) for research and challenge
 agents, `claude-opus-5` (adaptive, effort high) for execution and documentation,
 `claude-haiku-4-5` for lightweight signal extraction — every call journaled with

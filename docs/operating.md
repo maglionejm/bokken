@@ -108,6 +108,7 @@ produced on demand:
 bokken dossier retention
 bokken handoff retention
 bokken export retention     # report/report.pptx + report/report.html
+bokken costs retention      # spend per stage x prompt x class, cache hit rate
 ```
 
 **Dossier** — `dossier/dossier.md` (Part A outcomes + Part B process narrative +
@@ -181,10 +182,10 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | --- | --- | --- |
 | Mode | `--mode` | `founder` (interactive) / `dojo` (autonomous). |
 | Gate policy | `--gates` | `none` (founder default) · `stage_boundaries` (dojo default) · CSV of stages, e.g. `define,test` |
-| Token budget | `--budget` | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
+| Token budget | `--budget` (default 20M total) | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance: the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
-| Model routing | core `config.routing` | per-class overrides within the allowlist (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: research/challenge → fable-5 at effort high (server-side refusal fallback to opus-4-8), cognition/generation → opus-5 at effort high, extraction → haiku-4-5 |
+| Model routing | core `config.routing` | per-class overrides (override only — active defaults are fable-5 for research/challenge, opus-5 for cognition/generation/sidekick, haiku-4-5 for extraction) within the allowlist (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: research/challenge → fable-5 at effort high (server-side refusal fallback to opus-4-8), cognition/generation → opus-5 at effort high, extraction → haiku-4-5 |
 
 **Brief format** (`--brief brief.json`):
 

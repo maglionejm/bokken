@@ -250,3 +250,8 @@ bokken journal retention --type session --json \
   Dossier for the post-mortem instead.
 - **Paths in `brief.inputs` resolve on the server**, not the client — pass
   absolute paths the `bokken serve` process can read.
+
+## Report and cost tools
+
+- `export_report(name)` — regenerates and returns the PPTX + HTML report paths (same shape as `bokken export --json`).
+- `cost_report(name)` — per-stage/prompt/class cost rows with totals and cache hit rate (same data as `bokken costs --json`).

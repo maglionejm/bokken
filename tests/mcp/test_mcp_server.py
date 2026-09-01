@@ -79,6 +79,8 @@ async def test_capabilities_listing() -> None:
             "submit_input",
             "query_journal",
             "generate_dossier",
+            "export_report",
+            "cost_report",
         } <= tools
         templates = (await client.list_resource_templates()).resource_templates
         uris = {t.uri_template for t in templates}

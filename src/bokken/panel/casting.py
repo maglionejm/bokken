@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import random
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from bokken.journal import Actor, Event, JournalStore, Stage
+from bokken.journal.schema import content_hash, short_id
 
 PanelKind = Literal["interview", "ideation", "test"]
 Role = Literal["segment", "skeptic", "feasibility", "viability"]
@@ -104,7 +104,7 @@ def _persona_id(role: str, segment: str | None, profile: dict, ocean: dict, seed
         {"role": role, "segment": segment, "profile": profile, "ocean": ocean, "seed": seed},
         sort_keys=True,
     )
-    return hashlib.sha256(material.encode()).hexdigest()[:12]
+    return short_id(material)
 
 
 def cast_panel(
@@ -188,7 +188,7 @@ def journal_manifest(
         payload={
             "path": str(path),
             "kind": "panel_manifest",
-            "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+            "content_hash": content_hash(content),
             "panel_kind": panel_kind,
             "seed": seed,
             "persona_ids": [p.persona_id for p in personas],

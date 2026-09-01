@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +18,7 @@ from bokken.journal import (
     replay,
     resolve_session_dir,
 )
+from bokken.journal.schema import short_id
 from bokken.journal.store import read_events
 from bokken.orchestrator import InputRequired, Runner, create_session
 
@@ -85,7 +85,7 @@ def _client_actor(ctx: Context) -> Actor:
 
 
 def _question_id(question: str) -> str:
-    return hashlib.sha256(question.encode()).hexdigest()[:12]
+    return short_id(question)
 
 
 class MailboxPort:
@@ -322,6 +322,36 @@ def generate_dossier(name: str) -> dict:
     return contract.DossierResult(
         markdown_path=str(md_path), json_path=str(json_path), status=status
     ).model_dump()
+
+
+@mcp.tool()
+@surfaced
+def export_report(name: str) -> dict:
+    """Export the run report (PPTX deck + self-contained HTML) and return the paths."""
+    from bokken.report.generate import ReportError, generate_report
+
+    try:
+        pptx_path, html_path = generate_report(resolve_session_dir(name))
+    except ReportError as err:
+        raise ToolError(str(err)) from err
+    return contract.ExportResult(pptx_path=str(pptx_path), html_path=str(html_path)).model_dump()
+
+
+@mcp.tool()
+@surfaced
+def cost_report(name: str) -> dict:
+    """Cost report from the journaled model calls (list-price estimate, cache hit rate)."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
+    rows = cost_rows(build_model(resolve_session_dir(name)))
+    hit = sum(r["cache_read"] for r in rows)
+    raw = sum(r["input"] for r in rows)
+    return {
+        "rows": rows,
+        "total_usd": round(sum(r["cost_usd"] for r in rows), 2),
+        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+    }
 
 
 # --- resources ------------------------------------------------------------------
