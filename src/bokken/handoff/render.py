@@ -106,6 +106,23 @@ def normalize(package: SpecPackage, ctx: HandoffContext) -> SpecPackage:
     return package.model_copy(update={"capabilities": capabilities})
 
 
+def _slice_sections(package: SpecPackage) -> str:
+    """Workshop-style slice plans, dependencies, and PR-train sequencing."""
+    parts: list[str] = []
+    sliced = [c for c in package.capabilities if c.slices or c.dependencies]
+    if sliced:
+        parts.append("\n## Slice plan\n")
+        for c in sliced:
+            for sl in c.slices:
+                parts.append(f"- `{c.name}` slice ({sl.size}): {sl.name} — {sl.what}")
+            for dep in c.dependencies:
+                parts.append(f"- `{c.name}` depends on: {dep}")
+    if package.sequencing:
+        parts.append("\n## Sequencing (build order, not importance order)\n")
+        parts.extend(f"{i}. {step}" for i, step in enumerate(package.sequencing, 1))
+    return "\n".join(parts) + ("\n" if parts else "")
+
+
 def render_package(package: SpecPackage, ctx: HandoffContext) -> dict[str, str]:
     """Return {relative_path: content} for the whole handoff directory."""
     change_dir = f"openspec/changes/{ctx.change_id}"
@@ -124,7 +141,7 @@ def render_package(package: SpecPackage, ctx: HandoffContext) -> dict[str, str]:
         f"## Capabilities\n\n### New Capabilities\n\n{capability_lines}\n\n"
         f"### Modified Capabilities\n\n(none)\n\n"
         f"## Impact\n\nGreenfield MVP implementation of the validated concept: "
-        f"{ctx.concept}.\n"
+        f"{ctx.concept}.\n" + _slice_sections(package)
     )
 
     exclusions = (

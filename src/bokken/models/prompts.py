@@ -265,7 +265,7 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "undermines an earlier insight or the problem statement, say which.\n",
     ),
     "handoff/specify": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT
         + "Turn a validated concept into build-ready OpenSpec specifications for its MVP.\n"
         "Problem statement: {problem_statement}\n"
@@ -277,9 +277,11 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "Prototype artifacts available as reference: {artifacts}\n"
         "Produce a spec package: 1-3 kebab-case capabilities, each with a purpose and "
         "testable requirements (normative SHALL statements) with WHEN/THEN scenarios. "
-        "Reference the assumption indexes each requirement rests on. Slice for an "
-        "honest first release: the smallest scope that tests the hypothesis. Keep the "
-        "MVP light: specify only what the validated concept needs.\n",
+        "Reference the assumption indexes each requirement rests on. For each capability "
+        "give 1-3 slices (name, size S/M/L, what ships) and its dependencies; give a "
+        "package-level sequencing list - the PR-train build order with a one-line "
+        "rationale each (quick wins and enablers first, order != importance). Keep "
+        "the MVP light: specify only what the validated concept needs.\n",
     ),
 }
 
