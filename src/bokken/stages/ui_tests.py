@@ -21,8 +21,8 @@ from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import FeatureInventory, UIAction
 
 TESTER_ACTOR = Actor(kind="agent", name="ui-tester", model="claude-fable-5")
-MAX_FEATURES = 8
-MAX_STEPS = 4
+MAX_FEATURES = 8  # default; config ui_tests.max_features
+MAX_STEPS = 4  # default; config ui_tests.max_steps
 DESTRUCTIVE = re.compile(
     r"delete|remove|borrar|eliminar|logout|cerrar sesi|sign out|reset|wipe|drop|purge",
     re.IGNORECASE,
@@ -162,6 +162,9 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
 
     Returns the per-feature results for the UI review prompt.
     """
+    cfg = ctx.state.config.get("ui_tests", {})
+    max_features = cfg.get("max_features", MAX_FEATURES)
+    max_steps = cfg.get("max_steps", MAX_STEPS)
     tester = build_tester()
     try:
         tester.start(app_url)
@@ -185,13 +188,13 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
         results: list[dict] = []
         ui_dir = ctx.store.session_dir / "artifacts" / "ui"
         ui_dir.mkdir(parents=True, exist_ok=True)
-        for f_idx, feature in enumerate(inventory.features[:MAX_FEATURES], 1):
+        for f_idx, feature in enumerate(inventory.features[:max_features], 1):
             if feature.entry_hint:
                 with contextlib.suppress(Exception):
                     tester.goto(feature.entry_hint)
             steps: list[str] = []
             verdict, finding = "unclear", ""
-            for _step in range(MAX_STEPS):
+            for _step in range(max_steps):
                 # Fusion: mechanical stepping on the sidekick lane; the concluding
                 # verdict escalates to the frontier below.
                 action = structured(

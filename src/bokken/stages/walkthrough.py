@@ -278,9 +278,10 @@ def run_walkthrough(ctx, router) -> None:
             },
         )
         return
+    max_pages = ctx.state.config.get("walkthrough", {}).get("max_pages", MAX_PAGES)
     seed_paths = routes_from_repo(inputs.get("repo"))
     try:
-        observations = build_walker().visit(app_url, max_pages=MAX_PAGES, seed_paths=seed_paths)
+        observations = build_walker().visit(app_url, max_pages=max_pages, seed_paths=seed_paths)
     except WalkerUnavailable as exc:
         ctx.store.append(
             type="evidence.abstained",

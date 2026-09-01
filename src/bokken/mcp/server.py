@@ -88,6 +88,21 @@ def _question_id(question: str) -> str:
     return short_id(question)
 
 
+def _atomic_write(path, payload: str) -> None:
+    """Rename-based atomicity so concurrent clients never read torn JSON."""
+    import os
+    import tempfile
+
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".mailbox-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
 class MailboxPort:
     """Input port backed by workspace files: pending question out, answers in.
 
@@ -106,10 +121,10 @@ class MailboxPort:
             answers = json.loads(self.answers_path.read_text())
         if qid in answers:
             answer = answers.pop(qid)
-            self.answers_path.write_text(json.dumps(answers))
+            _atomic_write(self.answers_path, json.dumps(answers))
             self.pending_path.unlink(missing_ok=True)
             return answer
-        self.pending_path.write_text(json.dumps({"question_id": qid, "question": question}))
+        _atomic_write(self.pending_path, json.dumps({"question_id": qid, "question": question}))
         raise InputRequired(question)
 
     def pending(self) -> dict[str, str] | None:
@@ -128,7 +143,7 @@ class MailboxPort:
         if self.answers_path.exists():
             answers = json.loads(self.answers_path.read_text())
         answers[question_id] = answer
-        self.answers_path.write_text(json.dumps(answers))
+        _atomic_write(self.answers_path, json.dumps(answers))
 
 
 def _runner(name: str) -> tuple[Runner, MailboxPort]:

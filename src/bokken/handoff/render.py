@@ -66,6 +66,16 @@ def scaffold_scenario(requirement: RequirementDraft) -> ScenarioDraft:
     )
 
 
+def _bounded_indexes(indexes: list[int], upper: int) -> list[int]:
+    bad = [i for i in indexes if not 0 <= i < upper]
+    if bad:
+        raise HandoffFormatError(
+            f"requirement references assumption index(es) {bad} outside the register "
+            f"(0..{upper - 1}); generation is inconsistent"
+        )
+    return list(indexes)
+
+
 def normalize(package: SpecPackage, ctx: HandoffContext) -> SpecPackage:
     """Drop anything resting on contradicted assumptions; repair format issues."""
     capabilities: list[CapabilityDraft] = []
@@ -80,11 +90,9 @@ def normalize(package: SpecPackage, ctx: HandoffContext) -> SpecPackage:
                     name=requirement.name.strip(),
                     statement=ensure_shall(requirement.statement),
                     scenarios=scenarios,
-                    assumption_indexes=[
-                        i
-                        for i in requirement.assumption_indexes
-                        if 0 <= i < len(ctx.assumption_ids)
-                    ],
+                    assumption_indexes=_bounded_indexes(
+                        requirement.assumption_indexes, len(ctx.assumption_ids)
+                    ),
                 )
             )
         if requirements:

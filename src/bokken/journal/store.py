@@ -67,6 +67,14 @@ class JournalStore:
             raise SessionLockedError(
                 f"session at {session_dir} is locked by another writer"
             ) from exc
+        # A writer must never extend a corrupted or truncated chain.
+        if (session_dir / JOURNAL_FILENAME).exists():
+            try:
+                verify_chain(session_dir)
+            except Exception:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+                raise
         return cls(session_dir, lock_file)
 
     def close(self) -> None:

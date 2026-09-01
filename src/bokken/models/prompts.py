@@ -301,6 +301,11 @@ def render_prompt(prompt_id: str, **params: Any) -> tuple[str, str, str]:
     if prompt_id not in PROMPTS:
         raise UnknownPromptError(prompt_id)
     version, template = PROMPTS[prompt_id]
-    rendered = template.format(**params)
+    # Corpus text must never smuggle the cache marker into the rendered prompt.
+    safe = {
+        k: v.replace(CACHE_SPLIT.strip(), "<cache-marker-removed>") if isinstance(v, str) else v
+        for k, v in params.items()
+    }
+    rendered = template.format(**safe)
     content_hash = hashlib.sha256(rendered.encode()).hexdigest()
     return version, rendered, content_hash

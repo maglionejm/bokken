@@ -23,7 +23,7 @@ from bokken.stages.base import (
 )
 from bokken.stages.schemas import IdeaBatch, NoveltyVerdict, SkepticChallenge, Votes
 
-NOVELTY_WINDOW = 6
+NOVELTY_WINDOW = 6  # default; override via config ideation.novelty_window
 DEFAULT_CRITERIA = ["desirability", "feasibility", "viability"]
 
 
@@ -36,6 +36,7 @@ class IdeateEngine:
         state = ctx.state
         config = state.config.get("ideation", {})
         quota = config.get("quota", 3)
+        window = config.get("novelty_window", NOVELTY_WINDOW)
         floor = config.get("novelty_floor") or state.config.get("budgets", {}).get(
             "novelty_floor", 0.2
         )
@@ -99,9 +100,9 @@ class IdeateEngine:
                 if is_novel:
                     clusters.append(idea.summary)
                 novelty.append(is_novel)
-            window = novelty[-NOVELTY_WINDOW:]
-            rate = sum(window) / len(window) if window else 1.0
-            if ctx.kata is not None and len(novelty) >= NOVELTY_WINDOW:
+            window_slice = novelty[-window:]
+            rate = sum(window_slice) / len(window_slice) if window_slice else 1.0
+            if ctx.kata is not None and len(novelty) >= window:
                 event = ctx.kata.evaluate(
                     "timebox_pivot",
                     replay(ctx.store.events()),

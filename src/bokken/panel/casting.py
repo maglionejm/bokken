@@ -115,7 +115,7 @@ def cast_panel(
     grounding_sources: list[str] | None = None,
 ) -> list[Persona]:
     """Deterministically cast a panel: role agents + sampled segment personas."""
-    segments = list(brief.get("target_segments", []))
+    segments = list(brief.get("target_segments", [])) or ["general"]  # never 0-div
     minimum = len(ROLE_AGENTS) + len(segments)
     if size < minimum:
         raise CastingError(

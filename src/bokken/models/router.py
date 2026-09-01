@@ -228,7 +228,7 @@ class ModelRouter:
                 "prompt_hash": content_hash,
                 "request_id": request_id,
                 "usage": usage,
-                "status": "error" if status == "budget_exhausted" else status,
+                "status": status,
                 "duration_ms": duration_ms,
                 "web_search": web_search,
             },

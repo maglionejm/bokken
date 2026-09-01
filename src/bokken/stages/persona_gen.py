@@ -20,7 +20,8 @@ class RouterTurnGenerator:
     def _sliced_context(self, question: str, context: str) -> str:
         """Fusion delegation: the sidekick (cached corpus prefix) returns the
         relevant spans; the frontier turn only pays for the slices."""
-        if len(context) <= DELEGATE_THRESHOLD_CHARS:
+        threshold = DELEGATE_THRESHOLD_CHARS
+        if len(context) <= threshold:
             return context
         outcome = self.router.invoke(
             "sidekick",
