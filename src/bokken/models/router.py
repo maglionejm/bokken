@@ -19,9 +19,9 @@ from bokken.models.prompts import render_prompt
 DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "research": "claude-fable-5",
     "challenge": "claude-fable-5",
-    "cognition": "claude-opus-4-8",
+    "cognition": "claude-fable-5",
     "extraction": "claude-haiku-4-5",
-    "generation": "claude-opus-4-8",
+    "generation": "claude-fable-5",
 }
 
 MODEL_ALLOWLIST = frozenset(

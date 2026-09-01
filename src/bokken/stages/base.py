@@ -12,7 +12,7 @@ from bokken.journal import Actor, JournalStore, RoutingClass, Stage
 from bokken.models.router import ModelRouter
 from bokken.orchestrator import StageContext
 
-FACILITATOR = Actor(kind="agent", name="facilitator", model="claude-opus-4-8")
+FACILITATOR = Actor(kind="agent", name="facilitator", model="claude-fable-5")
 FOUNDER = Actor(kind="human", name="founder")
 
 RouterFactory = Callable[[JournalStore], ModelRouter]

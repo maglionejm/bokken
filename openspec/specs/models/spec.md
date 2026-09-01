@@ -23,9 +23,9 @@ follow-ups, desired-outcome derivation) → `claude-fable-5` at `effort: high`;
 kill/iterate/proceed recommendation) → `claude-fable-5` at `effort: high`;
 `cognition` (stage execution mechanics: clustering, candidate drafting,
 selection, assumption enumeration, fidelity choice, idea generation) →
-`claude-opus-4-8` with adaptive thinking at `effort: high`; `generation`
-(long-form artifact and specification writing) → `claude-opus-4-8` with
-adaptive thinking at `effort: high` and streaming; `extraction` (lightweight
+`claude-fable-5` at `effort: high`; `generation`
+(long-form artifact and specification writing) → `claude-fable-5` at
+`effort: high` with streaming; `extraction` (lightweight
 classification) → `claude-haiku-4-5`. Fable 5 requests SHALL omit the
 `thinking` parameter and SHALL opt into the server-side refusal fallback to
 `claude-opus-4-8`; a refusal that survives the fallback chain is journaled as
@@ -48,7 +48,7 @@ validation whenever the consumer expects typed data.
 #### Scenario: Execution and documentation run on Opus high
 
 - **WHEN** a define clustering call and a handoff specification call are dispatched with default routing
-- **THEN** both requests target `claude-opus-4-8` with adaptive thinking and `output_config.effort` `high`
+- **THEN** both requests target `claude-fable-5` at `output_config.effort` `high`; Opus appears only as the journaled refusal fallback
 
 #### Scenario: Routing table is part of the session snapshot
 
