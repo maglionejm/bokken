@@ -88,3 +88,47 @@ def test_guide_interview_and_rescoring(tmp_path):
         if e.type == "assumption.scored" and e.actor.name == "validation-interviewer"
     ]
     assert rescored and real[0].id in rescored[0].refs
+
+
+def test_twilio_channel_consent_and_polling(monkeypatch):
+    import sys
+    import types
+    from datetime import UTC, datetime, timedelta
+
+    sent = []
+
+    class FakeMessages:
+        def __init__(self):
+            self.now = datetime.now(UTC)
+
+        def create(self, to, from_, body):
+            sent.append(body)
+
+        def list(self, from_, to, limit):
+            reply = types.SimpleNamespace(
+                body="OK", date_sent=self.now + timedelta(seconds=len(sent))
+            )
+            return [reply]
+
+    fake_client = types.SimpleNamespace(messages=FakeMessages())
+    twilio_mod = types.ModuleType("twilio")
+    rest_mod = types.ModuleType("twilio.rest")
+    rest_mod.Client = lambda sid, token: fake_client
+    twilio_mod.rest = rest_mod
+    monkeypatch.setitem(sys.modules, "twilio", twilio_mod)
+    monkeypatch.setitem(sys.modules, "twilio.rest", rest_mod)
+    monkeypatch.setenv("TWILIO_ACCOUNT_SID", "AC-test")
+    monkeypatch.setenv("TWILIO_AUTH_TOKEN", "tok")
+    monkeypatch.setenv("TWILIO_FROM", "+15550000000")
+
+    from bokken.interview.channels import TwilioChannel
+
+    channel = TwilioChannel("+34600000000")
+    channel.POLL_SECONDS = 0
+    channel.open("Ana (real)")
+    assert sent[0].startswith("Hola!")  # consent goes first
+    channel.send("Cuentame de tu ultima factura.")
+    answer = channel.receive()
+    assert answer == "OK"
+    channel.close("Gracias!")
+    assert len(sent) == 3

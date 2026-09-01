@@ -441,6 +441,9 @@ def validate(
     guide_only: Annotated[
         bool, typer.Option("--guide-only", help="Produce the guide and stop.")
     ] = False,
+    to: Annotated[
+        str | None, typer.Option(help="Phone for --channel twilio (E.164); never journaled.")
+    ] = None,
 ) -> None:
     """Run a real validation interview against the session's research debt."""
     from bokken.interview import build_guide, run_validation_interview
@@ -457,11 +460,22 @@ def validate(
         out.print(f"guide: {session_dir / path}")
         if guide_only:
             return
-        if channel != "terminal":
-            _fail(f"unknown channel {channel!r} (terminal is built in)", 2)
+        if channel == "terminal":
+            live_channel = TerminalChannel()
+        elif channel == "twilio":
+            from bokken.interview.channels import ChannelUnavailable, TwilioChannel
+
+            if not to:
+                _fail("--channel twilio requires --to <E.164 number>", 2)
+            try:
+                live_channel = TwilioChannel(to)
+            except ChannelUnavailable as exc:
+                _fail(str(exc), 2)
+        else:
+            _fail(f"unknown channel {channel!r} (terminal, twilio)", 2)
         router = wiring.router_factory()(store)
         exchanges = run_validation_interview(
-            store, router, guide, TerminalChannel(), participant=participant
+            store, router, guide, live_channel, participant=participant
         )
         out.print(
             f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"

@@ -109,6 +109,7 @@ bokken dossier retention
 bokken handoff retention
 bokken export retention     # report/report.pptx + report/report.html
 bokken costs retention      # spend per stage x prompt x class, cache hit rate
+bokken validate retention   # real-human interview vs the research debt (terminal or --channel twilio)
 ```
 
 **Dossier** — `dossier/dossier.md` (Part A outcomes + Part B process narrative +
