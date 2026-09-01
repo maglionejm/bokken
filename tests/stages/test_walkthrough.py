@@ -60,7 +60,38 @@ def run_session(tmp_path: Path, *, app_url: str | None) -> Path:
     return session_dir
 
 
+class FakeTester:
+    def start(self, app_url):
+        assert app_url == "http://fake.local"
+
+    def goto(self, url):
+        self.here = url
+
+    def digest(self):
+        return (
+            "URL: http://fake.local\nInteractive elements (index · tag · text):"
+            "\n  [0] button · Upload Schedule"
+        )
+
+    def act(self, action):
+        return "ok (navigated to http://fake.local/done)"
+
+    def screenshot(self):
+        import base64
+
+        return base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg"
+            "YAAAAAMAASsJTYQAAAAASUVORK5CYII="
+        )
+
+    def close(self):
+        pass
+
+
 def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch) -> None:
+    from bokken.stages import ui_tests
+
+    monkeypatch.setattr(ui_tests, "build_tester", lambda: FakeTester())
     monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker())
     session_dir = run_session(tmp_path, app_url="http://fake.local")
     events = list(read_events(session_dir))
@@ -72,9 +103,23 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
     assert len(observed) == 2
     assert all(e.payload["confidence_class"] == "observed" for e in observed)
     shots = [e for e in events if e.payload.get("kind") == "ui_screenshot"]
-    assert len(shots) == 1 and (session_dir / shots[0].payload["path"]).exists()
+    assert len(shots) == 3 and all((session_dir / s.payload["path"]).exists() for s in shots)
+    assert any("feature_" in s.payload["path"] for s in shots)
     review = next(e for e in events if e.payload.get("kind") == "ui_review")
     assert "Functional UI review" in (session_dir / review.payload["path"]).read_text()
+
+    events2 = events
+    feature_evidence = [
+        e
+        for e in events2
+        if e.type == "evidence.captured" and e.payload.get("source") == "ui_feature_test"
+    ]
+    assert len(feature_evidence) == 2
+    assert all(e.payload["confidence_class"] == "observed" for e in feature_evidence)
+    kinds2 = [e.payload.get("kind") for e in events2 if e.type == "artifact.generated"]
+    assert kinds2.count("ui_feature_tests") == 2
+    tests_md = (session_dir / "artifacts/ui/ui_feature_tests.md").read_text()
+    assert "Schedule upload" in tests_md and "WORKS" in tests_md
 
     _, html_path = generate_report(session_dir)
     html = html_path.read_text()

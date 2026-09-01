@@ -79,14 +79,41 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "satisfaction in what the evidence says the product does today. Give a one-line "
         "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
     ),
+    "empathize/feature_inventory": (
+        "v1",
+        QUALITY_CONTRACT
+        + "Enumerate the distinct user-facing functionalities of this product so each "
+        "can be functionally tested in a browser.\n"
+        "Product documentation excerpt:\n{docs}\n"
+        "Routes discovered in the code: {routes}\n"
+        "Home page digest:\n{home}\n"
+        "List up to 8 features. For each: a short name, an entry hint (path or the "
+        "visible control to reach it), and the expectation - what a working version "
+        "observably does. Only features reachable without authentication or destructive "
+        "actions.\n",
+    ),
+    "empathize/ui_action": (
+        "v1",
+        "You are functionally testing one feature of a running product in a real "
+        "browser.\nFeature: {feature}\nExpectation: {expectation}\n"
+        "Steps so far:\n{log}\n"
+        "Current page digest:\n{page}\n"
+        "Choose exactly one next step: click an indexed element, fill an indexed field "
+        "(use plausible Spanish demo values), press_enter on it, goto a path, or - if "
+        "you have seen enough - done with a verdict (works: the expectation observably "
+        "holds; broken: it observably fails or errors; unclear: not judgeable from the "
+        "outside) and a one-line finding for the founder. Never touch destructive "
+        "controls. Prefer concluding once the expectation is settled.\n",
+    ),
     "empathize/ui_review": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT
         + "You just walked through the running product as a first-time user. Below are "
         "the observed facts per screen (real observations, not simulations).\n"
         "Problem space: {brief}\n"
         "Coverage: {coverage}\n"
         "Observations:\n{observations}\n"
+        "Per-feature functional test results:\n{feature_results}\n"
         "Open by stating the coverage so the reader knows what this review does and "
         "does not cover.\n"
         "Write a functional UI review in markdown for the founder: (1) what the "

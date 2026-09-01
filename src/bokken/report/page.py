@@ -423,6 +423,20 @@ def render_page(ctx: ReportContext) -> str:
         add(
             "<p class='lede'>A browser walkthrough of the running app — screenshots and facts are observed evidence, not simulation.</p>"
         )
+        if c.ui_feature_results:
+            add(
+                "<h3>Per-feature functional tests</h3>"
+                "<table><tr><th>Feature</th><th>Verdict</th><th class='r'>Steps</th><th>Finding</th></tr>"
+            )
+            verdict_tag = {"works": "observed", "broken": "loop", "unclear": "simulated"}
+            for r in c.ui_feature_results:
+                v = r.get("verdict", "unclear")
+                add(
+                    f"<tr><td><strong>{_e(r.get('feature', ''))}</strong></td>"
+                    f"<td><span class='tag {verdict_tag.get(v, 'simulated')}' style='margin-left:0'>{_e(v)}</span></td>"
+                    f"<td class='r'>{len(r.get('steps', []))}</td><td>{_e(r.get('finding', ''))}</td></tr>"
+                )
+            add("</table>")
         for shot in c.ui_screenshots:
             add(f"<img class='shot' src='../{_e(shot)}' alt='UI screenshot'>")
         review_html = _e(c.ui_review).replace("\n", "<br>")

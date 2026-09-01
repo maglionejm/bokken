@@ -163,6 +163,24 @@ class MarketResearch(BaseModel):
     open_questions: list[str] = Field(default_factory=list)
 
 
+class FeatureItem(BaseModel):
+    name: str
+    entry_hint: str = ""  # path or navigation hint
+    expectation: str = ""  # what "works" looks like
+
+
+class FeatureInventory(BaseModel):
+    features: list[FeatureItem] = Field(min_length=1, max_length=10)
+
+
+class UIAction(BaseModel):
+    action: Literal["click", "fill", "press_enter", "goto", "done"]
+    target_index: int | None = None
+    value: str = ""
+    verdict: Literal["works", "broken", "unclear"] | None = None  # for done
+    finding: str = ""
+
+
 class UIReview(BaseModel):
     markdown: str
 
