@@ -327,6 +327,19 @@ def run_walkthrough(ctx, router) -> None:
                 },
             )
 
+    from bokken.stages.ui_tests import run_feature_tests
+
+    feature_results = run_feature_tests(ctx, router, app_url=app_url, routes=seed_paths)
+    feature_lines = (
+        "\n".join(
+            f"- {r['feature']}: {r['verdict']}"
+            + (f" - {r['finding']}" if r["finding"] else "")
+            + (f" (steps: {'; '.join(r['steps'])})" if r["steps"] else "")
+            for r in feature_results
+        )
+        or "(no functional feature tests ran)"
+    )
+
     coverage = (
         f"Visited {len(observations)} screen(s) out of a discovered candidate set of "
         f"{len(seed_paths) or 'unknown (no repo routes)'} code routes plus live links "
@@ -342,6 +355,7 @@ def run_walkthrough(ctx, router) -> None:
             "brief": str(ctx.state.brief.get("problem_space", "")),
             "coverage": coverage,
             "observations": "\n\n".join(facts_blocks),
+            "feature_results": feature_lines,
         },
     )
     if review is None:

@@ -83,9 +83,10 @@ requires-real-validation flag on the recommendation.
 
 When the session journaled a `ui_review` artifact, both report formats SHALL
 include a "Functional UI review" section presenting the documented
-walkthrough: the screens visited with their observed facts, the constructive
-findings from the review artifact, and (in the HTML format) the captured
-screenshots. When no walkthrough ran, the section SHALL be omitted and the
+walkthrough: the screens visited with their observed facts, a per-feature
+functional test table (feature, steps taken, verdict, note) when
+`ui_feature_tests` artifacts exist, the constructive findings from the
+review artifact, and (in the HTML format) the captured screenshots. When no walkthrough ran, the section SHALL be omitted and the
 journaled skip reason remains visible in the research-debt listing.
 
 #### Scenario: UI review reaches the report
@@ -100,6 +101,11 @@ journaled skip reason remains visible in the research-debt listing.
 - **WHEN** a session without `app_url` is exported
 - **THEN** the reports carry no UI review section and the research-debt
   listing shows the journaled skip
+
+#### Scenario: Feature verdicts reach the report
+
+- **WHEN** a session with journaled feature tests is exported
+- **THEN** both formats show each feature with its verdict and the HTML renders the results table
 
 ### Requirement: Run anatomy section
 

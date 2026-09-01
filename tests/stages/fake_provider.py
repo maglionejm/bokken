@@ -93,7 +93,36 @@ class ScriptedProvider:
                     s.OutcomeScore(outcome_index=2, importance=5, satisfaction=5),
                 ]
             )
+        if prompt_id == "empathize/feature_inventory":
+            assert "Interactive elements" in rendered  # home digest reached the model
+            return s.FeatureInventory(
+                features=[
+                    s.FeatureItem(
+                        name="Schedule upload",
+                        entry_hint="/",
+                        expectation="uploading a schedule confirms visibly",
+                    ),
+                    s.FeatureItem(
+                        name="Plan browser",
+                        entry_hint="/plans",
+                        expectation="plans list renders",
+                    ),
+                ]
+            )
+        if prompt_id == "empathize/ui_action":
+            if "(no steps yet)" in rendered:
+                return s.UIAction(action="click", target_index=0)
+            return s.UIAction(
+                action="done",
+                verdict="works" if "Schedule" in rendered else "broken",
+                finding="confirmation banner appears" if "Schedule" in rendered else "list 404s",
+            )
         if prompt_id == "empathize/ui_review":
+            assert (
+                "Per-feature functional test results" not in rendered
+                or "Schedule upload" in rendered
+                or "(no functional" in rendered
+            )
             assert "[screen 1]" in rendered  # observed facts reach the reviewer
             return s.UIReview(
                 markdown="# Functional UI review\n\nThe now-card loads in 240 ms - fast "

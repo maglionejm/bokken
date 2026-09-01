@@ -16,6 +16,7 @@ EXCLUDED_ARTIFACT_KINDS = {
     "ui_review",
     "ui_screenshot",
     "market_research",
+    "ui_feature_tests",
     "dossier_markdown",
     "dossier_json",
     "handoff_spec",
@@ -66,6 +67,7 @@ class ReportContext:
     ui_screenshots: list[str] = field(default_factory=list)
     stage_digest: dict[str, dict] = field(default_factory=dict)
     market_research: dict | None = None
+    ui_feature_results: list = field(default_factory=list)
     dossier_paths: list[str] = field(default_factory=list)
 
     @property
@@ -182,6 +184,17 @@ def _stage_digest(model: DossierModel) -> dict[str, dict]:
     return digest
 
 
+def _ui_feature_results(session_dir: Path, model: DossierModel) -> list:
+    import json as _json
+
+    for artifact in model.artifacts:
+        if artifact.kind == "ui_feature_tests" and artifact.path.endswith(".json"):
+            path = session_dir / artifact.path
+            if path.exists():
+                return _json.loads(path.read_text(encoding="utf-8"))
+    return []
+
+
 def _market_research(session_dir: Path, model: DossierModel) -> dict | None:
     import json as _json
 
@@ -256,5 +269,6 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         ui_screenshots=[a.path for a in model.artifacts if a.kind == "ui_screenshot"],
         stage_digest=_stage_digest(model),
         market_research=_market_research(session_dir, model),
+        ui_feature_results=_ui_feature_results(session_dir, model),
         dossier_paths=dossier_paths,
     )

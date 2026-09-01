@@ -339,6 +339,14 @@ class Deck:
             return
         s = self.slide()
         self.header(s, "observed · functional UI review", "The product, exercised first-hand")
+        if c.ui_feature_results:
+            box = self.text(s, MARGIN, Inches(1.45), BODY_W, Inches(0.9))
+            self.block_title(box, "Per-feature verdicts")
+            line = "  ·  ".join(
+                f"{r.get('feature', '')}: {r.get('verdict', '?').upper()}"
+                for r in c.ui_feature_results[:6]
+            )
+            self.para(box, line[:220], size=9.5)
         frame = self.text(
             s, MARGIN, Inches(1.6), Inches(7.4) if c.ui_screenshots else BODY_W, Inches(5.2)
         )
