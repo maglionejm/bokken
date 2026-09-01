@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +18,7 @@ from bokken.journal import (
     replay,
     resolve_session_dir,
 )
+from bokken.journal.schema import short_id
 from bokken.journal.store import read_events
 from bokken.orchestrator import InputRequired, Runner, create_session
 
@@ -85,7 +85,7 @@ def _client_actor(ctx: Context) -> Actor:
 
 
 def _question_id(question: str) -> str:
-    return hashlib.sha256(question.encode()).hexdigest()[:12]
+    return short_id(question)
 
 
 class MailboxPort:

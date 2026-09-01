@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 from bokken.dossier.model import build_model
 from bokken.journal import Actor, read_events
+from bokken.journal.schema import content_hash
 from bokken.journal.store import JournalStore
 from bokken.report.context import build_context
 
@@ -51,7 +51,7 @@ def generate_report(session_dir: Path) -> tuple[Path, Path]:
                 payload={
                     "path": str(path.relative_to(session_dir)),
                     "kind": kind,
-                    "content_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "content_hash": content_hash(path.read_bytes()),
                 },
             )
     return pptx_path, html_path

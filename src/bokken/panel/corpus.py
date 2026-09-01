@@ -7,12 +7,13 @@ statements), and ``document`` (other textual material).
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
+
+from bokken.journal.schema import short_id
 
 SourceKind = Literal["document", "discussion", "metrics", "code"]
 
@@ -84,7 +85,7 @@ class Source:
 
 def _read_source(file: Path, name: str, kind: SourceKind) -> Source:
     content = file.read_text(encoding="utf-8", errors="replace")
-    source_id = hashlib.sha256(f"{name}\n{content}".encode()).hexdigest()[:12]
+    source_id = short_id(f"{name}\n{content}")
     return Source(source_id=source_id, name=name, kind=kind, lines=tuple(content.splitlines()))
 
 

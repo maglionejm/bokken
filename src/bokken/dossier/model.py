@@ -21,6 +21,7 @@ class EvidenceNode(BaseModel):
     id: str
     stage: str | None
     source: str
+    agent: str | None = None  # journaled actor name when not a persona utterance
     confidence_class: str
     synthetic: bool
     speaker: str | None = None
@@ -204,6 +205,7 @@ def build_model(session_dir: Path) -> DossierModel:
                 id=event.id,
                 stage=event.stage,
                 source=p["source"],
+                agent=None if p.get("speaker") else event.actor.name,
                 confidence_class=p["confidence_class"],
                 synthetic=p["confidence_class"] == "simulated",
                 speaker=p.get("speaker"),

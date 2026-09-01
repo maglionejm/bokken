@@ -11,12 +11,12 @@ a verdict with an end-state screenshot.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import re
 from typing import Protocol
 
 from bokken.journal import Actor
+from bokken.journal.schema import content_hash
 from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import FeatureInventory, UIAction
 
@@ -245,7 +245,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                     payload={
                         "path": f"artifacts/ui/{shot_name}",
                         "kind": "ui_screenshot",
-                        "content_hash": hashlib.sha256(shot).hexdigest(),
+                        "content_hash": content_hash(shot),
                         "feature": feature.name,
                     },
                 )
@@ -298,7 +298,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                 payload={
                     "path": f"artifacts/ui/{name}",
                     "kind": "ui_feature_tests",
-                    "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                    "content_hash": content_hash(content),
                 },
             )
     return results

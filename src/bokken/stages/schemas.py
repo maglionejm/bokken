@@ -96,10 +96,6 @@ class NoveltyVerdict(BaseModel):
     classification: Literal["novel_cluster", "variation", "duplicate"]
 
 
-class Provocation(BaseModel):
-    provocation: str
-
-
 class VoteScore(BaseModel):
     option_id: str
     scores: dict[str, int] = Field(default_factory=dict)

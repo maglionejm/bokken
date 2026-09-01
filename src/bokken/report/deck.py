@@ -333,12 +333,22 @@ class Deck:
                 names = "; ".join(f"{pc.name} ({pc.role})" for pc in cast)
                 self.para(frame, f"{kind}: {names}"[:230], size=8.5, before=4)
         right = self.text(s, Inches(8.2), Inches(3.6), Inches(4.5), Inches(3.2))
-        self.block_title(right, "Models")
+        self.block_title(right, "System agents")
         self.bullets(
             right,
-            [f"{u.model}: {u.calls} calls, ${u.cost_usd:,.2f}" for u in c.usage]
-            + [f"loop-backs: {len(c.loopbacks)}"],
-            size=9.5,
+            [
+                "concept-researcher — sourced web research",
+                "ui-walker + ui-tester — browser tests",
+                "sidekick — cached reads (never judges)",
+                "lenses + skeptic — challenge lane",
+            ],
+            size=8.5,
+        )
+        self.block_title(right, "Models", first=False)
+        self.bullets(
+            right,
+            [f"{u.model}: {u.calls} calls, ${u.cost_usd:,.2f}" for u in c.usage],
+            size=8.5,
         )
 
     def ui_tests(self):

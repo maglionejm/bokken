@@ -9,13 +9,13 @@ accessibility facts. Bounded by design: no form submission, no auth flows.
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
 from bokken.journal import Actor
+from bokken.journal.schema import content_hash
 from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import UIReview
 
@@ -321,7 +321,7 @@ def run_walkthrough(ctx, router) -> None:
                 payload={
                     "path": f"artifacts/ui/{shot.name}",
                     "kind": "ui_screenshot",
-                    "content_hash": hashlib.sha256(blob).hexdigest(),
+                    "content_hash": content_hash(blob),
                     "url": obs.url,
                     "viewport": "mobile" if suffix else "desktop",
                 },
@@ -370,6 +370,6 @@ def run_walkthrough(ctx, router) -> None:
         payload={
             "path": "artifacts/ui/ui_review.md",
             "kind": "ui_review",
-            "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+            "content_hash": content_hash(content),
         },
     )

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 from bokken.journal import replay
+from bokken.journal.schema import content_hash
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
 from bokken.stages.base import (
@@ -293,7 +293,7 @@ class EmpathizeEngine:
             payload={
                 "path": "artifacts/empathize/opportunity_ranking.md",
                 "kind": "opportunity_ranking",
-                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "content_hash": content_hash(content),
             },
             refs=[e.id for e in outcome_events],
         )

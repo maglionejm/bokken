@@ -361,3 +361,18 @@ def new_event(
 def parse_line(line: str) -> Event:
     """Parse one persisted JSONL line back into an Event (tolerant on payload extras)."""
     return Event.model_validate_json(line)
+
+
+def short_id(material: str) -> str:
+    """Stable 12-hex identifier for derived entities (personas, sources, questions)."""
+    import hashlib
+
+    return hashlib.sha256(material.encode()).hexdigest()[:12]
+
+
+def content_hash(content: str | bytes) -> str:
+    """Full SHA-256 hex digest used for every journaled artifact."""
+    import hashlib
+
+    data = content.encode() if isinstance(content, str) else content
+    return hashlib.sha256(data).hexdigest()

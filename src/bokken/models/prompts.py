@@ -184,12 +184,6 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "Classify the new option against the clusters: novel_cluster, variation, or "
         "duplicate.\n",
     ),
-    "ideate/provoke": (
-        "v1",
-        "Ideation is stalling on: {problem_statement}\n"
-        "Inject one provocation (inversion, exaggeration, or forced analogy) to open a "
-        "new direction.\n",
-    ),
     "ideate/converge": (
         "v2",
         QUALITY_CONTRACT

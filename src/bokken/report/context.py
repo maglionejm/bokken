@@ -210,16 +210,16 @@ def _stage_digest(model: DossierModel) -> dict[str, dict]:
         speakers = sorted(
             {e.speaker for e in model.evidence.values() if e.stage == stage and e.speaker}
         )
-        systems = sorted(
+        agents = sorted(
             {
-                e.source
+                e.agent
                 for e in model.evidence.values()
-                if e.stage == stage and not e.speaker and e.source == "ui_walkthrough"
+                if e.stage == stage and e.agent and e.agent not in ("facilitator",)
             }
         )
         digest[stage] = {
             "personas": speakers,
-            "systems": (["ui-walker (browser)"] if systems else []) + ["facilitator"],
+            "systems": [*agents, "facilitator"],
             "calls": dict(Counter(t.routing_class for t in traces)),
             "models": sorted({t.model for t in traces}),
             "moves": sorted({m.move_id for m in model.moves if m.stage == stage and m.executed}),
