@@ -70,7 +70,7 @@ def test_challenge_class_matches_research_shape() -> None:
 
 
 def test_opus_requests_use_adaptive_thinking_at_high_effort() -> None:
-    kwargs = call("cognition", "claude-opus-4-8")["plain"]
+    kwargs = call("cognition", "claude-opus-5")["plain"]
     assert kwargs["thinking"] == {"type": "adaptive"}
     assert kwargs["output_config"] == {"effort": "high"}
     assert "fallbacks" not in kwargs and "betas" not in kwargs
