@@ -88,6 +88,19 @@ padding:14px 18px;margin:14px 0;font-size:15px}
 letter-spacing:.08em;padding:2px 9px;border-radius:99px;margin-left:8px;color:#fff}
 .tag.simulated{background:var(--gray)}.tag.observed{background:var(--green)}
 .tag.reported{background:var(--amber)}.tag.loop{background:var(--accent)}
+/* stage pipeline */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0 8px}
+.scard{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;
+position:relative;display:flex;flex-direction:column}
+.scard .shead{background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:10.5px;
+letter-spacing:.1em;text-transform:uppercase;padding:8px 10px;display:flex;justify-content:space-between}
+.scard .shead .sn{color:var(--accent)}
+.scard ul{list-style:none;padding:10px 12px;margin:0;flex:1}
+.scard li{font-size:11.5px;color:var(--ink2);padding:3px 0;border-bottom:1px dashed var(--line)}
+.scard li:last-child{border-bottom:none}
+.scard li b{color:var(--accent-dark);font-variant-numeric:tabular-nums}
+.scard .sfoot{font-family:var(--mono);font-size:10px;color:var(--gray);padding:6px 12px;
+background:var(--paper);border-top:1px solid var(--line)}
 /* timeline */
 .tl{list-style:none;margin:10px 0 0;padding:0;position:relative}
 .tl::before{content:'';position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
@@ -351,15 +364,90 @@ def render_page(ctx: ReportContext) -> str:
     add(
         "<p class='lede'>Bokken executed the Design Thinking loop autonomously. Every actor below is journaled; persona contributions are simulated and labeled as such.</p>"
     )
-    add("<h3>The sequence</h3><ol class='tl'>")
-    for t in m.transitions:
-        loop = t.loopback
+    d = c.stage_digest
+    counts = c.register_counts
+    stage_cards = [
+        (
+            "01",
+            "Empathize",
+            [
+                f"<b>{len([e for e in m.evidence.values() if e.stage == 'empathize'])}</b> evidence items",
+                f"<b>{len(c.ui_feature_results)}</b> features UI-tested"
+                if c.ui_feature_results
+                else "UI walkthrough",
+                f"<b>{len(c.opportunities)}</b> outcomes Ulwick-ranked",
+            ],
+            d.get("empathize", {}),
+        ),
+        (
+            "02",
+            "Define",
+            [
+                f"<b>{len(m.insights)}</b> interpretations",
+                "problem statement selected",
+                "losers preserved with reasons",
+            ],
+            d.get("define", {}),
+        ),
+        (
+            "03",
+            "Ideate",
+            [
+                f"<b>{len(m.options)}</b> options, full lineage",
+                "3 firewalled lenses vote",
+                "skeptic on record",
+            ],
+            d.get("ideate", {}),
+        ),
+        (
+            "04",
+            "Prototype",
+            [
+                "<b>web research</b> on the concept"
+                + (" (sourced)" if c.market_research else " (skipped)"),
+                f"<b>{len(m.assumptions)}</b> assumptions registered",
+                f"<b>{len(c.prototype_artifacts)}</b> artifacts hashed",
+            ],
+            d.get("prototype", {}),
+        ),
+        (
+            "05",
+            "Test",
+            [
+                "fresh firewalled panel",
+                f"<b>{counts['supported']}</b>/<b>{counts['contradicted']}</b>/<b>{counts['untested']}</b> sup/con/untested",
+                f"verdict: <b>{m.recommendation.resolution if m.recommendation else '-'}</b>",
+            ],
+            d.get("test", {}),
+        ),
+        (
+            "06",
+            "Complete",
+            [
+                "dossier (A/B/C)",
+                "handoff specs" if c.spec_entries else "handoff pending/refused",
+                "this report (pptx + html)",
+            ],
+            {},
+        ),
+    ]
+    add("<div class='flow'>")
+    for num, name, facts, digest in stage_cards:
+        calls = sum(digest.get("calls", {}).values())
+        foot = f"{calls} model calls" if calls else "deterministic"
         add(
-            f"<li{' class=loop' if loop else ''}><b>{_e(t.from_stage)} &rarr; {_e(t.to_stage)}</b>"
-            f"{'<span class=&quot;tag loop&quot;>loop-back</span>' if loop else ''}"
-            f"<span class='cond'>{_e(t.condition)}</span></li>"
+            f"<div class='scard'><div class='shead'><span>{name}</span><span class='sn'>{num}</span></div>"
+            "<ul>" + "".join(f"<li>{f}</li>" for f in facts) + "</ul>"
+            f"<div class='sfoot'>{foot}</div></div>"
         )
-    add("</ol>")
+    add("</div>")
+    loops = [tr for tr in m.transitions if tr.loopback]
+    if loops:
+        add("<h3>Loop-backs</h3>")
+        for tr in loops:
+            add(
+                f"<div class='debt'><span class='tag loop'>loop-back</span> {_e(tr.from_stage)} &rarr; {_e(tr.to_stage)}: {_e(tr.condition)}</div>"
+            )
     by_panel: dict[str, list] = {}
     for persona in m.personas:
         by_panel.setdefault(persona.panel_kind, []).append(persona)
@@ -370,7 +458,8 @@ def render_page(ctx: ReportContext) -> str:
         fw = " — firewalled from the other panels" if panel_kind == "test" else ""
         add(f"<h3>{panel_kind.title()} panel ({len(cast)} personas{fw})</h3><div class='cast'>")
         for pc in cast:
-            initials = "".join(w[0] for w in pc.name.split()[:2]).upper() or "?"
+            words = [w for w in pc.name.replace("-", " ").split() if w[0].isalpha()]
+            initials = "".join(w[0] for w in words[:2]).upper() or "?"
             add(
                 f"<div class='pcard {panel_kind}'><div class='av'>{_e(initials)}</div><div>"
                 f"<span class='role'>{_e(pc.role)}</span><b>{_e(pc.name)}</b>"
