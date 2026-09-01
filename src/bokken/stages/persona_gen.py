@@ -27,12 +27,13 @@ class RouterTurnGenerator:
             "sidekick/context_query",
             stage=self.stage,  # type: ignore[arg-type]
             params={"context": context, "question": question},
-            max_tokens=4000,
+            max_tokens=8000,
         )
-        if not outcome.ok or not outcome.text or "NO_COVERAGE" in outcome.text:
-            # honest fallback: no slices -> the persona sees nothing groundable
-            return outcome.text if outcome.ok else context
-        return outcome.text
+        # Truncated retrieval still returned valid verbatim spans - use them.
+        # Falling back to the full corpus would silently pay 100x the tokens.
+        if outcome.status in ("ok", "truncated") and outcome.text.strip():
+            return outcome.text
+        return context
 
     def answer(
         self, persona: Persona, question: str, context: str

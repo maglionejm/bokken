@@ -209,3 +209,29 @@ def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> Non
     call = next(e for e in events if e.type == "model.called")
     assert call.payload["routing_class"] == "sidekick"
     assert call.payload["model"] == "claude-opus-5"
+
+
+def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkeypatch) -> None:
+    from bokken.journal.store import JournalStore
+    from bokken.models import ModelRouter
+    from bokken.models.router import ProviderResult
+    from bokken.orchestrator import create_session
+    from bokken.stages.persona_gen import RouterTurnGenerator
+
+    class TruncatingProvider:
+        def complete(self, **kw):
+            return ProviderResult(
+                text="[source abcdef123456 (code) L1-L1] partial span",
+                data=None,
+                usage={"input_tokens": 10, "output_tokens": 8000},
+                request_id="trunc-1",
+                stop_reason="max_tokens",
+                model=kw["model"],
+            )
+
+    session_dir = create_session("trunc-unit", brief=BRIEF, mode="dojo", gate_policy="none")
+    with JournalStore.open(session_dir) as store:
+        generator = RouterTurnGenerator(ModelRouter(store, TruncatingProvider()))
+        big = "x" * 50_000
+        sliced = generator._sliced_context("q?", big)
+    assert sliced == "[source abcdef123456 (code) L1-L1] partial span"
