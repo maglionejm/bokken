@@ -324,6 +324,36 @@ def generate_dossier(name: str) -> dict:
     ).model_dump()
 
 
+@mcp.tool()
+@surfaced
+def export_report(name: str) -> dict:
+    """Export the run report (PPTX deck + self-contained HTML) and return the paths."""
+    from bokken.report.generate import ReportError, generate_report
+
+    try:
+        pptx_path, html_path = generate_report(resolve_session_dir(name))
+    except ReportError as err:
+        raise ToolError(str(err)) from err
+    return contract.ExportResult(pptx_path=str(pptx_path), html_path=str(html_path)).model_dump()
+
+
+@mcp.tool()
+@surfaced
+def cost_report(name: str) -> dict:
+    """Cost report from the journaled model calls (list-price estimate, cache hit rate)."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
+    rows = cost_rows(build_model(resolve_session_dir(name)))
+    hit = sum(r["cache_read"] for r in rows)
+    raw = sum(r["input"] for r in rows)
+    return {
+        "rows": rows,
+        "total_usd": round(sum(r["cost_usd"] for r in rows), 2),
+        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+    }
+
+
 # --- resources ------------------------------------------------------------------
 
 
