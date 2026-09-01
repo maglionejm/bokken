@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from bokken.handoff.generate import HandoffRefusedError, generate_handoff, handoff_exists
+from bokken.handoff.generate import (
+    HandoffGenerationError,
+    HandoffRefusedError,
+    generate_handoff,
+    handoff_exists,
+)
 from bokken.journal import read_events, replay
 from bokken.stages.base import RouterFactory
 
@@ -58,6 +63,10 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
             handoff_generated = True
         except HandoffRefusedError as refusal:
             handoff_skipped = str(refusal)
+        except HandoffGenerationError as error:
+            # generation failure must not block the dossier/report pipeline;
+            # `bokken handoff <name>` retries it on demand
+            handoff_skipped = f"generation failed (retry with `bokken handoff`): {error}"
 
     report_generated = False
     from bokken.report.generate import generate_report, report_exists

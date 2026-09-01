@@ -121,6 +121,8 @@ def generate_handoff(session_dir: Path, router_factory: RouterFactory) -> dict:
             stage="complete" if model.stage == "complete" else None,  # type: ignore[arg-type]
             params=_prompt_params(model, ctx),
             schema=SpecPackage,
+            stream=True,
+            max_tokens=48000,
         )
         if not outcome.ok or outcome.data is None:
             raise HandoffGenerationError(
