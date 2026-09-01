@@ -145,6 +145,12 @@ def new(
     app_url: Annotated[
         str | None, typer.Option(help="Running instance of the product to walk through.")
     ] = None,
+    allow_web_research: Annotated[
+        bool,
+        typer.Option(
+            "--allow-web-research", help="Authorize deep web research on the selected concept."
+        ),
+    ] = False,
     metrics: Annotated[
         list[Path] | None, typer.Option(help="Business/performance metrics file.")
     ] = None,
@@ -177,6 +183,8 @@ def new(
         inputs["repo"] = str(repo.resolve())
     if app_url:
         inputs["app_url"] = app_url
+    if allow_web_research:
+        brief_data["allow_web_research"] = True
     if metrics:
         inputs.setdefault("metrics", []).extend(str(p.resolve()) for p in metrics)
     if discussion:

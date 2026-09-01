@@ -93,3 +93,50 @@ def test_missing_app_url_is_honest_research_debt(tmp_path) -> None:
     assert "app_url" in skip.payload["gap"]
     _, html_path = generate_report(session_dir)
     assert "Functional UI review" not in html_path.read_text()
+
+
+def test_concept_research_authorized_path(tmp_path, monkeypatch) -> None:
+    from bokken.journal import read_events
+    from bokken.orchestrator import create_session
+
+    inputs = make_inputs(tmp_path)
+    session_dir = create_session(
+        "research-e2e",
+        brief={**BRIEF, "allow_web_research": True, "inputs": inputs},
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
+    events = list(read_events(session_dir))
+    research_calls = [
+        e for e in events if e.type == "model.called" and e.payload["prompt_id"] == "research/deep"
+    ]
+    assert research_calls and research_calls[0].payload["web_search"] is True
+    reported = [
+        e
+        for e in events
+        if e.type == "evidence.captured"
+        and e.payload["confidence_class"] == "reported"
+        and "http" in str(e.payload.get("source", ""))
+    ]
+    assert reported, "sourced findings journaled as reported evidence"
+    kinds = [e.payload.get("kind") for e in events if e.type == "artifact.generated"]
+    assert kinds.count("market_research") == 2  # md + json
+    md = (session_dir / "artifacts/research/market_research.md").read_text()
+    assert "RivalCo" in md and "https://stats.example/eu" in md
+
+
+def test_concept_research_skipped_without_flag(tmp_path) -> None:
+    from bokken.journal import read_events
+
+    session_dir = run_session(tmp_path, app_url=None)  # BRIEF has no flag
+    events = list(read_events(session_dir))
+    skip = [
+        e
+        for e in events
+        if e.type == "evidence.abstained"
+        and str(e.payload["question"]).startswith("Concept research")
+    ]
+    assert skip and "allow_web_research" in skip[0].payload["gap"]
+    assert not any(e.type == "model.called" and e.payload.get("web_search") for e in events)

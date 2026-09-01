@@ -105,3 +105,14 @@ SHALL exit `2` when the session does not exist or has no events to report.
   session
 - **THEN** stdout is one JSON document with the `pptx` and `html` paths and
   the exit code is 0
+
+### Requirement: Web research authorization flag
+
+`bokken new --allow-web-research` SHALL set `allow_web_research: true` on
+the brief; without it the flag defaults to false. The setting SHALL be
+visible in the journaled config/brief snapshot.
+
+#### Scenario: Flag lands in the brief
+
+- **WHEN** `bokken new x --brief b.json --allow-web-research` is invoked
+- **THEN** the journaled brief carries `allow_web_research: true`

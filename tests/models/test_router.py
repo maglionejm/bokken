@@ -17,7 +17,7 @@ class OneShotProvider:
         self.result = result
         self.calls = 0
 
-    def complete(self, **kw):
+    def complete(self, **kw):  # accepts web_search etc.
         self.calls += 1
         if isinstance(self.result, Exception):
             raise self.result

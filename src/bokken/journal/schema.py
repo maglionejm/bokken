@@ -63,6 +63,7 @@ class BriefInputs(Payload):
 
 class Brief(Payload):
     problem_space: str
+    allow_web_research: bool = False
     constraints: list[str] = Field(default_factory=list)
     target_segments: list[str]
     success_criteria: list[str]

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.stages.base import FACILITATOR, RouterFactory, StageError, open_stage, structured
+from bokken.stages.research import prior_research, run_concept_research
 from bokken.stages.schemas import AssumptionList, FidelityChoice
 
 _RISK_ORDER = {"high": 2, "medium": 1, "low": 0}
@@ -26,6 +27,7 @@ class PrototypeEngine:
         )
         concept = self._concept(ctx)
         problem_statement = self._problem_statement(ctx)
+        run_concept_research(ctx, router, concept=concept, problem_statement=problem_statement)
 
         drafts = structured(
             router,
@@ -33,7 +35,11 @@ class PrototypeEngine:
             "prototype/assumptions",
             AssumptionList,
             stage="prototype",
-            params={"concept": concept, "problem_statement": problem_statement},
+            params={
+                "concept": concept,
+                "problem_statement": problem_statement,
+                "research": prior_research(ctx),
+            },
         )
         if drafts is None:
             return None

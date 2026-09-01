@@ -168,10 +168,30 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "first in practice. End with the cheapest test that would settle the objection. "
         "Depersonalized - challenge claims, not people.\n",
     ),
+    "research/deep": (
+        "v1",
+        QUALITY_CONTRACT
+        + "The team has selected a concept and you must research it on the live web - "
+        "deeply, with sources.\n"
+        "Problem statement: {problem_statement}\nSelected concept: {concept}\n"
+        "Investigate: (1) competitors and prior art - who already does this or part of "
+        "it, and how much it overlaps; (2) quantified market signals - sizes, adoption "
+        "rates, prices, growth, each with its source; (3) regulatory or compliance "
+        "constraints; (4) pricing benchmarks for comparable offerings; (5) risks to "
+        "differentiation; (6) the open questions the web cannot settle. Cite the URL "
+        "for every factual claim. Write plain structured text with those six headings.\n",
+    ),
+    "research/structure": (
+        "v1",
+        "Convert the research notes below into the structured record exactly. Keep "
+        "every source URL attached to its claim; do not invent or drop findings.\n"
+        "Notes:\n{notes}\n",
+    ),
     "prototype/assumptions": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT
         + "The selected concept: {concept}\nProblem statement: {problem_statement}\n"
+        "Concept research on file (competitors, signals, risks - cite it):\n{research}\n"
         "Enumerate the assumptions this concept rests on - demand, behavior change, "
         "willingness to act, technical, and viability assumptions. Classify each impact "
         "and uncertainty as low/medium/high and phrase each so a cheap test could score "

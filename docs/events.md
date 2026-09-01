@@ -105,7 +105,7 @@ firewall verification (`question: "contamination firewall check"`).
 
 | Type | Payload |
 | --- | --- |
-| `model.called` | `routing_class (research\|challenge\|cognition\|extraction\|generation), model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated), duration_ms` |
+| `model.called` | `routing_class (research\|challenge\|cognition\|extraction\|generation), model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated), duration_ms, web_search` |
 
 Prompt *content* never enters the ledger — the id, version, and content hash
 do, so any output is traceable to the exact prompt that produced it, and token
@@ -115,7 +115,7 @@ budgets are enforceable from replay.
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
+| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `market_research`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
 
 ## Reading the ledger
 

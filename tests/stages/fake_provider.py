@@ -21,7 +21,18 @@ class ScriptedProvider:
     def __init__(self) -> None:
         self.calls: dict[str, int] = defaultdict(int)
 
-    def complete(self, *, model, prompt_id, rendered, schema, routing_class, stream, max_tokens):
+    def complete(
+        self,
+        *,
+        model,
+        prompt_id,
+        rendered,
+        schema,
+        routing_class,
+        stream,
+        max_tokens,
+        web_search=False,
+    ):
         self.calls[prompt_id] += 1
         data = self._dispatch(prompt_id, rendered)
         if isinstance(data, str):
@@ -207,7 +218,33 @@ class ScriptedProvider:
                     ),
                 ]
             )
+        if prompt_id == "research/deep":
+            return (
+                "## Competitors\nRivalCo does schedule sharing (https://rival.example).\n"
+                "## Market signals\n73% of EU households remain on fixed tariffs "
+                "(https://stats.example/eu).\n## Open questions\nWill operators comply?\n"
+            )
+        if prompt_id == "research/structure":
+            return s.MarketResearch(
+                competitors=[
+                    s.Competitor(
+                        name="RivalCo",
+                        url="https://rival.example",
+                        what="schedule sharing",
+                        overlap="partial - no rider guarantees",
+                    )
+                ],
+                market_signals=[
+                    s.MarketSignal(
+                        stat="73% of EU households remain on fixed tariffs",
+                        source_url="https://stats.example/eu",
+                    )
+                ],
+                open_questions=["Will operators comply?"],
+            )
         if prompt_id == "prototype/assumptions":
+            if "allow_web_research" not in rendered:
+                assert "{research}" not in rendered  # param rendered, not left raw
             return s.AssumptionList(
                 assumptions=[
                     s.AssumptionDraft(

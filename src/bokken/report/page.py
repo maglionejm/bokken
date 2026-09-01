@@ -158,6 +158,7 @@ outcome <strong>{_e(outcome)}</strong></div>""")
         ("define", "Define"),
         ("ideate", "Ideate"),
         ("prototype", "Prototype"),
+        *([("research", "Concept research")] if c.market_research else []),
         ("test", "Test"),
         ("verdict", "Verdict"),
         ("debt", "Negative space"),
@@ -398,6 +399,42 @@ evidence, not simulation.</p>""")
     add("</section>")
 
     # Test
+    if c.market_research:
+        mr = c.market_research
+        add("""<section id="research" class="reveal"><div class="kicker">reported · concept research</div>
+<h2>The web, on the record</h2>
+<p class="lede">Authorized deep research on the selected concept. Every signal carries its
+source; findings are reported evidence, not observation.</p>""")
+        if mr.get("competitors"):
+            add(
+                "<h3>Competitors and prior art</h3><table><tr><th>Who</th><th>What</th><th>Overlap</th></tr>"
+            )
+            for comp in mr["competitors"]:
+                name = _e(comp.get("name", ""))
+                if comp.get("url"):
+                    name = f"<a href='{_e(comp['url'])}'>{name}</a>"
+                add(
+                    f"<tr><td>{name}</td><td>{_e(comp.get('what', ''))}</td><td>{_e(comp.get('overlap', ''))}</td></tr>"
+                )
+            add("</table>")
+        if mr.get("market_signals"):
+            add("<h3 style='margin-top:20px'>Market signals</h3>")
+            for sig in mr["market_signals"]:
+                add(
+                    f"<div class='quote'>{_e(sig.get('stat', ''))}<div class='who'><a href='{_e(sig.get('source_url', ''))}'>{_e(sig.get('source_url', ''))}</a></div></div>"
+                )
+        for key, title in (
+            ("regulatory", "Regulatory"),
+            ("pricing_benchmarks", "Pricing benchmarks"),
+            ("differentiation_risks", "Differentiation risks"),
+            ("open_questions", "Open questions"),
+        ):
+            if mr.get(key):
+                add(f"<h3 style='margin-top:20px'>{title}</h3>")
+                for item in mr[key]:
+                    add(f"<div class='debt'>{_e(item)}</div>")
+        add("</section>")
+
     add("""<section id="test" class="reveal"><div class="kicker">intermediate output · test</div>
 <h2>The assumption register, scored</h2>""")
     add(

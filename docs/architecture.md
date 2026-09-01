@@ -112,6 +112,11 @@ state, which is what makes every run crash-safe and resumable by construction.
   code access, outcome desirability); concept one-pagers are Hills
   (Who/What/Wow) with a Lean-UX hypothesis; a declared `app_url` adds a
   documented functional UI walkthrough as observed evidence.
+- **Concept research on the record**: after the concept decision, an
+  explicitly authorized (`allow_web_research: true`) research-class call with
+  server-side web search produces a structured market record - competitors
+  with overlap, sourced signals, regulatory, risks - journaled as `reported`
+  evidence and fed to the assumption register.
 - **One model seam**: nothing outside `bokken.models` touches the Anthropic
   SDK; the whole harness runs offline against a fake provider in tests.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
