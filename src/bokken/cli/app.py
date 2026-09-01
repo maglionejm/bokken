@@ -430,6 +430,58 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
     )
 
 
+@app.command("validate")
+@guarded
+def validate(
+    name: str,
+    participant: Annotated[
+        str, typer.Option(help="Participant label (never a phone number).")
+    ] = "participant-1",
+    channel: Annotated[str, typer.Option(help="terminal (more via extras)")] = "terminal",
+    guide_only: Annotated[
+        bool, typer.Option("--guide-only", help="Produce the guide and stop.")
+    ] = False,
+    to: Annotated[
+        str | None, typer.Option(help="Phone for --channel twilio (E.164); never journaled.")
+    ] = None,
+) -> None:
+    """Run a real validation interview against the session's research debt."""
+    from bokken.interview import build_guide, run_validation_interview
+    from bokken.interview.channels import TerminalChannel
+    from bokken.interview.guide import journal_guide
+    from bokken.journal.store import JournalStore
+
+    session_dir = resolve_session_dir(name)
+    with JournalStore.open(session_dir) as store:
+        guide = build_guide(store)
+        if guide.empty:
+            _fail("nothing to validate: no research debt and no untested assumptions", 2)
+        path = journal_guide(store, guide)
+        out.print(f"guide: {session_dir / path}")
+        if guide_only:
+            return
+        if channel == "terminal":
+            live_channel = TerminalChannel()
+        elif channel == "twilio":
+            from bokken.interview.channels import ChannelUnavailable, TwilioChannel
+
+            if not to:
+                _fail("--channel twilio requires --to <E.164 number>", 2)
+            try:
+                live_channel = TwilioChannel(to)
+            except ChannelUnavailable as exc:
+                _fail(str(exc), 2)
+        else:
+            _fail(f"unknown channel {channel!r} (terminal, twilio)", 2)
+        router = wiring.router_factory()(store)
+        exchanges = run_validation_interview(
+            store, router, guide, live_channel, participant=participant
+        )
+        out.print(
+            f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"
+        )
+
+
 @app.command("costs")
 @guarded
 def costs(name: str, as_json: JsonFlag = False) -> None:
