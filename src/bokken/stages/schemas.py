@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 
 from bokken.panel.corpus import Citation
 
-ArtifactKind = Literal["concept_one_pager", "landing_copy", "storyboard", "demo_script"]
+ArtifactKind = Literal[
+    "concept_one_pager", "landing_copy", "storyboard", "demo_script", "wireframe_html"
+]
 
 
 class InterviewQuestion(BaseModel):

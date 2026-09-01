@@ -482,6 +482,29 @@ def validate(
         )
 
 
+@app.command("library")
+@guarded
+def library(
+    product: Annotated[str | None, typer.Option(help="Filter by product key (repo path).")] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Cross-run learnings: what earlier sessions supported, contradicted, or broke."""
+    from bokken.library import read_learnings
+
+    records = read_learnings(product)
+    if as_json:
+        print(json.dumps(records, indent=2, ensure_ascii=False))
+        return
+    if not records:
+        out.print("library is empty: finalize a run first")
+        return
+    for r in records:
+        out.print(f"{r['session']} · {r['product'][:60]} · verdict {r['verdict'] or '-'}")
+        for a in r["assumptions"]:
+            if a["score"] != "untested":
+                out.print(f"  [{a['score']}] {a['statement'][:100]}")
+
+
 @app.command("costs")
 @guarded
 def costs(name: str, as_json: JsonFlag = False) -> None:

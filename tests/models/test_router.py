@@ -135,6 +135,7 @@ def test_prompt_registry_carries_the_quality_contract_and_hill() -> None:
         "prototype/artifact",
         kind="concept_one_pager",
         concept="c",
+        design_tokens="(n/a)",
         problem_statement="p",
         assumptions="a",
     )

@@ -158,7 +158,13 @@ class TestEngine:
             )
         return None
 
-    _PROTOTYPE_KINDS = ("concept_one_pager", "landing_copy", "storyboard", "demo_script")
+    _PROTOTYPE_KINDS = (
+        "concept_one_pager",
+        "landing_copy",
+        "storyboard",
+        "demo_script",
+        "wireframe_html",
+    )
 
     @classmethod
     def _primary_artifact(cls, ctx) -> tuple[str, str]:
