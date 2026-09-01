@@ -68,6 +68,11 @@ class ReportContext:
     stage_digest: dict[str, dict] = field(default_factory=dict)
     market_research: dict | None = None
     ui_feature_results: list = field(default_factory=list)
+    lens_votes: list[dict] = field(default_factory=list)
+    skeptic_challenge: str | None = None
+    kata_moves: list[dict] = field(default_factory=list)
+    dissent: list[dict] = field(default_factory=list)
+    next_actions: list[str] = field(default_factory=list)
     dossier_paths: list[str] = field(default_factory=list)
 
     @property
@@ -184,6 +189,74 @@ def _stage_digest(model: DossierModel) -> dict[str, dict]:
     return digest
 
 
+def _deliberation(model: DossierModel) -> tuple[list[dict], str | None, list[dict], list[dict]]:
+    """(lens votes, skeptic challenge, kata moves, dissent) from the journal."""
+    concept = next(
+        (
+            d
+            for d in model.decisions.values()
+            if d.question == "which concept advances to prototype"
+        ),
+        None,
+    )
+    votes = []
+    dissent: list[dict] = []
+    if concept:
+        votes = [
+            {"lens": pos.get("actor", "?"), "position": pos.get("position", "")}
+            for pos in concept.positions
+            if isinstance(pos, dict)
+        ]
+        dissent = [d for d in concept.dissent if isinstance(d, dict)]
+    skeptic = next(
+        (
+            e.content
+            for e in model.evidence.values()
+            if e.speaker and "skeptic" in (e.speaker or "").lower()
+        ),
+        None,
+    )
+    moves = [
+        {
+            "move": mv.move_id,
+            "stage": mv.stage or "-",
+            "executed": mv.executed,
+            "trigger": mv.trigger,
+            "note": (mv.outcome if mv.executed else mv.reason) or "",
+        }
+        for mv in model.moves
+    ]
+    return votes, skeptic, moves, dissent
+
+
+def _next_actions(model: DossierModel, feature_results: list) -> list[str]:
+    actions = []
+    for r in feature_results:
+        if r.get("verdict") == "broken" and r.get("finding"):
+            actions.append(f"Fix ({r['feature']}): {r['finding']}")
+    if model.recommendation:
+        confidence = model.recommendation.resolution
+        loop = next(
+            (mv for mv in model.moves if mv.move_id == "loopback_proposal" and mv.executed), None
+        )
+        if loop and loop.outcome:
+            actions.append(f"Address the test contradiction: {loop.outcome[:220]}")
+        actions.append(
+            f"Recommendation is '{confidence}': "
+            + (
+                "validate the supported assumptions with real users before building."
+                if model.recommendation.requires_real_validation
+                else "proceed per the recommendation."
+            )
+        )
+    seen: set[str] = set()
+    for item in model.negative_space.research_debt[:3]:
+        if item.question not in seen:
+            seen.add(item.question)
+            actions.append(f"Real-user research: {item.question[:180]}")
+    return actions[:8]
+
+
 def _ui_feature_results(session_dir: Path, model: DossierModel) -> list:
     import json as _json
 
@@ -249,6 +322,8 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
     dossier_paths = [
         p for p in ("dossier/dossier.md", "dossier/dossier.json") if (session_dir / p).exists()
     ]
+    feature_results = _ui_feature_results(session_dir, model)
+    lens_votes, skeptic, kata_moves, dissent = _deliberation(model)
     return ReportContext(
         session_dir=session_dir,
         model=model,
@@ -269,6 +344,11 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         ui_screenshots=[a.path for a in model.artifacts if a.kind == "ui_screenshot"],
         stage_digest=_stage_digest(model),
         market_research=_market_research(session_dir, model),
-        ui_feature_results=_ui_feature_results(session_dir, model),
+        ui_feature_results=feature_results,
+        lens_votes=lens_votes,
+        skeptic_challenge=skeptic,
+        kata_moves=kata_moves,
+        dissent=dissent,
+        next_actions=_next_actions(model, feature_results),
         dossier_paths=dossier_paths,
     )

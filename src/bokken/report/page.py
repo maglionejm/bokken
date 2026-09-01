@@ -140,6 +140,26 @@ text-transform:uppercase}
 .verdict-panel .word.kill{color:var(--accent)}
 .verdict-panel p{font-size:14px;color:#cfc9bd}
 .shot{max-width:100%;border:1px solid var(--line);border-radius:10px;margin:10px 0;box-shadow:0 6px 24px rgba(31,36,48,.08)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 18px}
+.chips span{font-family:var(--mono);font-size:11px;background:var(--card);
+border:1px solid var(--line);border-radius:99px;padding:4px 12px;color:var(--ink2)}
+.chips span b{color:var(--accent-dark)}
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:16px 18px;margin:12px 0;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:16px}
+@media(max-width:760px){.fcard{grid-template-columns:1fr}}
+.fcard .steps{font-family:var(--mono);font-size:11.5px;color:var(--ink2);margin-top:8px;
+padding-left:14px;border-left:2px solid var(--line)}
+.fcard img{width:100%;border:1px solid var(--line);border-radius:8px}
+.vote{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ink);
+border-radius:0 10px 10px 0;padding:13px 16px;margin:10px 0;font-size:13.5px}
+.vote .lens{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+letter-spacing:.1em;color:var(--accent-dark)}
+.actions{counter-reset:act;list-style:none;padding:0;margin:14px 0}
+.actions li{counter-increment:act;background:var(--card);border:1px solid var(--line);
+border-radius:10px;padding:13px 16px 13px 52px;margin:8px 0;position:relative;font-size:14px}
+.actions li::before{content:counter(act);position:absolute;left:16px;top:11px;width:24px;height:24px;
+border-radius:50%;background:var(--accent);color:#fff;font-family:var(--mono);font-size:12px;
+display:flex;align-items:center;justify-content:center}
 .reveal{opacity:0;transform:translateY(12px);transition:opacity .55s ease,transform .55s ease}
 .reveal.seen{opacity:1;transform:none}
 @media print{.rail{display:none}.shell{display:block}#prog{display:none}}
@@ -170,6 +190,15 @@ if(document.readyState==='complete')drawCharts();else window.addEventListener('l
 """
 
 
+def _img_uri(ctx: ReportContext, relative: str) -> str:
+    import base64
+
+    path = ctx.session_dir / relative
+    if not path.exists():
+        return ""
+    return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode()
+
+
 def _e(text: str) -> str:
     return escape(str(text), quote=False)
 
@@ -189,6 +218,14 @@ def _apo(c: ReportContext, stage: str, output_line: str) -> str:
         f"<div class='blk'><h4>Process</h4><p>{_e(d.get('process', ''))}</p></div>"
         f"<div class='blk'><h4>Output</h4><p>{_e(output_line)}</p></div>"
         "</div>"
+    )
+
+
+def _chips(items: list[tuple[str, str]]) -> str:
+    return (
+        "<div class='chips'>"
+        + "".join(f"<span><b>{_e(v)}</b> {_e(k)}</span>" for k, v in items if v)
+        + "</div>"
     )
 
 
@@ -235,9 +272,16 @@ def render_page(ctx: ReportContext) -> str:
         )
     chapters += [
         ("test", "Test", "stage · test", "The assumption register, scored"),
+        (
+            "deliberation",
+            "Deliberation",
+            "how the agents argued",
+            "Votes, challenge, dissent, iteration",
+        ),
         ("verdict", "Verdict", "final output", f"Recommendation: {outcome}"),
         ("debt", "Negative space", "negative space", "What this run honestly did not do"),
         ("ops", "Model ops", "model operations", "Every call journaled, every euro estimated"),
+        ("actions", "Next actions", "action oriented", "What to do next, in order"),
         ("appendix", "Appendix", "appendix", "Specifications handed off"),
     ]
     numbers = {cid: f"{i + 1:02d}" for i, (cid, *_rest) in enumerate(chapters)}
@@ -386,6 +430,21 @@ def render_page(ctx: ReportContext) -> str:
 
     # ---- 04 empathize ----
     add(chapter("empathize"))
+    d_emp = c.stage_digest.get("empathize", {})
+    add(
+        _chips(
+            [
+                ("evidence items", str(len(m.evidence))),
+                (
+                    "observed",
+                    str(sum(1 for e in m.evidence.values() if e.confidence_class == "observed")),
+                ),
+                ("ranked outcomes", str(len(c.opportunities))),
+                ("research calls", str(d_emp.get("calls", {}).get("research", 0))),
+                ("abstentions", str(len(m.abstentions))),
+            ]
+        )
+    )
     add(
         _apo(
             c,
@@ -424,23 +483,53 @@ def render_page(ctx: ReportContext) -> str:
             "<p class='lede'>A browser walkthrough of the running app — screenshots and facts are observed evidence, not simulation.</p>"
         )
         if c.ui_feature_results:
+            counts_v = {"works": 0, "broken": 0, "unclear": 0}
+            for r in c.ui_feature_results:
+                counts_v[r.get("verdict", "unclear")] = (
+                    counts_v.get(r.get("verdict", "unclear"), 0) + 1
+                )
             add(
-                "<h3>Per-feature functional tests</h3>"
-                "<table><tr><th>Feature</th><th>Verdict</th><th class='r'>Steps</th><th>Finding</th></tr>"
+                _chips(
+                    [
+                        ("features exercised", str(len(c.ui_feature_results))),
+                        ("broken", str(counts_v["broken"])),
+                        ("works", str(counts_v["works"])),
+                        ("unclear", str(counts_v["unclear"])),
+                    ]
+                )
             )
             verdict_tag = {"works": "observed", "broken": "loop", "unclear": "simulated"}
             for r in c.ui_feature_results:
                 v = r.get("verdict", "unclear")
-                add(
-                    f"<tr><td><strong>{_e(r.get('feature', ''))}</strong></td>"
-                    f"<td><span class='tag {verdict_tag.get(v, 'simulated')}' style='margin-left:0'>{_e(v)}</span></td>"
-                    f"<td class='r'>{len(r.get('steps', []))}</td><td>{_e(r.get('finding', ''))}</td></tr>"
+                steps_html = (
+                    "".join(f"<div>{_e(s)}</div>" for s in r.get("steps", []))
+                    or "<div>(entry state only)</div>"
                 )
-            add("</table>")
-        for shot in c.ui_screenshots:
-            add(f"<img class='shot' src='../{_e(shot)}' alt='UI screenshot'>")
+                shot_html = ""
+                if r.get("screenshot"):
+                    uri = _img_uri(c, f"artifacts/ui/{r['screenshot']}")
+                    if uri:
+                        shot_html = f"<div><img src='{uri}' alt='end state'></div>"
+                add(
+                    f"<div class='fcard'><div><strong>{_e(r.get('feature', ''))}</strong>"
+                    f"<span class='tag {verdict_tag.get(v, 'simulated')}'>{_e(v)}</span>"
+                    + (
+                        f"<p style='font-size:13.5px;margin-top:6px'>{_e(r.get('finding', ''))}</p>"
+                        if r.get("finding")
+                        else ""
+                    )
+                    + f"<div class='steps'>{steps_html}</div></div>{shot_html}</div>"
+                )
+        walk_shots = [s for s in c.ui_screenshots if "feature_" not in s][:4]
+        for shot in walk_shots:
+            uri = _img_uri(c, shot)
+            if uri:
+                add(f"<img class='shot' src='{uri}' alt='UI screenshot'>")
         review_html = _e(c.ui_review).replace("\n", "<br>")
-        add(f"<div class='card' style='margin-top:14px'>{review_html}</div></section>")
+        add(
+            "<details style='margin-top:14px'><summary>Full heuristic review (verbatim)</summary>"
+            f"<div class='why'>{review_html}</div></details></section>"
+        )
 
     # ---- define ----
     add(chapter("define"))
@@ -573,6 +662,54 @@ def render_page(ctx: ReportContext) -> str:
         )
     add("</div></section>")
 
+    # ---- deliberation ----
+    add(chapter("deliberation"))
+    add(
+        _chips(
+            [
+                ("lens votes", str(len(c.lens_votes))),
+                ("kata moves executed", str(sum(1 for mv in c.kata_moves if mv["executed"]))),
+                ("suppressed", str(sum(1 for mv in c.kata_moves if not mv["executed"]))),
+                ("dissents on record", str(len(c.dissent))),
+            ]
+        )
+    )
+    if c.lens_votes:
+        add("<h3>Convergence lens votes</h3>")
+        by_lens: dict[str, list[str]] = {}
+        for vote in c.lens_votes:
+            by_lens.setdefault(vote["lens"], []).append(vote["position"])
+        for lens, positions in by_lens.items():
+            add(
+                f"<details{' open' if lens == 'feasibility' else ''}>"
+                f"<summary>{_e(lens)} — {len(positions)} vote(s)</summary>"
+            )
+            for pos in positions:
+                add(f"<div class='vote'><span class='lens'>{_e(lens)}</span><br>{_e(pos)}</div>")
+            add("</details>")
+    if c.skeptic_challenge:
+        add("<h3>The skeptic, verbatim</h3>")
+        add(
+            f"<div class='quote'>{_e(c.skeptic_challenge)}<div class='who'>skeptic · on the record before convergence closed</div></div>"
+        )
+    if c.dissent:
+        add("<h3>Dissent preserved on the decision</h3>")
+        for d in c.dissent:
+            add(
+                f"<div class='quote'>{_e(d.get('reservation', ''))}<div class='who'>{_e(d.get('actor', 'panel'))}</div></div>"
+            )
+    if c.kata_moves:
+        add("<h3>Facilitation (Kata) — every intervention journaled</h3>")
+        add("<table><tr><th>Move</th><th>Stage</th><th>Fired</th><th>Trigger / note</th></tr>")
+        for mv in c.kata_moves[:14]:
+            fired = "yes" if mv["executed"] else "suppressed"
+            note = (mv["note"] or mv["trigger"])[:110]
+            add(
+                f"<tr><td><code>{_e(mv['move'])}</code></td><td>{_e(mv['stage'])}</td><td>{fired}</td><td>{_e(note)}</td></tr>"
+            )
+        add("</table>")
+    add("</section>")
+
     # ---- verdict ----
     add(chapter("verdict"))
     validation = (
@@ -633,6 +770,20 @@ def render_page(ctx: ReportContext) -> str:
             + " · ".join(f"<span class='path'>{_e(p)}</span>" for p in c.dossier_paths)
             + " · <span class='path'>journal.jsonl</span></p>"
         )
+    add("</section>")
+
+    # ---- next actions ----
+    add(chapter("actions"))
+    if c.next_actions:
+        add(
+            "<p class='lede'>Derived from journaled findings: broken features first, then the verdict's next step, then the top research debt.</p>"
+        )
+        add("<ol class='actions'>")
+        for action in c.next_actions:
+            add(f"<li>{_e(action)}</li>")
+        add("</ol>")
+    else:
+        add("<p class='lede'>No pending actions were journaled.</p>")
     add("</section>")
 
     # ---- appendix ----

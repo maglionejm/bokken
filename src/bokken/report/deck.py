@@ -340,13 +340,12 @@ class Deck:
         s = self.slide()
         self.header(s, "observed · functional UI review", "The product, exercised first-hand")
         if c.ui_feature_results:
-            box = self.text(s, MARGIN, Inches(1.45), BODY_W, Inches(0.9))
-            self.block_title(box, "Per-feature verdicts")
-            line = "  ·  ".join(
-                f"{r.get('feature', '')}: {r.get('verdict', '?').upper()}"
-                for r in c.ui_feature_results[:6]
-            )
-            self.para(box, line[:220], size=9.5)
+            box = self.text(s, MARGIN, Inches(1.45), BODY_W, Inches(2.2))
+            self.block_title(box, "Per-feature functional tests")
+            for r in c.ui_feature_results[:8]:
+                verdict = r.get("verdict", "?").upper()
+                finding = f" — {r['finding']}" if r.get("finding") else ""
+                self.para(box, f"{verdict:9} {r.get('feature', '')}{finding}"[:180], size=9)
         frame = self.text(
             s, MARGIN, Inches(1.6), Inches(7.4) if c.ui_screenshots else BODY_W, Inches(5.2)
         )
@@ -522,6 +521,42 @@ class Deck:
             self.run(p, (a.score or "untested").upper(), size=9, bold=True, color=WHITE)
             y += Inches(0.5)
 
+    def deliberation(self):
+        c = self.ctx
+        if not (c.lens_votes or c.skeptic_challenge):
+            return
+        s = self.slide()
+        self.header(s, "how the agents argued", "Votes, challenge, dissent, iteration")
+        left = self.text(s, MARGIN, Inches(1.5), Inches(6.3), Inches(5.2))
+        if c.lens_votes:
+            self.block_title(left, "Convergence lens votes")
+            for vote in c.lens_votes[:4]:
+                self.para(
+                    left, f"{vote['lens'].upper()}: {vote['position']}"[:260], size=8.5, before=5
+                )
+        if c.dissent:
+            self.block_title(left, "Dissent preserved", first=False)
+            for d in c.dissent[:2]:
+                self.para(left, f"{d.get('actor', '')}: {d.get('reservation', '')}"[:220], size=8.5)
+        right = self.text(s, Inches(7.1), Inches(1.5), Inches(5.6), Inches(5.2))
+        if c.skeptic_challenge:
+            self.block_title(right, "The skeptic, verbatim")
+            self.para(right, c.skeptic_challenge[:420], size=8.5)
+        executed = [mv for mv in c.kata_moves if mv["executed"]]
+        if executed:
+            self.block_title(right, f"Kata: {len(executed)} interventions", first=False)
+            self.bullets(right, [f"{mv['move']} ({mv['stage']})" for mv in executed[:6]], size=8.5)
+
+    def next_actions(self):
+        c = self.ctx
+        if not c.next_actions:
+            return
+        s = self.slide()
+        self.header(s, "action oriented", "Next actions, in order")
+        frame = self.text(s, MARGIN, Inches(1.6), BODY_W, Inches(5.0))
+        for i, action in enumerate(c.next_actions, 1):
+            self.para(frame, f"{i}. {action}"[:230], size=10.5, first=i == 1, before=8)
+
     def verdict(self):
         m = self.ctx.model
         s = self.slide()
@@ -627,9 +662,11 @@ class Deck:
         self.prototype()
         self.concept_research()
         self.test()
+        self.deliberation()
         self.verdict()
         self.negative_space()
         self.model_ops()
+        self.next_actions()
         self.appendix()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         self.prs.save(str(out_path))
