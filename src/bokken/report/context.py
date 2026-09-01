@@ -73,6 +73,7 @@ class ReportContext:
     kata_moves: list[dict] = field(default_factory=list)
     dissent: list[dict] = field(default_factory=list)
     next_actions: list[str] = field(default_factory=list)
+    hill: dict = field(default_factory=dict)  # who/what/wow/hypothesis from the one-pager
     dossier_paths: list[str] = field(default_factory=list)
 
     @property
@@ -229,6 +230,26 @@ def _deliberation(model: DossierModel) -> tuple[list[dict], str | None, list[dic
     return votes, skeptic, moves, dissent
 
 
+def _hill(session_dir: Path, model: DossierModel) -> dict:
+    """WHO/WHAT/WOW lines and the 'We believe' hypothesis from prototype artifacts."""
+    hill: dict = {}
+    for artifact in model.artifacts:
+        if artifact.kind not in ("concept_one_pager", "landing_copy", "storyboard", "demo_script"):
+            continue
+        path = session_dir / artifact.path
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            stripped = line.strip().lstrip("*-# ").strip()
+            for key in ("WHO", "WHAT", "WOW"):
+                prefix = f"{key}:"
+                if stripped.upper().startswith(prefix) and key.lower() not in hill:
+                    hill[key.lower()] = stripped[len(prefix) :].strip(" *")
+            if "we believe" in stripped.lower() and "hypothesis" not in hill:
+                hill["hypothesis"] = stripped
+    return hill
+
+
 def _next_actions(model: DossierModel, feature_results: list) -> list[str]:
     actions = []
     for r in feature_results:
@@ -350,5 +371,6 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         kata_moves=kata_moves,
         dissent=dissent,
         next_actions=_next_actions(model, feature_results),
+        hill=_hill(session_dir, model),
         dossier_paths=dossier_paths,
     )
