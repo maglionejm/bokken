@@ -298,10 +298,15 @@ class ScriptedProvider:
                 rationale="landing copy is the cheapest demand test for the detour assumption",
             )
         if prompt_id == "prototype/artifact":
+            if "wireframe_html" in rendered.split("Kind:")[1][:30]:
+                assert "design tokens" in rendered or "/*" in rendered  # tokens reached the prompt
+                return "<!doctype html><html><body><h1>Mock</h1></body></html>"
             return "# Adaptive shuttle\n\nPlannable arrivals for your commute.\n"
         if prompt_id == "test/evaluate":
             # Evaluators must see the prototype artifact, never a panel manifest.
-            assert "Adaptive shuttle" in rendered and '"panel_kind"' not in rendered
+            assert ("Adaptive shuttle" in rendered or "<h1>Mock</h1>" in rendered) and (
+                '"panel_kind"' not in rendered
+            )
             score = "contradicted" if n == 1 else "supported"
             return s.Evaluation(score=score, reaction=f"reaction run {n}: {score}")
         if prompt_id == "test/recommend":

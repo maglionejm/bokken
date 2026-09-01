@@ -291,6 +291,7 @@ def render_page(ctx: ReportContext) -> str:
             "how the agents argued",
             "Votes, challenge, dissent, iteration",
         ),
+        ("ost", "Opportunity tree", "continuous discovery", "The Opportunity Solution Tree"),
         ("verdict", "Verdict", "final output", f"Recommendation: {outcome}"),
         ("debt", "Negative space", "negative space", "What this run honestly did not do"),
         ("ops", "Model ops", "model operations", "Every call journaled, every euro estimated"),
@@ -797,6 +798,35 @@ def render_page(ctx: ReportContext) -> str:
                 f"<tr><td><code>{_e(mv['move'])}</code></td><td>{_e(mv['stage'])}</td><td>{fired}</td><td>{_e(note)}</td></tr>"
             )
         add("</table>")
+    add("</section>")
+
+    # ---- opportunity solution tree ----
+    add(chapter("ost"))
+    add(
+        "<p class='lede'>Teresa Torres's discovery structure, read straight from the journal: "
+        "outcome &rarr; opportunities (Ulwick-ranked) &rarr; the solution that advanced &rarr; "
+        "its assumption tests.</p>"
+    )
+    root = (
+        m.problem_statement.resolution if m.problem_statement else m.brief.get("problem_space", "")
+    )
+    add(f"<div class='card'><h4>Desired outcome (problem framed)</h4>{_e(root[:400])}</div>")
+    for statement in c.opportunities[:6]:
+        add(f"<details style='margin-left:24px'><summary>{_e(statement[:180])}</summary>")
+        if m.concept:
+            add(
+                f"<div class='why' style='margin-left:16px'><strong>Solution advanced:</strong> {_e(m.concept.resolution[:260])}</div>"
+            )
+            add("<div style='margin-left:32px'>")
+            for a in list(m.assumptions.values())[:6]:
+                score = a.score or "untested"
+                add(
+                    f"<div class='debt'><span class='tag {score if score in ('supported',) else ('loop' if score == 'contradicted' else 'simulated')}'>{_e(score)}</span> {_e(a.statement[:160])}</div>"
+                )
+            add("</div>")
+        add("</details>")
+    if not c.opportunities:
+        add("<p class='lede'>No opportunity ranking was journaled in this run.</p>")
     add("</section>")
 
     # ---- verdict ----

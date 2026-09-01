@@ -5,12 +5,68 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from bokken.journal import Actor
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.stages.base import FACILITATOR, RouterFactory, StageError, open_stage, structured
 from bokken.stages.research import prior_research, run_concept_research
 from bokken.stages.schemas import AssumptionList, FidelityChoice
 
 _RISK_ORDER = {"high": 2, "medium": 1, "low": 0}
+
+
+def _exercise_wireframe(ctx: StageContext, absolute) -> None:
+    """The prototype gets the same treatment as the product: a real browser pass."""
+    from bokken.journal.schema import content_hash as _hash
+    from bokken.stages.walkthrough import WalkerUnavailable, build_walker
+
+    try:
+        observations = build_walker().visit(absolute.as_uri(), max_pages=1)
+    except (WalkerUnavailable, Exception):
+        return  # honest skip: the artifact stands on its own
+    for i, obs in enumerate(observations[:1], 1):
+        ctx.store.append(
+            type="evidence.captured",
+            stage="prototype",
+            actor=Actor(kind="system", name="ui-walker"),
+            payload={
+                "content": obs.facts(),
+                "source": "wireframe_exercise",
+                "confidence_class": "observed",
+            },
+        )
+        if obs.screenshot_png:
+            shot = ctx.store.session_dir / "artifacts" / "prototype" / f"wireframe_{i}.png"
+            shot.write_bytes(obs.screenshot_png)
+            ctx.store.append(
+                type="artifact.generated",
+                stage="prototype",
+                actor=Actor(kind="system", name="ui-walker"),
+                payload={
+                    "path": f"artifacts/prototype/wireframe_{i}.png",
+                    "kind": "ui_screenshot",
+                    "content_hash": _hash(obs.screenshot_png),
+                },
+            )
+
+
+def _design_tokens(ctx: StageContext) -> str:
+    """Real CSS from the declared repo so wireframes speak the product's language."""
+    from pathlib import Path as _P
+
+    repo = (ctx.state.brief.get("inputs") or {}).get("repo")
+    if not repo:
+        return "(no repo declared - use a neutral utilitarian SaaS look)"
+    chunks: list[str] = []
+    budget = 12_000
+    for css in sorted(_P(repo).rglob("*.css"))[:4]:
+        try:
+            text = css.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        take = text[: max(0, budget - sum(len(c) for c in chunks))]
+        if take:
+            chunks.append(f"/* {css.name} */\n{take}")
+    return "\n\n".join(chunks) or "(no css found - use a neutral utilitarian SaaS look)"
 
 
 class PrototypeEngine:
@@ -107,6 +163,9 @@ class PrototypeEngine:
                 params={
                     "kind": item.kind,
                     "concept": concept,
+                    "design_tokens": (
+                        _design_tokens(ctx) if item.kind == "wireframe_html" else "(n/a)"
+                    ),
                     "problem_statement": problem_statement,
                     "assumptions": "; ".join(
                         registered[i].payload["statement"]
@@ -121,7 +180,8 @@ class PrototypeEngine:
                 return None
             if not outcome.ok:
                 raise StageError(f"artifact generation failed: {outcome.status}")
-            relative = Path("artifacts") / "prototype" / f"{item.kind}.md"
+            suffix = "html" if item.kind == "wireframe_html" else "md"
+            relative = Path("artifacts") / "prototype" / f"{item.kind}.{suffix}"
             absolute = ctx.store.session_dir / relative
             absolute.parent.mkdir(parents=True, exist_ok=True)
             absolute.write_text(outcome.text, encoding="utf-8")
@@ -136,6 +196,8 @@ class PrototypeEngine:
                 },
                 refs=assumption_refs,
             )
+            if item.kind == "wireframe_html":
+                _exercise_wireframe(ctx, absolute)
         return None
 
     @staticmethod

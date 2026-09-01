@@ -235,3 +235,65 @@ def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkey
         big = "x" * 50_000
         sliced = generator._sliced_context("q?", big)
     assert sliced == "[source abcdef123456 (code) L1-L1] partial span"
+
+
+def test_wireframe_artifact_generated_on_tokens_and_exercised(tmp_path, monkeypatch) -> None:
+    from bokken.journal import read_events
+    from bokken.orchestrator import create_session
+    from bokken.stages import walkthrough as wt2
+
+    monkeypatch.setattr(wt2, "build_walker", lambda: FakeWalker2())
+    inputs = make_inputs(tmp_path)
+    css = tmp_path / "styles.css"
+    css.write_text(":root{--accent:#c00}.card{border:1px solid}")
+    inputs["repo"] = str(tmp_path)  # repo with css tokens
+    session_dir = create_session(
+        "wireframe-e2e",
+        brief={**BRIEF, "inputs": inputs},
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    provider = WireframeProvider()
+    assert make_runner(session_dir, provider).run().halt == "completed"
+    events = list(read_events(session_dir))
+    wf = next(e for e in events if e.payload.get("kind") == "wireframe_html")
+    path = session_dir / wf.payload["path"]
+    assert path.suffix == ".html" and "<h1>Mock</h1>" in path.read_text()
+    exercised = [
+        e
+        for e in events
+        if e.type == "evidence.captured" and e.payload.get("source") == "wireframe_exercise"
+    ]
+    assert exercised and exercised[0].payload["confidence_class"] == "observed"
+
+
+class FakeWalker2:
+    def visit(self, app_url, *, max_pages=12, seed_paths=None):
+        import base64
+
+        from bokken.stages import walkthrough as wt3
+
+        return [
+            wt3.PageObservation(
+                url=app_url,
+                title="Mock",
+                load_ms=5,
+                screenshot_png=base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg"
+                    "YAAAAAMAASsJTYQAAAAASUVORK5CYII="
+                ),
+            )
+        ]
+
+
+class WireframeProvider(ScriptedProvider):
+    def _dispatch(self, prompt_id, rendered):
+        from bokken.stages import schemas as s2
+
+        if prompt_id == "prototype/fidelity":
+            return s2.FidelityChoice(
+                artifacts=[s2.ArtifactPlanItem(kind="wireframe_html", assumption_indexes=[0])],
+                rationale="a screen mock is the cheapest test of comprehension",
+            )
+        return super()._dispatch(prompt_id, rendered)

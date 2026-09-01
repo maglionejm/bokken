@@ -231,18 +231,26 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "it supported or contradicted.\n",
     ),
     "prototype/fidelity": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT + "Assumption register (riskiest first):\n{register}\n"
         "Choose the cheapest artifact set that tests the riskiest assumption. Available "
-        "kinds: concept_one_pager, landing_copy, storyboard, demo_script. Map every "
+        "kinds: concept_one_pager, landing_copy, storyboard, demo_script, wireframe_html "
+        "(an interactive mock on the product's real design tokens - pick it when the "
+        "riskiest assumption is about whether users understand or act on a screen). Map every "
         "chosen artifact to the assumption ids it exercises and explain the rationale "
         "so the founder understands why cheaper beats higher fidelity here.\n",
     ),
     "prototype/artifact": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT + "Generate the artifact.\nKind: {kind}\nConcept: {concept}\n"
         "Problem statement: {problem_statement}\nAssumptions it must exercise: "
         "{assumptions}\n"
+        "If the kind is wireframe_html, emit ONE complete self-contained HTML file "
+        "(inline CSS only) that mocks the concept inside the product: reuse the class "
+        "names, custom properties, and visual language from these real design tokens - "
+        "never invent a new brand:\n{design_tokens}\n"
+        "Spanish UI text by default; realistic demo data; no external assets; no JS "
+        "beyond trivial toggles. "
         "If the kind is concept_one_pager, open with a Hill - three lines: WHO (the "
         "specific user), WHAT (what they can now do), WOW (the measurable differentiator) "
         "- followed by a Lean-UX hypothesis: 'We believe [outcome] for [segment], "
