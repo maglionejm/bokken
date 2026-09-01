@@ -123,7 +123,9 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
 
     _, html_path = generate_report(session_dir)
     html = html_path.read_text()
-    assert "Functional UI review" in html and "artifacts/ui/screen_01.png" in html
+    assert "functional ui review" in html  # chapter kicker
+    assert "data:image/png;base64," in html  # self-contained screenshots
+    assert "Schedule upload" in html and "broken" in html  # feature cards with verdicts
 
 
 def test_missing_app_url_is_honest_research_debt(tmp_path) -> None:
@@ -137,7 +139,7 @@ def test_missing_app_url_is_honest_research_debt(tmp_path) -> None:
     )
     assert "app_url" in skip.payload["gap"]
     _, html_path = generate_report(session_dir)
-    assert "Functional UI review" not in html_path.read_text()
+    assert "functional ui review" not in html_path.read_text()
 
 
 def test_concept_research_authorized_path(tmp_path, monkeypatch) -> None:
