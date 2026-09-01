@@ -160,3 +160,29 @@ def test_help_lists_all_verbs() -> None:
         "dossier",
     ):
         assert verb in result.stdout
+
+
+def test_costs_verb_reports_journaled_spend(tmp_path, monkeypatch):
+    import json as _json
+
+    from tests.stages.fake_provider import ScriptedProvider
+    from tests.stages.test_engines_e2e import BRIEF, make_inputs, make_runner
+
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path / "home"))
+    from bokken.orchestrator import create_session
+
+    session_dir = create_session(
+        "costs-e2e",
+        brief={**BRIEF, "inputs": make_inputs(tmp_path)},
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
+    result = runner.invoke(app, ["costs", "costs-e2e", "--json"])
+    assert result.exit_code == 0
+    payload = _json.loads(result.stdout)
+    assert payload["total_usd"] > 0
+    assert payload["rows"] and all("prompt_id" in r for r in payload["rows"])
+    total = round(sum(r["cost_usd"] for r in payload["rows"]), 2)
+    assert abs(total - payload["total_usd"]) < 0.01
