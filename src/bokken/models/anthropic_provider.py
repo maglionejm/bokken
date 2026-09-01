@@ -46,6 +46,7 @@ class AnthropicProvider:
         routing_class: RoutingClass,
         stream: bool,
         max_tokens: int,
+        web_search: bool = False,
     ) -> ProviderResult:
         messages = [{"role": "user", "content": rendered}]
         kwargs: dict = {"model": model, "max_tokens": max_tokens, "messages": messages}
@@ -60,6 +61,10 @@ class AnthropicProvider:
             kwargs["betas"] = ["server-side-fallback-2026-06-01"]
             kwargs["fallbacks"] = [{"model": "claude-opus-4-8"}]
 
+        if web_search:
+            kwargs["tools"] = [
+                {"type": "web_search_20250305", "name": "web_search", "max_uses": 12}
+            ]
         surface = self.client.beta.messages if is_fable else self.client.messages
         if schema is not None:
             response = surface.parse(**kwargs, output_format=schema)

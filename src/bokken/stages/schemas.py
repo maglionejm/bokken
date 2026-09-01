@@ -142,6 +142,27 @@ class Evaluation(BaseModel):
     reaction: str
 
 
+class Competitor(BaseModel):
+    name: str
+    url: str = ""
+    what: str
+    overlap: str  # how it overlaps with the selected concept
+
+
+class MarketSignal(BaseModel):
+    stat: str
+    source_url: str
+
+
+class MarketResearch(BaseModel):
+    competitors: list[Competitor] = Field(default_factory=list)
+    market_signals: list[MarketSignal] = Field(default_factory=list)
+    regulatory: list[str] = Field(default_factory=list)
+    pricing_benchmarks: list[str] = Field(default_factory=list)
+    differentiation_risks: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+
+
 class UIReview(BaseModel):
     markdown: str
 

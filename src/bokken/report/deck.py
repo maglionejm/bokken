@@ -447,6 +447,48 @@ class Deck:
                 size=10.5,
             )
 
+    def concept_research(self):
+        mr = self.ctx.market_research
+        if not mr:
+            return
+        s = self.slide()
+        self.header(s, "reported · concept research", "The web, on the record")
+        left = self.text(s, MARGIN, Inches(1.6), Inches(6.2), Inches(5.0))
+        if mr.get("competitors"):
+            self.block_title(left, "Competitors and prior art")
+            self.bullets(
+                left,
+                [
+                    f"{x.get('name', '')} - {x.get('what', '')} Overlap: {x.get('overlap', '')}"[
+                        :200
+                    ]
+                    for x in mr["competitors"][:5]
+                ],
+                size=9.5,
+            )
+        if mr.get("market_signals"):
+            self.block_title(left, "Market signals (sourced)", first=False)
+            self.bullets(
+                left,
+                [
+                    f"{x.get('stat', '')} ({x.get('source_url', '')})"[:200]
+                    for x in mr["market_signals"][:5]
+                ],
+                size=9.5,
+            )
+        right = self.text(s, Inches(7.0), Inches(1.6), Inches(5.7), Inches(5.0))
+        started = False
+        for key, title in (
+            ("regulatory", "Regulatory"),
+            ("pricing_benchmarks", "Pricing benchmarks"),
+            ("differentiation_risks", "Differentiation risks"),
+            ("open_questions", "Open questions"),
+        ):
+            if mr.get(key):
+                self.block_title(right, title, first=not started)
+                started = True
+                self.bullets(right, [str(i)[:160] for i in mr[key][:4]], size=9)
+
     def test(self):
         m = self.ctx.model
         s = self.slide()
@@ -575,6 +617,7 @@ class Deck:
         self.define()
         self.ideate()
         self.prototype()
+        self.concept_research()
         self.test()
         self.verdict()
         self.negative_space()

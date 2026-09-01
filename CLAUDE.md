@@ -17,7 +17,9 @@ process, consumed via CLI and MCP. No GUI.
    simulated`) propagate to everything derived from them. Never launder
    simulated research into "user insights".
 4. **No silent self-escalation.** Dojo runs cannot expand their own brief,
-   contact real humans, or publish externally. Stopping rules terminate runs;
+   contact real humans, or publish externally. Web research (read-only) runs
+   only when the brief declares `allow_web_research: true`, and its findings
+   are `reported` evidence with cited URLs. Stopping rules terminate runs;
    the stopping reason is a Journal event.
 5. **Own the loop.** The DT state machine is hand-written, explicit Python.
    Do not introduce LangGraph/LangChain-class dependencies.

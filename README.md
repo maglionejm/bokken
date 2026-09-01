@@ -160,6 +160,11 @@ Bokken is built spec-first with [OpenSpec](https://github.com/Fission-AI/OpenSpe
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md) (the project
 constitution).
 
+Once a concept is selected, an authorized deep web research pass
+(`--allow-web-research`) produces a structured market record — competitors
+with overlap, sourced signals, regulatory notes, risks — that feeds the
+assumption register and the reports.
+
 Models: `claude-fable-5` (effort high, Opus fallback) for research and challenge
 agents, `claude-fable-5` (effort high) for execution and documentation too — Opus only as refusal fallback —,
 `claude-haiku-4-5` for lightweight signal extraction — every call journaled with

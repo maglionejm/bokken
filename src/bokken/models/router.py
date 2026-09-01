@@ -112,7 +112,10 @@ class ModelRouter:
         schema: type[BaseModel] | None = None,
         stream: bool = False,
         max_tokens: int = 16000,
+        web_search: bool = False,
     ) -> ModelOutcome:
+        if web_search and routing_class != "research":
+            raise RoutingConfigError("web_search is limited to the research class")
         state = replay(self.store.events())
         budgets = state.config.get("budgets", {})
         class_budget = budgets.get(f"{routing_class}_tokens")
@@ -134,6 +137,7 @@ class ModelRouter:
                 routing_class=routing_class,
                 stream=stream,
                 max_tokens=max_tokens,
+                web_search=web_search,
             )
             status: OutcomeStatus = "ok"
             detail = ""
@@ -159,6 +163,7 @@ class ModelRouter:
                 request_id=None,
                 status="error",
                 duration_ms=int((time.monotonic() - started) * 1000),
+                web_search=web_search,
             )
             return ModelOutcome(status="error", model=model, detail=str(exc))
 
@@ -173,6 +178,7 @@ class ModelRouter:
             request_id=result.request_id,
             status=status,
             duration_ms=int((time.monotonic() - started) * 1000),
+            web_search=web_search,
         )
         if status != "ok":
             return ModelOutcome(
@@ -205,6 +211,7 @@ class ModelRouter:
         request_id: str | None,
         status: str,
         duration_ms: int,
+        web_search: bool = False,
     ) -> None:
         self.store.append(
             type="model.called",
@@ -220,5 +227,6 @@ class ModelRouter:
                 "usage": usage,
                 "status": "error" if status == "budget_exhausted" else status,
                 "duration_ms": duration_ms,
+                "web_search": web_search,
             },
         )
