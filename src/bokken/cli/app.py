@@ -199,7 +199,8 @@ def new(
             if gates in ("none", "stage_boundaries")
             else [s.strip() for s in gates.split(",")]
         )
-    budgets = {"total_tokens": budget} if budget else None
+    # Default guardrail: a run stops honestly instead of surprising on cost.
+    budgets = {"total_tokens": budget} if budget else {"total_tokens": 20_000_000}
     session_dir = create_session(
         name,
         brief=Brief.model_validate(brief_data),

@@ -192,9 +192,11 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             steps: list[str] = []
             verdict, finding = "unclear", ""
             for _step in range(MAX_STEPS):
+                # Fusion: mechanical stepping on the sidekick lane; the concluding
+                # verdict escalates to the frontier below.
                 action = structured(
                     router,
-                    "research",
+                    "sidekick",
                     "empathize/ui_action",
                     UIAction,
                     stage="empathize",
@@ -208,8 +210,22 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                 if action is None:
                     return results
                 if action.action == "done":
-                    verdict = action.verdict or "unclear"
-                    finding = action.finding
+                    confirm = structured(
+                        router,
+                        "research",
+                        "empathize/ui_action",
+                        UIAction,
+                        stage="empathize",
+                        params={
+                            "feature": feature.name,
+                            "expectation": feature.expectation,
+                            "log": "\n".join(steps) or "(no steps yet)",
+                            "page": tester.digest(),
+                        },
+                    )
+                    final = confirm if confirm and confirm.action == "done" else action
+                    verdict = final.verdict or action.verdict or "unclear"
+                    finding = final.finding or action.finding
                     break
                 observed = tester.act(action)
                 steps.append(

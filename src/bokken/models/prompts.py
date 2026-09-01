@@ -17,6 +17,8 @@ QUALITY_CONTRACT = (
     "product and corpus, never generic.\n\n"
 )
 
+CACHE_SPLIT = "\n<<<CACHE>>>\n"  # provider caches everything before the marker
+
 # prompt_id -> (version, template). Bump the version whenever a template changes;
 # journals keep the version each run actually used.
 PROMPTS: dict[str, tuple[str, str]] = {
@@ -44,8 +46,18 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "into, produce one specific follow-up question about that instance (e.g. 'tell me "
         "about the last time...'). If not, produce no follow-up.\n",
     ),
+    "sidekick/context_query": (
+        "v1",
+        "You are a retrieval sidekick. The corpus below is the only source of truth.\n"
+        "Corpus:\n{context}" + CACHE_SPLIT + "Question an interviewee must answer: {question}\n"
+        "Return the verbatim corpus spans that could ground a factual answer, each "
+        "prefixed by its source marker exactly as it appears (e.g. '[source abc123 "
+        "(code) L10-L14]'), max ~2500 words total. Do not paraphrase, do not answer "
+        "the question, do not add commentary. If nothing in the corpus grounds it, "
+        "reply exactly NO_COVERAGE.\n",
+    ),
     "empathize/persona_turn": (
-        "v2",
+        "v3",
         "You are the persona described below, answering a research interview question.\n"
         "Persona: {persona}\n"
         "Corpus (the only source you may state facts from, cite line spans):\n{context}\n"

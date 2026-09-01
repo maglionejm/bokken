@@ -79,3 +79,22 @@ def test_opus_requests_use_adaptive_thinking_at_high_effort() -> None:
 def test_extraction_requests_stay_minimal() -> None:
     kwargs = call("extraction", "claude-haiku-4-5")["plain"]
     assert "thinking" not in kwargs and "output_config" not in kwargs
+
+
+def test_cache_split_marks_the_prefix_block() -> None:
+    from bokken.models.prompts import CACHE_SPLIT
+
+    log: dict = {}
+    provider = AnthropicProvider(client=make_client(log))
+    provider.complete(
+        model="claude-opus-5",
+        prompt_id="x/y",
+        rendered=f"BIG CORPUS{CACHE_SPLIT}the question",
+        schema=Echo,
+        routing_class="sidekick",  # type: ignore[arg-type]
+        stream=False,
+        max_tokens=100,
+    )
+    content = log["plain"]["messages"][0]["content"]
+    assert content[0]["cache_control"] == {"type": "ephemeral"}
+    assert content[0]["text"] == "BIG CORPUS" and content[1]["text"] == "the question"

@@ -21,6 +21,7 @@ DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "challenge": "claude-fable-5",
     "cognition": "claude-opus-5",
     "extraction": "claude-haiku-4-5",
+    "sidekick": "claude-opus-5",
     "generation": "claude-opus-5",
 }
 

@@ -130,6 +130,10 @@ class ScriptedProvider:
                 "manifest 404\n\nTop 3: fix the 404; label the upload button; add an "
                 "empty-state hint.\n"
             )
+        if prompt_id == "sidekick/context_query":
+            # return the source-marked corpus lines verbatim (retrieval, not paraphrase)
+            lines = [ln for ln in rendered.splitlines() if "[source " in ln]
+            return "\n".join(lines[:6]) or "NO_COVERAGE"
         if prompt_id == "empathize/persona_turn":
             sources = SOURCE.findall(rendered)
             if not sources:
