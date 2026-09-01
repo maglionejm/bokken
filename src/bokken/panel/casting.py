@@ -50,6 +50,55 @@ class Persona(BaseModel):
         return Actor(kind="agent", name=self.name, model=model, persona_id=self.persona_id)
 
 
+FIRST_NAMES = [
+    "Carmen",
+    "Diego",
+    "Lucia",
+    "Rosa",
+    "Andres",
+    "Marta",
+    "Pablo",
+    "Nuria",
+    "Javier",
+    "Pilar",
+    "Sergio",
+    "Elena",
+    "Ramon",
+    "Ines",
+    "Tomas",
+    "Alba",
+]
+CITIES = [
+    "Madrid",
+    "Valencia",
+    "Sevilla",
+    "Zaragoza",
+    "Bilbao",
+    "Murcia",
+    "Vigo",
+    "Granada",
+    "Gijon",
+    "Badajoz",
+]
+AGES = list(range(24, 76, 4))
+
+
+def _vivid_identity(rng, segment: str | None) -> dict[str, str]:
+    """A concrete, human-readable identity (workshop style: 'Carmen, 54, Madrid').
+
+    Deterministic under the casting seed - identity is flavor for grounded
+    role-play; every factual claim still requires corpus citations.
+    """
+    return {
+        "given_name": rng.choice(FIRST_NAMES),
+        "age": str(rng.choice(AGES)),
+        "city": rng.choice(CITIES),
+        "household": rng.choice(
+            ["lives alone", "couple", "family with two kids", "shares a flat", "retired couple"]
+        ),
+    }
+
+
 def _persona_id(role: str, segment: str | None, profile: dict, ocean: dict, seed: int) -> str:
     material = json.dumps(
         {"role": role, "segment": segment, "profile": profile, "ocean": ocean, "seed": seed},
@@ -96,11 +145,13 @@ def cast_panel(
     for i in range(n_segment_personas):
         segment = segments[i % len(segments)] if segments else None
         profile = {axis: rng.choice(values) for axis, values in SAMPLING_AXES.items()}
+        identity = _vivid_identity(rng, segment)
+        profile.update(identity)
         ocean = {t: round(rng.uniform(0.05, 0.95), 3) for t in OCEAN_TRAITS}
         personas.append(
             Persona(
                 persona_id=_persona_id("segment", segment, profile, ocean, seed + 100 + i),
-                name=f"{segment or 'general'}-{i + 1}",
+                name=f"{identity['given_name']} ({identity['age']}, {identity['city']})",
                 role="segment",
                 segment=segment,
                 profile=profile,
