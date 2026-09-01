@@ -177,6 +177,23 @@ class UIAction(BaseModel):
     finding: str = ""
 
 
+class InterviewerTurn(BaseModel):
+    action: Literal["ask", "followup", "conclude"]
+    question: str = ""
+    rationale: str = ""
+
+
+class RescoredAssumption(BaseModel):
+    assumption_id: str
+    score: Literal["supported", "contradicted", "untested"]
+    rationale: str
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class Rescoring(BaseModel):
+    scores: list[RescoredAssumption] = Field(default_factory=list)
+
+
 class UIReview(BaseModel):
     markdown: str
 

@@ -310,6 +310,27 @@ class ScriptedProvider:
                 confidence="medium",
                 contradicts="the detour-tolerance assumption undermines the define insight",
             )
+        if prompt_id == "validate/next_turn":
+            if "(interview not started)" in rendered:
+                return s.InterviewerTurn(action="ask", question="Tell me about your last bill.")
+            return s.InterviewerTurn(action="conclude", question="Thank you!")
+        if prompt_id == "validate/rescore":
+            assumption_ids = HEX32.findall(rendered.split("Real evidence")[0])
+            evidence_ids = HEX32.findall(rendered.split("Real evidence")[1])
+            return (
+                s.Rescoring(
+                    scores=[
+                        s.RescoredAssumption(
+                            assumption_id=assumption_ids[0],
+                            score="supported",
+                            rationale="the participant confirmed it happened last month",
+                            evidence_ids=evidence_ids[:1],
+                        )
+                    ]
+                )
+                if assumption_ids and evidence_ids
+                else s.Rescoring()
+            )
         if prompt_id == "handoff/specify":
             from bokken.handoff.schema import (
                 CapabilityDraft,

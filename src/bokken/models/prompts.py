@@ -270,6 +270,28 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "learned and the cheapest pivot worth exploring. If any contradicted assumption "
         "undermines an earlier insight or the problem statement, say which.\n",
     ),
+    "validate/next_turn": (
+        "v1",
+        "You are moderating a validation interview with a real person. Be warm, "
+        "concrete, and brief; one question at a time; never lead the witness.\n"
+        "Guide (cover the debt questions and probes; adapt wording naturally):\n{guide}\n"
+        "Participant: {participant}\nTranscript so far:\n{transcript}\n"
+        "Choose: ask (next guide topic not yet covered), followup (ladder into a "
+        "concrete recent incident the last answer hinted at), or conclude (guide "
+        "covered or the participant is done). Questions in the participant's language "
+        "if the transcript shows one.\n",
+    ),
+    "validate/rescore": (
+        "v1",
+        QUALITY_CONTRACT
+        + "Real participants answered validation interviews. Confront each untested "
+        "assumption with ONLY this real evidence.\n"
+        "Untested assumptions (id: statement):\n{assumptions}\n"
+        "Real evidence (id: verbatim answer):\n{evidence}\n"
+        "For each assumption the evidence genuinely bears on: supported or "
+        "contradicted with the evidence ids and a one-line rationale. Leave it out "
+        "if the evidence does not reach it - do not stretch.\n",
+    ),
     "handoff/specify": (
         "v3",
         QUALITY_CONTRACT

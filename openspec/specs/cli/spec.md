@@ -130,3 +130,16 @@ run total. `--json` SHALL emit the same data as one JSON document.
 - **WHEN** `bokken costs mars-lander --json` runs on a completed session
 - **THEN** stdout is one JSON document whose totals equal the sum of the
   journaled usage priced at the list table
+
+### Requirement: Validate verb
+
+`bokken validate <name> [--participant NAME] [--channel terminal]` SHALL
+build (or reuse) the validation guide and run one agentic interview over the
+selected channel, journaling exchanges and rescoring; `--guide-only` SHALL
+stop after producing the guide. Exit code 2 when the session has no research
+debt and no untested assumptions.
+
+#### Scenario: Guide only
+
+- **WHEN** `bokken validate mars-lander --guide-only` runs on a completed session
+- **THEN** a `validation_guide` artifact exists and no interview is started

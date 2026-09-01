@@ -430,6 +430,44 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
     )
 
 
+@app.command("validate")
+@guarded
+def validate(
+    name: str,
+    participant: Annotated[
+        str, typer.Option(help="Participant label (never a phone number).")
+    ] = "participant-1",
+    channel: Annotated[str, typer.Option(help="terminal (more via extras)")] = "terminal",
+    guide_only: Annotated[
+        bool, typer.Option("--guide-only", help="Produce the guide and stop.")
+    ] = False,
+) -> None:
+    """Run a real validation interview against the session's research debt."""
+    from bokken.interview import build_guide, run_validation_interview
+    from bokken.interview.channels import TerminalChannel
+    from bokken.interview.guide import journal_guide
+    from bokken.journal.store import JournalStore
+
+    session_dir = resolve_session_dir(name)
+    with JournalStore.open(session_dir) as store:
+        guide = build_guide(store)
+        if guide.empty:
+            _fail("nothing to validate: no research debt and no untested assumptions", 2)
+        path = journal_guide(store, guide)
+        out.print(f"guide: {session_dir / path}")
+        if guide_only:
+            return
+        if channel != "terminal":
+            _fail(f"unknown channel {channel!r} (terminal is built in)", 2)
+        router = wiring.router_factory()(store)
+        exchanges = run_validation_interview(
+            store, router, guide, TerminalChannel(), participant=participant
+        )
+        out.print(
+            f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"
+        )
+
+
 @app.command("costs")
 @guarded
 def costs(name: str, as_json: JsonFlag = False) -> None:
