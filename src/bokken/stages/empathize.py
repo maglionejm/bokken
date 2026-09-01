@@ -25,8 +25,8 @@ OPPORTUNITY_BANDS = ((15.0, "severely underserved"), (12.0, "underserved"), (10.
 SEGMENT_SPIKE = 17.0
 
 
-def opportunity_band(score: float) -> str:
-    for floor, band in OPPORTUNITY_BANDS:
+def opportunity_band(score: float, bands=None) -> str:
+    for floor, band in bands or OPPORTUNITY_BANDS:
         if score >= floor:
             return band
     return "served"
@@ -74,6 +74,8 @@ class EmpathizeEngine:
             self._dojo_interviews(ctx, router, program)
         else:
             self._founder_interviews(ctx, router, program)
+            # Mode parity: a running app deserves its functional test either way.
+            run_walkthrough(ctx, router)
         return None
 
     def _founder_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
@@ -167,6 +169,7 @@ class EmpathizeEngine:
         """JTBD: derive desired outcomes, score I/S per persona, journal the
         deterministic Ulwick opportunity ranking (Opp = I + max(I - S, 0))."""
         state = replay(ctx.store.events())
+        bands_cfg = state.config.get("empathize", {})
         if not state.evidence or any(i.kind == "opportunity" for i in state.insights.values()):
             return
         outcome_list = structured(
@@ -248,8 +251,12 @@ class EmpathizeEngine:
                 for name, importance, satisfaction in entries
             }
             mean = round(sum(per_persona.values()) / len(per_persona), 1)
-            band = opportunity_band(mean)
-            spikes = sorted(n for n, v in per_persona.items() if v >= SEGMENT_SPIKE)
+            band = opportunity_band(mean, bands_cfg.get("opportunity_bands"))
+            spikes = sorted(
+                n
+                for n, v in per_persona.items()
+                if v >= bands_cfg.get("segment_spike", SEGMENT_SPIKE)
+            )
             ctx.store.append(
                 type="interpretation.derived",
                 stage="empathize",

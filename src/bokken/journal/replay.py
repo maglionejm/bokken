@@ -250,11 +250,13 @@ def _apply(state: SessionState, event: Event) -> None:
             uncertainty=p["uncertainty"],
         )
     elif event.type == "assumption.scored":
-        for ref in event.refs:
-            assumption = state.assumptions.get(ref)
-            if assumption:
-                assumption.score = p["score"]
-                assumption.score_refs = [r for r in event.refs if r != ref]
+        scored_ids = [r for r in event.refs if r in state.assumptions]
+        evidence_refs = [r for r in event.refs if r not in state.assumptions]
+        for ref in scored_ids:
+            assumption = state.assumptions[ref]
+            assumption.score = p["score"]
+            # accumulate the evidence that justified every scoring of this assumption
+            assumption.score_refs = list(dict.fromkeys([*assumption.score_refs, *evidence_refs]))
     elif event.type == "facilitation.move_executed":
         move_id = p["move_id"]
         state.moves_executed[move_id] = state.moves_executed.get(move_id, 0) + 1

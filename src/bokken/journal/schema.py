@@ -217,7 +217,7 @@ class ModelCalled(Payload):
     prompt_hash: str
     request_id: str | None = None
     usage: TokenUsage = Field(default_factory=TokenUsage)
-    status: Literal["ok", "refused", "error", "truncated"]
+    status: Literal["ok", "refused", "error", "truncated", "budget_exhausted"]
     duration_ms: int | None = None
 
 
