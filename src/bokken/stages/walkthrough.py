@@ -93,6 +93,11 @@ def routes_from_repo(repo: str | None) -> list[str]:
     root = Path(repo)
     if not root.exists():
         return []
+    # A subdirectory input still deserves full route discovery: scan from the VCS root.
+    for parent in (root, *root.parents):
+        if (parent / ".git").exists():
+            root = parent
+            break
     found: set[str] = set()
     for pattern, regex in (("*.py", ROUTE_DEF), ("*.html", TEMPLATE_HREF)):
         for file in list(root.rglob(pattern))[:400]:
@@ -193,6 +198,47 @@ class PlaywrightWalker:
                         screenshot_mobile_png=mobile_png,
                     )
                 )
+                # SPA support: activate tab-like controls, each state is an observation
+                tab_selector = (
+                    "[role=tab], nav button, [class*=tab] button, button[data-tab], "
+                    "[data-view], .tabs button"
+                )
+                labels = page.eval_on_selector_all(
+                    tab_selector, "els => els.map(e => e.textContent.trim()).filter(Boolean)"
+                )
+                for label in list(dict.fromkeys(labels))[:8]:
+                    if len(observations) >= max_pages:
+                        break
+                    try:
+                        page.locator(tab_selector, has_text=label).first.click(timeout=3000)
+                        page.wait_for_timeout(600)
+                    except Exception:
+                        continue
+                    state_html = page.content()
+                    if state_html == html:
+                        continue
+                    unl, noa = _static_facts(state_html)
+                    observations.append(
+                        PageObservation(
+                            url=f"{url}#tab:{label[:40]}",
+                            title=f"{page.title()} - {label}",
+                            headings=page.eval_on_selector_all(
+                                "h1, h2",
+                                "els => els.map(e => e.textContent.trim()).slice(0, 8)",
+                            ),
+                            actions=page.eval_on_selector_all(
+                                "button, a[role=button], [type=submit]",
+                                "els => els.map(e => e.textContent.trim())"
+                                ".filter(Boolean).slice(0, 12)",
+                            ),
+                            forms=page.locator("form").count(),
+                            unlabeled_inputs=unl,
+                            images_without_alt=noa,
+                            console_errors=list(errors),
+                            load_ms=0,
+                            screenshot_png=page.screenshot(full_page=False),
+                        )
+                    )
                 # live DOM discovery: every same-origin anchor, not just nav
                 for href in page.eval_on_selector_all(
                     "a[href]", "els => els.map(e => e.getAttribute('href'))"
