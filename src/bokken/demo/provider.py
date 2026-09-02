@@ -18,6 +18,42 @@ HEX32 = re.compile(r"\b[0-9a-f]{32}\b")
 SOURCE = re.compile(r"\[source ([0-9a-f]{12}) \((\w+)\)")
 QUOTA = re.compile(r"Produce (\d+) distinct")
 PARTICIPANT = re.compile(r"You contribute as: (.+)")
+DIGEST_ELEMENT = re.compile(r"^\s*\[(\d+)\]\s+\S+\s+·\s+(.*)$", re.MULTILINE)
+FEATURE_LINE = re.compile(r"Feature: (.+)")
+
+# Per-feature scripts for the mock app: click these labels in order, then
+# conclude. The broken verdict is the case's core insight found in the UI.
+UI_SCRIPTS: dict[str, tuple[list[str], str, str]] = {
+    "Cambiar a una van más puntual": (
+        ["Cambiar a la van de las 07:20"],
+        "works",
+        "The switch responds instantly and confirms inline ('mañana te recoge "
+        "la van de las 07:20') without leaving the screen - exactly the "
+        "one-tap recovery the wide-window warning needs.",
+    ),
+    "Reservar un asiento": (
+        ["Reservar", "Confirmar asiento"],
+        "works",
+        "Day and van selectors plus one confirm tap; the confirmation promises "
+        "the 21:00 notice, which is the right moment to promise.",
+    ),
+    "Indicador de puntualidad de ayer": (
+        ["Mañana"],
+        "broken",
+        "The card shows a green 'Ventana cumplida' tick directly above a "
+        "notice that the arrival alert went out 9 minutes after the promised "
+        "window - the indicator measures the dawn re-plan, not the 21:00 "
+        "promise. This is the exact 'green tick that lies' from the Marta "
+        "interview, reproduced in the product's own UI.",
+    ),
+    "Aviso de las 21:00 (ajustes)": (
+        ["Ajustes"],
+        "unclear",
+        "The opt-in checkbox exists, but its state does not visibly persist "
+        "when switching views, so whether the preference sticks cannot be "
+        "confirmed from the UI alone.",
+    ),
+}
 
 PERSONA_ANSWERS = [
     (
@@ -210,8 +246,23 @@ tu parada, tu ventana real, y una alternativa si manana viene ancho.
 """
 
 
+# Illustrative usage journaled per call so the cost chapter, the deck's model
+# lines, and `bokken costs` show a realistic (deliberately lean) live-run
+# profile. The demo charges $0.00 - these are what the same calls would
+# typically consume live, with the Fusion shape visible: frontier lanes pay,
+# the sidekick reads from cache for cents. Deterministic by routing class.
+USAGE_BY_CLASS: dict[str, dict[str, int]] = {
+    "research": {"input_tokens": 9600, "output_tokens": 2500, "cache_read_tokens": 38000},
+    "challenge": {"input_tokens": 8400, "output_tokens": 1900, "cache_read_tokens": 26000},
+    "cognition": {"input_tokens": 10400, "output_tokens": 2800, "cache_read_tokens": 16800},
+    "generation": {"input_tokens": 13600, "output_tokens": 10400, "cache_read_tokens": 0},
+    "sidekick": {"input_tokens": 2800, "output_tokens": 1700, "cache_read_tokens": 104000},
+    "extraction": {"input_tokens": 3600, "output_tokens": 900, "cache_read_tokens": 0},
+}
+
+
 class DemoProvider:
-    """Scripted provider for `bokken demo`: zero network, zero tokens, real rules."""
+    """Scripted provider for `bokken demo`: zero network, zero real tokens, real rules."""
 
     def __init__(self) -> None:
         self.calls: dict[str, int] = defaultdict(int)
@@ -235,7 +286,7 @@ class DemoProvider:
         return ProviderResult(
             text=text,
             data=payload,
-            usage={"input_tokens": 0, "output_tokens": 0},
+            usage=dict(USAGE_BY_CLASS.get(routing_class, {"input_tokens": 0, "output_tokens": 0})),
             request_id=f"demo-{prompt_id}-{self.calls[prompt_id]}",
             stop_reason="end_turn",
             model=model,
@@ -310,8 +361,61 @@ class DemoProvider:
                     for o in SCORES
                 ]
             )
+        if prompt_id == "empathize/feature_inventory":
+            return s.FeatureInventory(
+                features=[
+                    s.FeatureItem(
+                        name=name,
+                        expectation=f"concluding verdict expected: {verdict}",
+                    )
+                    for name, (_, verdict, _) in UI_SCRIPTS.items()
+                ]
+            )
+        if prompt_id == "empathize/ui_action":
+            feature = FEATURE_LINE.search(rendered).group(1).strip()
+            clicks, verdict, finding = UI_SCRIPTS.get(feature, ([], "unclear", ""))
+            log = rendered.split("Steps so far:\n", 1)[1].split("\nCurrent page digest:", 1)[0]
+            done = 0 if log.strip() == "(no steps yet)" else len(log.strip().splitlines())
+            if done < len(clicks):
+                wanted = clicks[done]
+                for idx, label in DIGEST_ELEMENT.findall(rendered):
+                    if wanted.lower() in label.lower():
+                        return s.UIAction(action="click", target_index=int(idx))
+            return s.UIAction(action="done", verdict=verdict, finding=finding)
         if prompt_id == "empathize/ui_review":
-            return s.UIReview(markdown="(demo run: no live app attached)\n")
+            if "Ventana cumplida" not in rendered and "Reservar un asiento" not in rendered:
+                return s.UIReview(markdown="(demo run: no live app attached)\n")
+            return s.UIReview(
+                markdown=(
+                    "**Coverage:** the bundled Lanzadera mock (3 views: Mañana / "
+                    "Reservar / Ajustes), walked in a real browser at desktop and "
+                    "mobile viewports; 4 features functionally tested.\n\n"
+                    "## What works at first contact\n"
+                    "- Tomorrow's card leads with the two facts riders plan around "
+                    "- the window (07:38-07:46) and the walk (3 min) - and the "
+                    "one-tap van switch confirms inline without a page change.\n"
+                    "- Booking is three taps end to end, and the confirmation "
+                    "promises the 21:00 notice: the product already knows its "
+                    "moment of truth.\n\n"
+                    "## Findings\n"
+                    "1. **Ayer card -> green 'Ventana cumplida' beside a "
+                    "9-minutes-late notice -> this is the trust-breaking "
+                    "contradiction driving churn (Marta: 'a green tick that "
+                    "lies') -> measure the tick against the 21:00 promise, "
+                    "never the dawn re-plan.** The fine print admits the "
+                    "re-plan baseline; honesty is one comparison swap away.\n"
+                    "2. Ajustes -> the 21:00 opt-in checkbox does not visibly "
+                    "persist across views -> riders who opt in may silently "
+                    "stay unnotified -> persist and echo the state "
+                    "('te avisaremos a las 21:00').\n"
+                    "3. Ajustes -> the 89-euro pass banner shows regardless of "
+                    "riding pattern -> 2-3 day riders read it as mispricing "
+                    "(Diego) -> gate the banner on trips/week.\n\n"
+                    "Verdicts: 2 works · 1 broken · 1 unclear. The broken "
+                    "finding is the same insight the interviews surfaced - the "
+                    "UI reproduces the dishonest indicator faithfully.\n"
+                )
+            )
         if prompt_id == "define/cluster":
             evidence_ids = HEX32.findall(rendered)
             return s.ClusterResult(

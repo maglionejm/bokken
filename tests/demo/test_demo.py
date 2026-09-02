@@ -41,13 +41,38 @@ def test_demo_runs_offline_to_a_full_report(demo_runs):
     assert "Simulated run" in html or "simulated" in html.lower()
 
 
-def test_demo_costs_zero_tokens(demo_runs):
+def test_demo_journals_a_small_illustrative_cost_profile(demo_runs):
+    from bokken.demo.provider import USAGE_BY_CLASS
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
     first, _ = demo_runs
     for event in _events(first["session_dir"]):
         usage = event.get("payload", {}).get("usage")
-        if usage:
-            assert usage.get("input_tokens", 0) == 0
-            assert usage.get("output_tokens", 0) == 0
+        if usage and usage.get("input_tokens"):
+            trimmed = {k: v for k, v in usage.items() if k in next(iter(USAGE_BY_CLASS.values()))}
+            assert trimmed in USAGE_BY_CLASS.values()  # illustrative, never invented ad hoc
+    total = sum(r["cost_usd"] for r in cost_rows(build_model(first["session_dir"])))
+    assert 6 < total < 16, f"illustrative total ${total:.2f} drifted out of the small band"
+
+
+def test_demo_receipt_says_charged_zero(tmp_path):
+    from typer.testing import CliRunner
+
+    from bokken.cli.app import app
+
+    mp = pytest.MonkeyPatch()
+    mp.setenv("BOKKEN_HOME", str(tmp_path))
+    mp.delenv("ANTHROPIC_API_KEY", raising=False)
+    try:
+        result = CliRunner().invoke(app, ["demo", "receipt-check"])
+    finally:
+        mp.undo()
+    assert result.exit_code == 0, result.output
+    flat = result.output.replace("\n", "")
+    assert "charged $0.00" in flat and "illustrative" in flat
+    costs = CliRunner().invoke(app, ["costs", "receipt-check"], env={"BOKKEN_HOME": str(tmp_path)})
+    assert "demo session: illustrative usage" in costs.output.replace("\n", "")
 
 
 def test_demo_citations_resolve_against_bundled_corpus(demo_runs):
@@ -102,3 +127,25 @@ def test_fixtures_ship_with_the_package():
     assert (FIXTURES / "kpis.csv").exists()
     for name in ("interview_marta.md", "interview_diego.md"):
         assert (FIXTURES / name).exists()
+
+
+def test_demo_with_ui_extra_journals_feature_verdicts(tmp_path):
+    pytest.importorskip("playwright", reason="needs the [ui] extra")
+    mp = pytest.MonkeyPatch()
+    mp.setenv("BOKKEN_HOME", str(tmp_path))
+    mp.delenv("ANTHROPIC_API_KEY", raising=False)
+    try:
+        result = run_demo("demo-ui")
+    finally:
+        mp.undo()
+    events = _events(result["session_dir"])
+    tests_evidence = [
+        e["payload"]["content"]
+        for e in events
+        if e["type"] == "evidence.captured" and e["payload"].get("source") == "ui_feature_test"
+    ]
+    assert len(tests_evidence) == 4
+    verdicts = " ".join(tests_evidence)
+    assert "broken" in verdicts and "works" in verdicts
+    html = result["report_html"].read_text()
+    assert "Ventana cumplida" in html or "puntualidad" in html.lower()

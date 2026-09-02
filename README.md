@@ -93,9 +93,13 @@ See a complete run first — no API key, no network, no cost
 ```sh
 uvx bokken demo
 # halt: completed - dossier generated; handoff specs generated; report exported
-# this demo cost $0.00 and made 0 network calls - a real run on your
-# product is typically $20-35 (report paths are printed above)
+# you were charged $0.00 - 0 network calls, 0 real tokens; the journaled
+# usage is an illustrative live-run profile: ~$10 list price across 62 calls
 ```
+
+With the `[ui]` extra installed, the demo also walks a bundled mock of the
+product in a real browser: per-feature functional tests, screenshots, and an
+honest `broken` finding land in the journal and both reports.
 
 Then point it at something real. Requires [uv](https://docs.astral.sh/uv/)
 and a provider API key — Anthropic is the default, OpenAI via the extra:

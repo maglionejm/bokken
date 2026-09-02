@@ -96,6 +96,7 @@ class ReportContext:
     loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
     opportunities: list[str] = field(default_factory=list)
+    demo: bool = False  # demo sessions: usage is illustrative, $0.00 charged
     ui_review: str | None = None
     ui_screenshots: list[str] = field(default_factory=list)
     stage_digest: dict[str, dict] = field(default_factory=dict)
@@ -388,6 +389,17 @@ def _handoff_refusal(model: DossierModel) -> str | None:
     return None
 
 
+def _is_demo_session(session_dir: Path) -> bool:
+    import json as _json
+
+    journal = session_dir / "journal.jsonl"
+    try:
+        first = _json.loads(journal.read_text(encoding="utf-8").split("\n", 1)[0])
+    except (OSError, ValueError):
+        return False
+    return bool(first.get("payload", {}).get("config", {}).get("demo"))
+
+
 def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
     per_model: dict[str, dict[str, int]] = {}
     for trace in model.model_traces:
@@ -432,6 +444,7 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         model=model,
         usage=usage,
         total_cost_usd=sum(u.cost_usd for u in usage),
+        demo=_is_demo_session(session_dir),
         spec_entries=spec_entries,
         handoff_refusal=None if spec_entries else _handoff_refusal(model),
         synthetic_evidence=sum(1 for e in model.evidence.values() if e.synthetic),

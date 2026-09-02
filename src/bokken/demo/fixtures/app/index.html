@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lanzadera — tu van de mañana</title>
+<link rel="stylesheet" href="../repo/styles.css">
+<style>
+  body { font-family: var(--lz-font); color: var(--lz-ink); background: var(--lz-paper);
+         margin: 0; max-width: 460px; padding: 0 0 32px; }
+  header { background: var(--lz-brand); color: #fff; padding: 14px 20px; }
+  header h1 { font-size: 18px; margin: 0; }
+  .tabs { display: flex; gap: 4px; padding: 10px 14px 0; }
+  .tabs button { flex: 1; padding: 10px 6px; font-size: 14px; border: 1px solid #e2e8f0;
+                 border-bottom: none; border-radius: var(--lz-radius) var(--lz-radius) 0 0;
+                 background: #eef2f6; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: #fff; font-weight: 600; }
+  main { background: #fff; border-top: 1px solid #e2e8f0; padding: 18px 20px; }
+  .card { border: 1px solid #e2e8f0; border-radius: var(--lz-radius); padding: 14px 16px; margin-bottom: 14px; }
+  .pickup-window { font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 700; margin: 4px 0; }
+  .ontime { color: var(--lz-brand); font-weight: 600; }
+  .late-note { color: var(--lz-alert); font-size: 14px; }
+  .btn-primary { background: var(--lz-brand); color: #fff; border: none;
+                 border-radius: var(--lz-radius); padding: 11px 18px; font-weight: 600;
+                 font-size: 15px; cursor: pointer; width: 100%; }
+  .banner { background: var(--lz-brand-soft); border-radius: var(--lz-radius);
+            padding: 10px 14px; font-size: 14px; margin-top: 14px; }
+  .ok-line { color: var(--lz-brand); font-weight: 600; margin-top: 10px; display: none; }
+  label { display: block; font-size: 14px; margin: 10px 0 4px; }
+  select { width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 15px; }
+  small { color: #64748b; }
+  .view { display: none; }
+  .view.active { display: block; }
+</style>
+</head>
+<body>
+<header><h1>Lanzadera</h1></header>
+
+<nav class="tabs" aria-label="Secciones">
+  <button data-tab="manana" aria-selected="true">Mañana</button>
+  <button data-tab="reservar" aria-selected="false">Reservar</button>
+  <button data-tab="ajustes" aria-selected="false">Ajustes</button>
+</nav>
+
+<main>
+  <section class="view active" id="view-manana">
+    <h2>Tu van de mañana</h2>
+    <div class="card">
+      <p class="pickup-window">07:38 – 07:46</p>
+      <p><b>Parada:</b> Calle Mayor, 12 · 3 min andando</p>
+      <small>Ruta M-403 · confirmada anoche a las 21:00</small>
+      <button class="btn-primary" id="switch-van">Cambiar a la van de las 07:20</button>
+      <p class="ok-line" id="switch-ok">Hecho: mañana te recoge la van de las 07:20.</p>
+    </div>
+    <h3>Ayer</h3>
+    <div class="card">
+      <p class="ontime">✓ Ventana cumplida</p>
+      <p class="late-note">El aviso de llegada se envió 9 min después de la ventana prometida la noche anterior.</p>
+      <small>La puntualidad se mide sobre la ruta replanificada de madrugada.</small>
+    </div>
+  </section>
+
+  <section class="view" id="view-reservar">
+    <h2>Reservar asiento</h2>
+    <div class="card">
+      <label for="day">Día</label>
+      <select id="day">
+        <option>Mañana (miércoles)</option>
+        <option>Jueves</option>
+        <option>Viernes</option>
+      </select>
+      <label for="slot">Van</label>
+      <select id="slot">
+        <option>07:20 — ventana 6 min</option>
+        <option>07:40 — ventana amplia (12 min)</option>
+      </select>
+      <button class="btn-primary" id="confirm-seat">Confirmar asiento</button>
+      <p class="ok-line" id="seat-ok">Asiento confirmado. Te avisamos hoy a las 21:00 con tu parada y ventana.</p>
+    </div>
+  </section>
+
+  <section class="view" id="view-ajustes">
+    <h2>Ajustes</h2>
+    <div class="card">
+      <label><input type="checkbox" id="notify-2100"> Avisarme a las 21:00 con la ventana de mañana</label>
+      <small>Recomendado: es cuando la ruta ya está optimizada.</small>
+    </div>
+    <div class="banner">
+      <b>Pass mensual — 89 €</b><br>
+      Viajes ilimitados. Ideal si viajas a diario.
+    </div>
+  </section>
+</main>
+
+<script>
+  const tabs = document.querySelectorAll(".tabs button");
+  tabs.forEach(btn => btn.addEventListener("click", () => {
+    tabs.forEach(b => b.setAttribute("aria-selected", b === btn ? "true" : "false"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + btn.dataset.tab).classList.add("active");
+    // Defect kept on purpose for the demo story: the notification preference
+    // does not persist across views, so opting in silently resets.
+    const n = document.getElementById("notify-2100");
+    if (n) n.checked = false;
+  }));
+  document.getElementById("switch-van").addEventListener("click", () => {
+    document.getElementById("switch-ok").style.display = "block";
+  });
+  document.getElementById("confirm-seat").addEventListener("click", () => {
+    document.getElementById("seat-ok").style.display = "block";
+  });
+</script>
+</body>
+</html>
