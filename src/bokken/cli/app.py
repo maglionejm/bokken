@@ -27,6 +27,7 @@ from bokken.journal import (
     sessions_dir,
 )
 from bokken.journal.store import SessionLockedError, read_events
+from bokken.models import RoutingConfigError, session_model_config
 from bokken.orchestrator import (
     IllegalTransitionError,
     NoPendingGateError,
@@ -54,6 +55,7 @@ _REFUSED = (
     NoPendingGateError,
     SessionLockedError,
     PanelConfigError,
+    RoutingConfigError,
     ValidationError,
 )
 
@@ -136,6 +138,13 @@ def new(
         Path | None, typer.Option(help="Brief as a JSON file (non-interactive).")
     ] = None,
     mode: Annotated[str, typer.Option(help="founder or dojo")] = "founder",
+    provider: Annotated[str, typer.Option(help="anthropic or openai")] = "anthropic",
+    model: Annotated[
+        str | None, typer.Option(help="Use this model for frontier routing classes.")
+    ] = None,
+    reasoning_effort: Annotated[
+        str | None, typer.Option(help="Reasoning effort: low, medium, or high.")
+    ] = None,
     gates: Annotated[
         str | None, typer.Option(help="none, stage_boundaries, or CSV of stages")
     ] = None,
@@ -208,7 +217,10 @@ def new(
         mode=mode,  # type: ignore[arg-type]
         gate_policy=gate_policy,
         budgets=budgets,
-        config_extra={"panel": {"size": panel_size, "seed": seed}},
+        config_extra={
+            "panel": {"size": panel_size, "seed": seed},
+            **session_model_config(provider, model, reasoning_effort),
+        },
     )
     result = contract.status_for_dir(name, session_dir)
     emit(result, as_json, lambda: out.print(f"created session '{name}' at {session_dir}"))

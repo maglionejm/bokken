@@ -25,7 +25,16 @@ DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "generation": "claude-opus-5",
 }
 
-MODEL_ALLOWLIST = frozenset(
+OPENAI_DEFAULT_ROUTING: dict[RoutingClass, str] = {
+    "research": "gpt-5",
+    "challenge": "gpt-5",
+    "cognition": "gpt-5",
+    "extraction": "gpt-5-mini",
+    "sidekick": "gpt-5-mini",
+    "generation": "gpt-5",
+}
+
+ANTHROPIC_MODELS = frozenset(
     {
         "claude-fable-5",
         "claude-opus-5",
@@ -36,6 +45,32 @@ MODEL_ALLOWLIST = frozenset(
         "claude-haiku-4-5",
     }
 )
+OPENAI_MODELS = frozenset(
+    {
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "o3",
+        "o4-mini",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+    }
+)
+MODEL_ALLOWLIST = ANTHROPIC_MODELS | OPENAI_MODELS
+MODEL_PROVIDERS = {
+    **dict.fromkeys(ANTHROPIC_MODELS, "anthropic"),
+    **dict.fromkeys(OPENAI_MODELS, "openai"),
+}
+PROVIDERS = frozenset({"anthropic", "openai"})
+FRONTIER_ROUTING_CLASSES: tuple[RoutingClass, ...] = (
+    "research",
+    "challenge",
+    "cognition",
+    "generation",
+)
+REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 
 ROUTER_ACTOR = Actor(kind="agent", name="model-router")
 
@@ -67,6 +102,8 @@ class Provider(Protocol):
         routing_class: RoutingClass,
         stream: bool,
         max_tokens: int,
+        web_search: bool = False,
+        reasoning_effort: str | None = None,
     ) -> ProviderResult: ...
 
 
@@ -85,13 +122,42 @@ class ModelOutcome:
         return self.status == "ok"
 
 
-def resolve_routing(overrides: dict[str, str] | None) -> dict[RoutingClass, str]:
-    routing: dict[RoutingClass, str] = dict(DEFAULT_ROUTING)
+def _validate_model_provider(model: str, provider: str) -> None:
+    if model not in MODEL_ALLOWLIST:
+        raise RoutingConfigError(f"model {model!r} is not in the allowlist")
+    if MODEL_PROVIDERS[model] != provider:
+        raise RoutingConfigError(f"model {model!r} does not belong to provider {provider!r}")
+
+
+def session_model_config(
+    provider: str, model: str | None = None, reasoning_effort: str | None = None
+) -> dict[str, Any]:
+    """Build validated session config shared by CLI and MCP creation surfaces."""
+    if provider not in PROVIDERS:
+        raise RoutingConfigError(f"unknown provider: {provider}")
+    config: dict[str, Any] = {"provider": provider}
+    if model is not None:
+        _validate_model_provider(model, provider)
+        config["routing"] = {routing_class: model for routing_class in FRONTIER_ROUTING_CLASSES}
+    if reasoning_effort is not None:
+        if reasoning_effort not in REASONING_EFFORTS:
+            raise RoutingConfigError(f"unsupported reasoning effort: {reasoning_effort}")
+        config["reasoning_effort"] = reasoning_effort
+    return config
+
+
+def resolve_routing(
+    overrides: dict[str, str] | None, provider: str = "anthropic"
+) -> dict[RoutingClass, str]:
+    if provider not in PROVIDERS:
+        raise RoutingConfigError(f"unknown provider: {provider}")
+    routing: dict[RoutingClass, str] = dict(
+        OPENAI_DEFAULT_ROUTING if provider == "openai" else DEFAULT_ROUTING
+    )
     for cls, model in (overrides or {}).items():
         if cls not in routing:
             raise RoutingConfigError(f"unknown routing class: {cls}")
-        if model not in MODEL_ALLOWLIST:
-            raise RoutingConfigError(f"model {model!r} is not in the allowlist")
+        _validate_model_provider(model, provider)
         routing[cls] = model  # type: ignore[index]
     return routing
 
@@ -103,7 +169,8 @@ class ModelRouter:
         self.store = store
         self.provider = provider
         state = replay(store.events())
-        self.routing = resolve_routing(state.config.get("routing"))
+        self.provider_name = state.config.get("provider", "anthropic")
+        self.routing = resolve_routing(state.config.get("routing"), self.provider_name)
 
     def invoke(
         self,
@@ -141,6 +208,11 @@ class ModelRouter:
                 stream=stream,
                 max_tokens=max_tokens,
                 web_search=web_search,
+                **(
+                    {"reasoning_effort": state.config["reasoning_effort"]}
+                    if state.config.get("reasoning_effort") is not None
+                    else {}
+                ),
             )
             status: OutcomeStatus = "ok"
             detail = ""

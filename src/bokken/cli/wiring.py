@@ -12,9 +12,9 @@ from bokken.stages import RouterFactory, engine_suite
 
 
 def router_factory() -> RouterFactory:
-    from bokken.stages import anthropic_router_factory
+    from bokken.stages import provider_router_factory
 
-    return anthropic_router_factory()
+    return provider_router_factory()
 
 
 class TerminalInputPort:

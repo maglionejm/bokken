@@ -133,8 +133,9 @@ state, which is what makes every run crash-safe and resumable by construction.
   corpus retrieval as verbatim spans, UI-step selection — so the frontier
   judges; anything feeding a `decision.recorded` never leaves the frontier.
   `bokken costs` reports spend and cache hit-rate from the journal.
-- **One model seam**: nothing outside `bokken.models` touches the Anthropic
-  SDK; the whole harness runs offline against a fake provider in tests.
+- **One model seam**: nothing outside `bokken.models` touches a provider SDK;
+  Anthropic and optional OpenAI adapters stay behind the router, and the whole
+  harness runs offline against a fake provider in tests.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
   the same pydantic shapes (`bokken/contract.py`).
 
