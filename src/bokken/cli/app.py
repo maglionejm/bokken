@@ -283,12 +283,35 @@ def new(
     emit(result, as_json, lambda: out.print(f"created session '{name}' at {session_dir}"))
 
 
+def _session_receipt(session_dir: Path) -> tuple[float, int]:
+    """Session-to-date list-price cost and model-call count from the journal."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
+    rows = cost_rows(build_model(session_dir))
+    return round(sum(r["cost_usd"] for r in rows), 2), sum(r["calls"] for r in rows)
+
+
+def _budget_guardrail(session_dir: Path) -> int | None:
+    from bokken.journal.store import read_events
+
+    for event in read_events(session_dir):
+        if event.type == "session.created":
+            budgets = event.payload.get("config", {}).get("budgets", {})
+            return budgets.get("total_tokens")
+    return None
+
+
 @app.command("run")
 @guarded
 def run(name: str, as_json: JsonFlag = False) -> None:
     """Resume and continue the loop until a gate, input, stop, or completion.
     Completed runs are finalized automatically: Dossier, then handoff specs."""
     session_dir = resolve_session_dir(name)
+    if not as_json:
+        guardrail = _budget_guardrail(session_dir)
+        limit = f"stops at {guardrail:,} tokens" if guardrail else "no token guardrail set"
+        out.print(f"cost framing: a full run typically lands at $20-35 list price; {limit}")
     runner = wiring.build_runner(session_dir, interactive=not as_json)
     result = _run_result(runner.run(actor=HUMAN))
     if result.halt == "completed":
@@ -296,7 +319,17 @@ def run(name: str, as_json: JsonFlag = False) -> None:
 
         finalization = finalize_session(session_dir, wiring.router_factory())
         result = result.model_copy(update={"finalization": finalization.summary()})
-    emit(result, as_json, lambda: _print_run(result))
+    cost, calls = _session_receipt(session_dir)
+    result = result.model_copy(update={"cost_usd": cost, "model_calls": calls})
+
+    def _text() -> None:
+        _print_run(result)
+        out.print(
+            f"receipt: ${cost:.2f} across {calls} model calls so far "
+            f"(bokken costs {name} for the breakdown)"
+        )
+
+    emit(result, as_json, _text)
 
 
 @app.command("step")
