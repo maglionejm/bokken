@@ -52,6 +52,7 @@ def test_structured_request_uses_responses_parse_and_normalizes_result():
     )
     assert result.data == Echo(value="x")
     assert result.request_id == "resp-1"
+    assert result.usage["input_tokens"] == 2
     assert result.usage["cache_read_tokens"] == 1
     assert responses.log["parse"]["text_format"] is Echo
     assert responses.log["parse"]["reasoning"] == {"effort": "high"}
@@ -70,4 +71,23 @@ def test_plain_request_can_enable_web_search():
         max_tokens=100,
         web_search=True,
     )
-    assert responses.log["create"]["tools"] == [{"type": "web_search_preview"}]
+    assert responses.log["create"]["tools"] == [{"type": "web_search"}]
+
+
+def test_cache_marker_is_removed_without_reordering_prompt():
+    from bokken.models.prompts import CACHE_SPLIT
+
+    responses = Responses()
+    provider = OpenAIProvider(client=SimpleNamespace(responses=responses))
+    provider.complete(
+        model="gpt-5-mini",
+        prompt_id="x/y",
+        rendered=f"BIG CORPUS{CACHE_SPLIT}the question",
+        schema=None,
+        routing_class="sidekick",
+        stream=False,
+        max_tokens=100,
+    )
+    rendered = responses.log["create"]["input"]
+    assert rendered == "BIG CORPUS\nthe question"
+    assert CACHE_SPLIT.strip() not in rendered

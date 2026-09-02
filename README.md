@@ -96,7 +96,8 @@ uvx bokken version
 # OpenAI provider
 uvx --from 'bokken[openai]' bokken version
 export OPENAI_API_KEY=...
-uv run bokken new retention --provider openai --brief brief.json --mode dojo
+uv run bokken new retention --provider openai --model gpt-5.6-luna \
+  --reasoning-effort high --brief brief.json --mode dojo
 ```
 
 Until the PyPI release lands you can run straight from the repo tag:

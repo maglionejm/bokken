@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bokken.models.router import Provider, ProviderResult
+from bokken.models.router import MODEL_PROVIDERS, Provider, ProviderResult, RoutingConfigError
 
 
 class AutoProvider:
@@ -15,7 +15,10 @@ class AutoProvider:
         self._openai: Provider | None = None
 
     def complete(self, *, model: str, **kwargs: Any) -> ProviderResult:
-        if model.startswith(("gpt-", "o")):
+        provider = MODEL_PROVIDERS.get(model)
+        if provider is None:
+            raise RoutingConfigError(f"no provider registered for model {model!r}")
+        if provider == "openai":
             if self._openai is None:
                 from bokken.models.openai_provider import OpenAIProvider
 

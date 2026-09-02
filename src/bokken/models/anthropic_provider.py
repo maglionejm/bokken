@@ -63,7 +63,10 @@ class AnthropicProvider:
         kwargs: dict = {"model": model, "max_tokens": max_tokens, "messages": messages}
         is_fable = model.startswith("claude-fable")
         if routing_class in ("research", "challenge", "cognition", "generation"):
-            kwargs["output_config"] = {"effort": "high"}
+            effort = reasoning_effort or "high"
+            if effort not in {"low", "medium", "high"}:
+                raise ValueError(f"unsupported reasoning effort: {effort}")
+            kwargs["output_config"] = {"effort": effort}
             if not is_fable:
                 # Fable's thinking is always on and rejects the parameter.
                 kwargs["thinking"] = {"type": "adaptive"}

@@ -4,6 +4,12 @@ Every actor in a Bokken run is journaled with kind, name, and (for model
 agents) the model that served it. This registry is the authoritative list of
 who does what, on which lane, and what each agent may never do.
 
+The tables name the default Anthropic models. For an OpenAI session, the same
+actors and routing classes use `gpt-5` on the four frontier lanes
+(`research`, `challenge`, `cognition`, `generation`) and `gpt-5-mini` on
+`sidekick` and `extraction`. A `--model` override changes only frontier lanes,
+so delegated reads and extraction retain the Fusion cost boundary.
+
 ## Frontier lanes (judgment)
 
 | Agent | Routing class → model | Does | Never does |

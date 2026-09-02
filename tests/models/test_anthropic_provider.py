@@ -40,7 +40,7 @@ def make_client(log: dict):
     )
 
 
-def call(routing_class: str, model: str) -> dict:
+def call(routing_class: str, model: str, reasoning_effort: str | None = None) -> dict:
     log: dict = {}
     provider = AnthropicProvider(client=make_client(log))
     provider.complete(
@@ -51,6 +51,7 @@ def call(routing_class: str, model: str) -> dict:
         routing_class=routing_class,  # type: ignore[arg-type]
         stream=False,
         max_tokens=100,
+        reasoning_effort=reasoning_effort,
     )
     return log
 
@@ -74,6 +75,11 @@ def test_opus_requests_use_adaptive_thinking_at_high_effort() -> None:
     assert kwargs["thinking"] == {"type": "adaptive"}
     assert kwargs["output_config"] == {"effort": "high"}
     assert "fallbacks" not in kwargs and "betas" not in kwargs
+
+
+def test_configured_reasoning_effort_is_applied() -> None:
+    kwargs = call("cognition", "claude-opus-5", "low")["plain"]
+    assert kwargs["output_config"] == {"effort": "low"}
 
 
 def test_extraction_requests_stay_minimal() -> None:

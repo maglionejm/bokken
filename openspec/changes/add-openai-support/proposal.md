@@ -1,16 +1,36 @@
-# Add OpenAI model support
+# Proposal: add-openai-support
 
-Bokken currently hard-wires the Anthropic SDK at its runtime wiring seam. This
-change adds OpenAI as a second provider without changing stage engines or the
-Journal contract (Blueprint §5: the model router is the single provider seam).
+## Why
 
-Users may select OpenAI for a session; calls remain routed, validated, and
-journaled exactly like Anthropic calls. The OpenAI SDK remains optional so core
-installs and offline tests stay lightweight.
+Bokken's model router is intentionally the single LLM seam, but production
+wiring currently supports only Anthropic. Users with OpenAI projects need the
+same routed, budgeted, structured, and journaled execution without weakening
+Fusion lane economics or making another SDK mandatory (Blueprint §5).
 
-## Scope
+## What Changes
 
-- Add an optional `openai` dependency and a Responses API provider.
-- Add supported OpenAI model identifiers and provider-aware default routing.
-- Add CLI/MCP session selection and document setup.
-- Preserve lazy SDK imports and fake-provider testability.
+- Add an optional OpenAI Responses API adapter with structured outputs, web
+  search, streaming completion handling, implicit prompt-cache compatibility,
+  and normalized usage metadata.
+- Add explicit provider selection and provider-specific routing defaults.
+- Allow one model override for frontier lanes only; keep delegated sidekick and
+  extraction work on economical provider defaults.
+- Apply configurable `low | medium | high` reasoning effort for both providers.
+- Add OpenAI list prices to deterministic cost reports.
+- Expose provider/model/effort selection through CLI and MCP session creation.
+
+## Capabilities
+
+### New Capabilities
+
+(none)
+
+### Modified Capabilities
+
+- `models`: provider-aware routing and an optional OpenAI adapter behind the
+  existing model seam.
+
+## Impact
+
+`src/bokken/models/`, CLI and MCP creation adapters, report pricing,
+documentation, tests, `pyproject.toml`, and `uv.lock`.

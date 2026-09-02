@@ -4,7 +4,13 @@ import pytest
 from pydantic import BaseModel
 
 from bokken.journal import JournalStore, replay
-from bokken.models import ModelRouter, ProviderResult, RoutingConfigError, resolve_routing
+from bokken.models import (
+    ModelRouter,
+    ProviderResult,
+    RoutingConfigError,
+    resolve_routing,
+    session_model_config,
+)
 from tests.journal.conftest import SYSTEM, created_payload
 
 
@@ -50,12 +56,25 @@ def test_routing_defaults_and_overrides() -> None:
     assert routing["generation"] == "claude-opus-5"
     assert routing["extraction"] == "claude-haiku-4-5"
     assert resolve_routing({"cognition": "claude-sonnet-4-6"})["cognition"] == "claude-sonnet-4-6"
-    assert resolve_routing({"cognition": "gpt-5"})["cognition"] == "gpt-5"
-    assert resolve_routing(None, provider="openai")["extraction"] == "gpt-5-mini"
+    assert resolve_routing({"cognition": "gpt-5"}, provider="openai")["cognition"] == "gpt-5"
+    openai_routing = resolve_routing(None, provider="openai")
+    assert openai_routing["extraction"] == "gpt-5-mini"
+    assert openai_routing["sidekick"] == "gpt-5-mini"
     with pytest.raises(RoutingConfigError, match="allowlist"):
         resolve_routing({"cognition": "not-a-model"})
+    with pytest.raises(RoutingConfigError, match="does not belong"):
+        resolve_routing({"cognition": "claude-opus-5"}, provider="openai")
     with pytest.raises(RoutingConfigError, match="unknown routing class"):
         resolve_routing({"vibes": "claude-haiku-4-5"})
+
+
+def test_frontier_override_preserves_economy_lanes() -> None:
+    config = session_model_config("openai", "gpt-5.6-luna", "high")
+    assert set(config["routing"]) == {"research", "challenge", "cognition", "generation"}
+    routing = resolve_routing(config["routing"], provider="openai")
+    assert routing["sidekick"] == "gpt-5-mini"
+    assert routing["extraction"] == "gpt-5-mini"
+    assert config["reasoning_effort"] == "high"
 
 
 def test_invocation_is_journaled_with_prompt_version_and_usage(store) -> None:

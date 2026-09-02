@@ -13,6 +13,7 @@ from bokken.models.router import (
     ProviderResult,
     RoutingConfigError,
     resolve_routing,
+    session_model_config,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "UnknownPromptError",
     "render_prompt",
     "resolve_routing",
+    "session_model_config",
 ]

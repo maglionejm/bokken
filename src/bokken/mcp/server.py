@@ -20,6 +20,7 @@ from bokken.journal import (
 )
 from bokken.journal.schema import short_id
 from bokken.journal.store import read_events
+from bokken.models import RoutingConfigError, session_model_config
 from bokken.orchestrator import InputRequired, Runner, create_session
 
 mcp = MCPServer(
@@ -51,6 +52,7 @@ def surfaced(fn):
         IllegalTransitionError,
         SessionLockedError,
         PanelConfigError,
+        RoutingConfigError,
         ValidationError,
         ValueError,
         FileNotFoundError,
@@ -204,25 +206,7 @@ def create_session_tool(
         budgets=budgets,
         config_extra={
             "panel": {"size": panel_size, "seed": seed},
-            "provider": provider,
-            **(
-                {
-                    "routing": {
-                        cls: model
-                        for cls in (
-                            "research",
-                            "challenge",
-                            "cognition",
-                            "extraction",
-                            "sidekick",
-                            "generation",
-                        )
-                    }
-                }
-                if model
-                else {}
-            ),
-            **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
+            **session_model_config(provider, model, reasoning_effort),
         },
     )
     return contract.status_for_dir(name, session_dir).model_dump()

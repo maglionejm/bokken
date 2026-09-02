@@ -27,6 +27,7 @@ from bokken.journal import (
     sessions_dir,
 )
 from bokken.journal.store import SessionLockedError, read_events
+from bokken.models import RoutingConfigError, session_model_config
 from bokken.orchestrator import (
     IllegalTransitionError,
     NoPendingGateError,
@@ -53,6 +54,7 @@ _REFUSED = (
     NoPendingGateError,
     SessionLockedError,
     PanelConfigError,
+    RoutingConfigError,
     ValidationError,
 )
 
@@ -137,7 +139,7 @@ def new(
     mode: Annotated[str, typer.Option(help="founder or dojo")] = "founder",
     provider: Annotated[str, typer.Option(help="anthropic or openai")] = "anthropic",
     model: Annotated[
-        str | None, typer.Option(help="Use this model for every routing class.")
+        str | None, typer.Option(help="Use this model for frontier routing classes.")
     ] = None,
     reasoning_effort: Annotated[
         str | None, typer.Option(help="Reasoning effort: low, medium, or high.")
@@ -216,25 +218,7 @@ def new(
         budgets=budgets,
         config_extra={
             "panel": {"size": panel_size, "seed": seed},
-            "provider": provider,
-            **(
-                {
-                    "routing": {
-                        cls: model
-                        for cls in (
-                            "research",
-                            "challenge",
-                            "cognition",
-                            "extraction",
-                            "sidekick",
-                            "generation",
-                        )
-                    }
-                }
-                if model
-                else {}
-            ),
-            **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
+            **session_model_config(provider, model, reasoning_effort),
         },
     )
     result = contract.status_for_dir(name, session_dir)

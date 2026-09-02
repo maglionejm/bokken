@@ -15,10 +15,14 @@ if TYPE_CHECKING:
 
 def _usage_dict(usage: object) -> dict[str, int]:
     details = getattr(usage, "input_tokens_details", None)
+    total_input = getattr(usage, "input_tokens", 0) or 0
+    cached_input = getattr(details, "cached_tokens", 0) or 0
+    # OpenAI includes cached tokens in input_tokens; Bokken's normalized usage
+    # buckets are disjoint so budgets and cost estimates do not double-count.
     return {
-        "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+        "input_tokens": max(total_input - cached_input, 0),
         "output_tokens": getattr(usage, "output_tokens", 0) or 0,
-        "cache_read_tokens": getattr(details, "cached_tokens", 0) or 0,
+        "cache_read_tokens": cached_input,
         "cache_write_tokens": 0,
     }
 
@@ -53,13 +57,21 @@ class OpenAIProvider:
         web_search: bool = False,
         reasoning_effort: str | None = None,
     ) -> ProviderResult:
+        from bokken.models.prompts import CACHE_SPLIT
+
+        # Anthropic uses this marker to create explicit cache blocks. OpenAI
+        # caches shared prompt prefixes implicitly, so preserve the same order
+        # while ensuring the internal marker never reaches the model.
+        if CACHE_SPLIT in rendered:
+            prefix, suffix = rendered.split(CACHE_SPLIT, 1)
+            rendered = f"{prefix.rstrip()}\n{suffix.lstrip()}"
         kwargs: dict[str, Any] = {
             "model": model,
             "input": rendered,
             "max_output_tokens": max_tokens,
         }
         if web_search:
-            kwargs["tools"] = [{"type": "web_search_preview"}]
+            kwargs["tools"] = [{"type": "web_search"}]
         if reasoning_effort is not None:
             if reasoning_effort not in {"low", "medium", "high"}:
                 raise ValueError(f"unsupported reasoning effort: {reasoning_effort}")

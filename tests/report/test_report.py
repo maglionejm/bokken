@@ -44,6 +44,14 @@ def deck_text(path: Path) -> str:
     return "\n".join(chunks)
 
 
+def test_openai_models_have_explicit_list_prices() -> None:
+    from bokken.report.context import PRICE_PER_MTOK
+
+    assert PRICE_PER_MTOK["gpt-5"] == (1.25, 10.0)
+    assert PRICE_PER_MTOK["gpt-5-mini"] == (0.25, 2.0)
+    assert PRICE_PER_MTOK["gpt-5.6-luna"] == (0.2, 1.2)
+
+
 def test_export_writes_both_files_journaled_without_model_calls(dojo_session: Path) -> None:
     calls_before = sum(1 for e in read_events(dojo_session) if e.type == "model.called")
     pptx_path, html_path = generate_report(dojo_session)
