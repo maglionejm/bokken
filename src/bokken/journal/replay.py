@@ -13,6 +13,17 @@ from bokken.journal.store import read_events
 
 OptionStatus = str  # "alive" | "parked" | "killed" | "merged" | "split"
 
+# The token buckets a provider bills for one call. Both adapters keep them
+# disjoint: the cached prompt prefix is reported in cache_read_tokens /
+# cache_write_tokens and is NOT included in input_tokens. A budget that summed
+# only input+output would therefore ignore the largest number on a corpus call.
+BILLED_TOKEN_KEYS: tuple[str, ...] = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_write_tokens",
+)
+
 
 @dataclass
 class PendingGate:
@@ -126,11 +137,17 @@ class SessionState:
         return counts
 
     def tokens_spent(self, routing_class: str | None = None) -> int:
+        """Every token the provider billed, counted at face value.
+
+        Budgets are declared as token counts, so the meter counts tokens: a
+        cached prompt prefix is as real as a fresh one and is never invisible
+        to the stopping rule. Prices (cache reads cheaper, cache writes dearer
+        than plain input) belong to the cost report, not to the meter."""
         classes = [routing_class] if routing_class else list(self.token_usage)
         return sum(
-            self.token_usage.get(c, {}).get("input_tokens", 0)
-            + self.token_usage.get(c, {}).get("output_tokens", 0)
+            int(self.token_usage.get(c, {}).get(key, 0) or 0)
             for c in classes
+            for key in BILLED_TOKEN_KEYS
         )
 
 
@@ -280,13 +297,7 @@ def _apply(state: SessionState, event: Event) -> None:
     elif event.type == "model.called":
         usage = p.get("usage", {})
         bucket = state.token_usage.setdefault(
-            p["routing_class"],
-            {
-                "input_tokens": 0,
-                "output_tokens": 0,
-                "cache_read_tokens": 0,
-                "cache_write_tokens": 0,
-            },
+            p["routing_class"], dict.fromkeys(BILLED_TOKEN_KEYS, 0)
         )
         for key in bucket:
             bucket[key] += int(usage.get(key, 0) or 0)

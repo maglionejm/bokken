@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,7 +30,39 @@ EXCLUDED_ARTIFACT_KINDS = {
 # List prices per million tokens (input, output); estimates only, labeled as such.
 # Derived from the model registry so every allowlisted model has a price.
 PRICE_PER_MTOK: dict[str, tuple[float, float]] = {name: spec.price for name, spec in MODELS.items()}
+MODEL_PROVIDER: dict[str, str] = {name: spec.provider for name, spec in MODELS.items()}
 DEFAULT_PRICE = (5.0, 25.0)  # only for models journaled before joining the allowlist
+DEFAULT_PROVIDER = "anthropic"  # ditto: price such a model on the house provider
+
+# Cache multipliers on a model's input list price, per provider, because the two
+# vendors bill the cached prefix differently: Anthropic charges a cache read at
+# a tenth of input and a cache write at a premium over input, while OpenAI bills
+# cached input at a reduced rate and never bills a separate cache write.
+# Per-provider is the honest granularity available here: the registry carries
+# one list price per model and no per-model cache price to read.
+CACHE_MULTIPLIERS: dict[str, tuple[float, float]] = {  # (read, write)
+    "anthropic": (0.1, 1.25),
+    "openai": (0.1, 0.0),
+}
+
+
+def call_cost_usd(model: str, usage: Mapping[str, int]) -> float:
+    """List-price estimate for one call's usage: the single pricing function.
+
+    Every caller (the `costs` verb, the report appendix) prices through here, so
+    one journaled trace can never be quoted at two different numbers. All four
+    billed buckets count. Provider-side tool fees (a web search request charge,
+    say) are not present in provider usage metadata at all, so they are absent
+    from this estimate rather than guessed at."""
+    p_in, p_out = PRICE_PER_MTOK.get(model, DEFAULT_PRICE)
+    read_mult, write_mult = CACHE_MULTIPLIERS[MODEL_PROVIDER.get(model, DEFAULT_PROVIDER)]
+    per_mtok = (
+        int(usage.get("input_tokens", 0) or 0) * p_in
+        + int(usage.get("output_tokens", 0) or 0) * p_out
+        + int(usage.get("cache_read_tokens", 0) or 0) * p_in * read_mult
+        + int(usage.get("cache_write_tokens", 0) or 0) * p_in * write_mult
+    )
+    return per_mtok / 1e6
 
 
 @dataclass(frozen=True)
@@ -39,6 +72,8 @@ class ModelUsageLine:
     input_tokens: int
     output_tokens: int
     cost_usd: float
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -98,23 +133,29 @@ def cost_rows(model: DossierModel) -> list[dict]:
                 "input": 0,
                 "output": 0,
                 "cache_read": 0,
+                "cache_write": 0,
             },
         )
         row["calls"] += 1
         row["input"] += tr.usage.get("input_tokens", 0)
         row["output"] += tr.usage.get("output_tokens", 0)
         row["cache_read"] += tr.usage.get("cache_read_tokens", 0)
+        row["cache_write"] += tr.usage.get("cache_write_tokens", 0)
     out = []
     for row in rows.values():
-        p_in, p_out = PRICE_PER_MTOK.get(row["model"], DEFAULT_PRICE)
-        row["cost_usd"] = round(
-            row["input"] / 1e6 * p_in
-            + row["cache_read"] / 1e6 * p_in * 0.1
-            + row["output"] / 1e6 * p_out,
-            4,
-        )
+        row["cost_usd"] = round(call_cost_usd(row["model"], row_usage(row)), 4)
         out.append(row)
     return sorted(out, key=lambda r: -r["cost_usd"])
+
+
+def row_usage(row: Mapping[str, int]) -> dict[str, int]:
+    """A cost row's display keys read back as normalized usage buckets."""
+    return {
+        "input_tokens": row["input"],
+        "output_tokens": row["output"],
+        "cache_read_tokens": row["cache_read"],
+        "cache_write_tokens": row["cache_write"],
+    }
 
 
 def split_losers(options: list[str]) -> list[tuple[str, str]]:
@@ -350,21 +391,29 @@ def _handoff_refusal(model: DossierModel) -> str | None:
 def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
     per_model: dict[str, dict[str, int]] = {}
     for trace in model.model_traces:
-        bucket = per_model.setdefault(trace.model, {"calls": 0, "in": 0, "out": 0})
+        bucket = per_model.setdefault(
+            trace.model,
+            {"calls": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0},
+        )
         bucket["calls"] += 1
-        bucket["in"] += trace.usage.get("input_tokens", 0)
-        bucket["out"] += trace.usage.get("output_tokens", 0)
+        bucket["input"] += trace.usage.get("input_tokens", 0)
+        bucket["output"] += trace.usage.get("output_tokens", 0)
+        bucket["cache_read"] += trace.usage.get("cache_read_tokens", 0)
+        bucket["cache_write"] += trace.usage.get("cache_write_tokens", 0)
     usage = []
     for name in sorted(per_model):
         b = per_model[name]
-        p_in, p_out = PRICE_PER_MTOK.get(name, DEFAULT_PRICE)
         usage.append(
             ModelUsageLine(
                 model=name,
                 calls=b["calls"],
-                input_tokens=b["in"],
-                output_tokens=b["out"],
-                cost_usd=b["in"] / 1e6 * p_in + b["out"] / 1e6 * p_out,
+                input_tokens=b["input"],
+                output_tokens=b["output"],
+                cache_read_tokens=b["cache_read"],
+                cache_write_tokens=b["cache_write"],
+                # The same pricing function the `costs` verb uses, so the two
+                # surfaces cannot quote one session at two different numbers.
+                cost_usd=call_cost_usd(name, row_usage(b)),
             )
         )
 
