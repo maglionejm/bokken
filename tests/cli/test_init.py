@@ -31,9 +31,7 @@ def test_non_interactive_template_writes_brief_and_next_commands(tmp_path):
 
 
 def test_unknown_template_is_rejected(tmp_path):
-    result = runner.invoke(
-        app, ["init", "--template", "nope", "--out", str(tmp_path / "b.json")]
-    )
+    result = runner.invoke(app, ["init", "--template", "nope", "--out", str(tmp_path / "b.json")])
     assert result.exit_code != 0
     assert not (tmp_path / "b.json").exists()
 

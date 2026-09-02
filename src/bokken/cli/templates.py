@@ -11,8 +11,10 @@ TEMPLATES: dict[str, dict] = {
         "between the promise that sold them and their day-to-day reality is "
         "driving the churn.",
         "target_segments": ["power users on annual plans", "admins who bought for a team"],
-        "success_criteria": ["logo churn flattens within two quarters",
-                             "expansion revenue from retained accounts grows"],
+        "success_criteria": [
+            "logo churn flattens within two quarters",
+            "expansion revenue from retained accounts grows",
+        ],
         "constraints": ["current pricing model stays", "no new headcount"],
         "risk_tolerance": "medium",
     },
@@ -21,9 +23,14 @@ TEMPLATES: dict[str, dict] = {
         "habits: day-30 retention is a fraction of day-1. The space to "
         "explore: which moment of real life the app should own, and what "
         "breaks between intent and routine.",
-        "target_segments": ["new users in their first week", "lapsed users who return occasionally"],
-        "success_criteria": ["day-30 retention improves measurably",
-                             "a repeat usage loop is identified and instrumented"],
+        "target_segments": [
+            "new users in their first week",
+            "lapsed users who return occasionally",
+        ],
+        "success_criteria": [
+            "day-30 retention improves measurably",
+            "a repeat usage loop is identified and instrumented",
+        ],
         "constraints": ["no dark patterns", "works within current app-store review cycle"],
         "risk_tolerance": "medium",
     },

@@ -137,9 +137,9 @@ def init(
         str | None,
         typer.Option(help="saas-retention, consumer-app, or internal-tool (skips prompts)."),
     ] = None,
-    out_path: Annotated[
-        Path, typer.Option("--out", help="Where to write the brief JSON.")
-    ] = Path("bokken-brief.json"),
+    out_path: Annotated[Path, typer.Option("--out", help="Where to write the brief JSON.")] = Path(
+        "bokken-brief.json"
+    ),
     as_json: JsonFlag = False,
 ) -> None:
     """Write a validated brief file from a template; prints the commands that use it."""
