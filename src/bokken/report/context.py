@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bokken.dossier.model import ArtifactNode, DossierModel
+from bokken.models.router import MODELS
 
 # Bookkeeping artifacts (rosters, exports) are never shown as prototype output.
 EXCLUDED_ARTIFACT_KINDS = {
@@ -26,24 +27,9 @@ EXCLUDED_ARTIFACT_KINDS = {
 }
 
 # List prices per million tokens (input, output); estimates only, labeled as such.
-PRICE_PER_MTOK: dict[str, tuple[float, float]] = {
-    "claude-fable-5": (10.0, 50.0),
-    "claude-opus-5": (5.0, 25.0),
-    "claude-sonnet-5": (2.0, 10.0),
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-opus-4-8": (5.0, 25.0),
-    "claude-haiku-4-5": (1.0, 5.0),
-    "gpt-5": (1.25, 10.0),
-    "gpt-5-mini": (0.25, 2.0),
-    "gpt-4.1": (2.0, 8.0),
-    "gpt-4.1-mini": (0.4, 1.6),
-    "o3": (2.0, 8.0),
-    "o4-mini": (1.1, 4.4),
-    "gpt-5.6-luna": (0.2, 1.2),
-    "gpt-5.6-terra": (2.0, 12.0),
-    "gpt-5.6-sol": (4.0, 20.0),
-}
-DEFAULT_PRICE = (5.0, 25.0)
+# Derived from the model registry so every allowlisted model has a price.
+PRICE_PER_MTOK: dict[str, tuple[float, float]] = {name: spec.price for name, spec in MODELS.items()}
+DEFAULT_PRICE = (5.0, 25.0)  # only for models journaled before joining the allowlist
 
 
 @dataclass(frozen=True)

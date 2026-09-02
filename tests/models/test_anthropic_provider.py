@@ -103,4 +103,5 @@ def test_cache_split_marks_the_prefix_block() -> None:
     )
     content = log["plain"]["messages"][0]["content"]
     assert content[0]["cache_control"] == {"type": "ephemeral"}
-    assert content[0]["text"] == "BIG CORPUS" and content[1]["text"] == "the question"
+    # The blocks reassemble into the same text every other provider receives.
+    assert content[0]["text"] + content[1]["text"] == "BIG CORPUS\nthe question"

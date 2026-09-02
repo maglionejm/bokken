@@ -6,9 +6,9 @@ from bokken.journal import replay
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import requires_real_validation
 from bokken.stages.base import (
-    FACILITATOR,
     RouterFactory,
     evidence_lines,
+    facilitator,
     open_stage,
     opportunities_text,
     structured,
@@ -50,7 +50,7 @@ class DefineEngine:
                 ctx.store.append(
                     type="interpretation.derived",
                     stage="define",
-                    actor=FACILITATOR,
+                    actor=facilitator(router),
                     payload={
                         "kind": "insight",
                         "statement": draft.statement,
@@ -114,7 +114,7 @@ class DefineEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="define",
-            actor=FACILITATOR,
+            actor=facilitator(router),
             payload={
                 "question": "which problem statement do we take forward",
                 "options": options,

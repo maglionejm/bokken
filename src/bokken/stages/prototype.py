@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bokken.journal import Actor
 from bokken.orchestrator import StageContext, StageOutcome
-from bokken.stages.base import FACILITATOR, RouterFactory, StageError, open_stage, structured
+from bokken.stages.base import RouterFactory, StageError, facilitator, open_stage, structured
 from bokken.stages.research import prior_research, run_concept_research
 from bokken.stages.schemas import AssumptionList, FidelityChoice
 
@@ -108,7 +108,7 @@ class PrototypeEngine:
             ctx.store.append(
                 type="assumption.registered",
                 stage="prototype",
-                actor=FACILITATOR,
+                actor=facilitator(router),
                 payload={
                     "statement": a.statement,
                     "impact": a.impact,
@@ -136,7 +136,7 @@ class PrototypeEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="prototype",
-            actor=FACILITATOR,
+            actor=facilitator(router),
             payload={
                 "question": "prototype fidelity: cheapest artifact testing the riskiest assumption",
                 "options": [item.kind for item in plan.artifacts],
@@ -188,7 +188,7 @@ class PrototypeEngine:
             ctx.store.append(
                 type="artifact.generated",
                 stage="prototype",
-                actor=FACILITATOR,
+                actor=facilitator(router),
                 payload={
                     "path": str(relative),
                     "kind": item.kind,
