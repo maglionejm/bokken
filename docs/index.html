@@ -432,8 +432,8 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     <li><span class="kj">共感</span><span class="en">Empathize</span><span class="nt">Interviews, per-feature functional tests of the running app, and a JTBD opportunity ranking (Ulwick-scored) — real inputs, or a clearly labeled synthetic panel.</span></li>
     <li><span class="kj">定義</span><span class="en">Define</span><span class="nt">The problem statement, chosen on the record with its justification chain.</span></li>
     <li><span class="kj">発想</span><span class="en">Ideate</span><span class="nt">Structured divergence, then three firewalled lenses — adversarial feasibility against the code, independent RICE, outcome desirability. Every idea keeps its lineage.</span></li>
-    <li><span class="kj">試作</span><span class="en">Prototype</span><span class="nt">Authorized deep web research on the chosen concept (competitors, sourced signals), then the cheapest artifact that tests the riskiest assumption.</span></li>
-    <li><span class="kj">検証</span><span class="en">Test</span><span class="nt">Assumptions scored against results; the loop goes back when evidence disagrees.</span></li>
+    <li><span class="kj">試作</span><span class="en">Prototype</span><span class="nt">Authorized web research on the chosen concept, then the cheapest artifact that tests the riskiest assumption — including HTML wireframes on the product’s own design tokens, exercised in a real browser.</span></li>
+    <li><span class="kj">検証</span><span class="en">Test</span><span class="nt">Assumptions scored against results; the loop goes back when evidence disagrees — and after completion, real humans rescore the register via agentic interviews (terminal or Twilio).</span></li>
   </ul>
 </header>
 
@@ -589,7 +589,14 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="o">report/report.html    <span class="c"># + final outputs, spec appendix — journal-derived</span></span>
 
 <span class="p">$</span> bokken costs mars-lander
-<span class="o">total ~$24.80 · cache hit rate 91%  <span class="c"># spend per stage × prompt × class</span></span></pre>
+<span class="o">total ~$24.80 · cache hit rate 91%  <span class="c"># spend per stage × prompt × class</span></span>
+
+<span class="p">$</span> bokken validate mars-lander --channel twilio --to +34…
+<span class="o">guide: artifacts/validation/validation_guide.md  <span class="c"># research debt → real interview</span></span>
+<span class="o">journaled 9 exchange(s)              <span class="c"># reported human evidence; register rescored</span></span>
+
+<span class="p">$</span> bokken library
+<span class="o">mars-lander · verdict iterate        <span class="c"># learnings compound into the next run</span></span></pre>
   </div>
   <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
   <div class="dossier" aria-label="The Session Dossier and the handoff">

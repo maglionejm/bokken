@@ -37,7 +37,10 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
               the Journal (append-only, hash-chained JSONL; state = replay)      │
                      │                                                           │
                      ├──► Session Dossier (outcomes · narrative · evidence graph)
-                     └──► OpenSpec handoff (MVP specs for a coding agent)
+                     ├──► OpenSpec handoff (MVP specs for a coding agent)
+                     ├──► Reports (PPTX deck + portable HTML with OST view)
+                     └──► bokken validate ► real-human interviews (terminal/Twilio)
+                                            rescore the register with reported evidence
 ```
 
 - **Stages are a real state machine** with entry/exit criteria and first-class
@@ -57,6 +60,26 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
   `requires real validation`; the Dossier states what the run *did not* do; and
   the handoff turns contradicted assumptions into exclusions and validation debt
   into mandatory tasks. None of this is configurable away.
+- **The product is tested, not assumed**: with `--app-url` the run walks the
+  real UI (SPA-aware), functionally exercises every inventoried feature with
+  works/broken/unclear verdicts, and `wireframe_html` prototypes are generated
+  on the repo's own CSS tokens and exercised in a browser before the test
+  panel judges them.
+- **The market is on the record**: after the concept is chosen, an explicitly
+  authorized web research pass (`--allow-web-research`) produces competitors
+  with overlap, sourced signals, regulatory notes, and risks — journaled as
+  `reported` evidence that feeds the assumption register.
+- **Real humans close the loop**: `bokken validate` turns the research debt
+  into an interview guide and an agentic interviewer moderates real
+  participants (terminal, or Twilio SMS/WhatsApp behind the `[interview]`
+  extra) — every exchange is `reported` human evidence, and the register is
+  rescored against it.
+- **Learnings compound**: every finalized run feeds the insights library; the
+  next run on the same product starts knowing what was supported,
+  contradicted, or broken — with session provenance on every borrowed line.
+- **Fusion cost architecture**: frontier lanes judge (Fable 5 / Opus 5), a
+  cached sidekick lane reads; `bokken costs` reports spend and cache hit-rate
+  from the journal.
 - **Crash-safe by construction**: sessions are durable, named, and resumable;
   kill the process anywhere and `bokken run` continues from the ledger.
 
@@ -102,6 +125,11 @@ lost, dissent and how it was handled, loop-backs with triggers); Part C —
 `dossier.json`, the full evidence graph (insights↔evidence, idea lineage, IBIS
 decision records, persona provenance cards, model traces).
 
+**Reports** (`report/`): a strategic PPTX deck (decision tables, HILL banner,
+verdict-colored register) and a portable single-file HTML (chaptered, agent
+deliberation, per-feature UI test cards, Opportunity Solution Tree, next
+actions) — deterministic renderings of the Journal.
+
 **OpenSpec handoff** (`handoff/`): a strict OpenSpec change package
 (`proposal.md`, `design.md`, capability specs with SHALL requirements and
 WHEN/THEN scenarios, `tasks.md`) plus `traceability.json` mapping every
@@ -113,8 +141,8 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 
 | | |
 | --- | --- |
-| **CLI** | `new · run · step · stop · status · list · gate · back · journal · dossier · handoff · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
-| **MCP** | `bokken serve` (stdio): 12 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
+| **CLI** | `new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · costs · validate · library · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
+| **MCP** | `bokken serve` (stdio): 14 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation
 
@@ -125,6 +153,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 | [docs/events.md](docs/events.md) | The Journal: envelope, hash chain, and the full event taxonomy v1 |
 | [docs/handoff.md](docs/handoff.md) | The OpenSpec handoff contract and ingestion workflow |
 | [docs/mcp.md](docs/mcp.md) | MCP tools, resources, and client setup |
+| [docs/agents.md](docs/agents.md) | The agent registry: every actor, its lane, its model, and what it may never do |
 
 ## Project structure
 

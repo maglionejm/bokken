@@ -64,6 +64,7 @@ state, which is what makes every run crash-safe and resumable by construction.
              ├── dossier/               dossier.md + dossier.json
              ├── handoff/               OpenSpec MVP specs + traceability.json
              ├── report/                report.pptx + report.html (journal-derived)
+             ├── artifacts/validation/  validation_guide.md (+ real-interview evidence in the ledger)
              └── pending_question.json / answers.json  (MCP input mailbox)
 ```
 
@@ -110,13 +111,22 @@ state, which is what makes every run crash-safe and resumable by construction.
   converges through three firewalled lenses (adversarial feasibility against
   the repo with green/amber/red verdicts and veto, independent RICE with no
   code access, outcome desirability); concept one-pagers are Hills
-  (Who/What/Wow) with a Lean-UX hypothesis; a declared `app_url` adds a
+  (Who/What/Wow) with a Lean-UX hypothesis; `wireframe_html` prototypes are
+  built on the repo's real CSS tokens and exercised in a browser; a declared `app_url` adds a
   documented functional UI walkthrough as observed evidence.
 - **Concept research on the record**: after the concept decision, an
   explicitly authorized (`allow_web_research: true`) research-class call with
   server-side web search produces a structured market record - competitors
   with overlap, sourced signals, regulatory, risks - journaled as `reported`
   evidence and fed to the assumption register.
+- **Validation is a first-class phase**: after completion, `bokken validate`
+  derives an interview guide from the research debt, an agentic interviewer
+  moderates real humans over a channel port (terminal or Twilio), and the
+  register is rescored against `reported` human evidence — appends after
+  completion are legal and replay-safe.
+- **Memory with provenance**: finalization feeds a workspace-level insights
+  library; new runs on the same product are seeded with prior learnings,
+  always labeled with the originating session.
 - **Fusion lanes (cost architecture)**: a frontier lane (Fable 5 for
   research/challenge, Opus 5 for execution/documentation) and a sidekick
   lane (Opus 5) with parallel per-lane prompt caches. The sidekick reads —

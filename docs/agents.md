@@ -36,7 +36,7 @@ who does what, on which lane, and what each agent may never do.
 
 | Actor | Kind | Does |
 | --- | --- | --- |
-| `ui-walker` | system | Real-browser crawl (live DOM + code routes + SPA tabs); observed facts, desktop+mobile screenshots |
+| `ui-walker` | system | Real-browser crawl (live DOM + code routes + SPA tabs); observed facts, desktop+mobile screenshots; also exercises generated `wireframe_html` prototypes |
 | `panel` | system | Seeded deterministic casting (vivid identities), manifests, contamination firewall |
 | `model-router` | agent | Journals every call with class, model, prompt version/hash, usage, cache reads, status |
 | Kata (facilitation moves) | agent | Nine budgeted moves, executed or suppressed — both journaled with triggers |
