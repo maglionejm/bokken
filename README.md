@@ -214,4 +214,4 @@ against synthetic participants).
 
 ## License
 
-Apache-2.0.
+[Apache-2.0](LICENSE). Copyright 2026 Juan Martín Maglione.
