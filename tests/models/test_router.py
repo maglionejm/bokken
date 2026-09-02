@@ -220,3 +220,77 @@ def test_every_allowlisted_model_has_a_list_price() -> None:
     assert set(PRICE_PER_MTOK) == set(MODEL_ALLOWLIST)
     for name, spec in MODELS.items():
         assert PRICE_PER_MTOK[name] == spec.price
+
+
+def test_persona_turn_caches_one_corpus_prefix_across_the_panel() -> None:
+    """The inversion this guards against: a persona named above the corpus gives
+    every turn its own prefix, so the corpus is never read back from cache."""
+    from bokken.models.prompts import render_prompt, split_cache_marker
+
+    corpus = "[source abcdef123456 (code) L1-L4]\nshuttle arrivals drift by 9 minutes\n"
+    question = "tell me about the last time the shuttle was late"
+    prefixes, suffixes = set(), set()
+    for persona in ('{"name": "Carmen"}', '{"name": "Diego"}', '{"name": "Rosa"}'):
+        _, rendered, _ = render_prompt(
+            "empathize/persona_turn", persona=persona, context=corpus, question=question
+        )
+        prefix, suffix = split_cache_marker(rendered)
+        prefixes.add(prefix)
+        suffixes.add(suffix)
+        # The marker splits shared material from varying material, not the reverse.
+        assert corpus in prefix and persona not in prefix and question not in prefix
+        assert persona in suffix and question in suffix
+    assert len(prefixes) == 1, "the cacheable prefix must be byte-identical per persona"
+    assert len(suffixes) == 3
+
+
+def test_cache_split_keeps_shared_material_ahead_of_per_call_material() -> None:
+    """Every marked prompt: shared params before the split, varying ones after."""
+    from bokken.models.prompts import CACHE_SPLIT, render_prompt, split_cache_marker
+
+    cases = {
+        "sidekick/context_query": ({"context": "CORPUS"}, {"question": "QUESTION"}),
+        "empathize/persona_turn": (
+            {"context": "CORPUS"},
+            {"persona": "PERSONA", "question": "QUESTION"},
+        ),
+        "ideate/converge": (
+            {"problem_statement": "PROBLEM", "criteria": "CRITERIA", "options": "OPTIONS"},
+            {"participant": "PARTICIPANT", "lens": "LENS"},
+        ),
+        "test/evaluate": (
+            {"kind": "KIND", "artifact": "ARTIFACT"},
+            {"persona": "PERSONA", "assumption": "ASSUMPTION"},
+        ),
+    }
+    for prompt_id, (shared, varying) in cases.items():
+        _, rendered, _ = render_prompt(prompt_id, **shared, **varying)
+        prefix, suffix = split_cache_marker(rendered)
+        assert suffix, f"{prompt_id} declares no cache split"
+        for value in shared.values():
+            assert value in prefix and value not in suffix, f"{prompt_id}: {value} not shared"
+        for value in varying.values():
+            assert value in suffix and value not in prefix, f"{prompt_id}: {value} not varying"
+        # The marker is framing only: the wire text still reads in template order.
+        assert prefix + suffix == rendered.replace(CACHE_SPLIT, "\n")
+
+
+def test_reordered_persona_prompts_keep_their_instructions() -> None:
+    """A reorder must not quietly drop the framing these prompts carry."""
+    from bokken.models.prompts import render_prompt
+
+    _, turn, _ = render_prompt("empathize/persona_turn", persona="p", context="c", question="q")
+    assert "in character" in turn  # stays in persona
+    assert "cite its line span" in turn and "with citations" in turn  # cites spans
+    assert "abstain" in turn and "real users" in turn  # abstains honestly
+    assert "must be marked as such" in turn  # preferences labelled, never laundered
+
+    _, scores, _ = render_prompt("empathize/outcome_scores", persona="p", outcomes="o")
+    assert "Score EVERY outcome" in scores and "Stay in character" in scores
+    assert scores.index("Desired outcomes") < scores.index("The persona you are")
+
+    _, evaluation, _ = render_prompt(
+        "test/evaluate", persona="p", kind="k", artifact="a", assumption="s"
+    )
+    assert "in character" in evaluation
+    assert "quote the" in evaluation and "support or contradict" in evaluation

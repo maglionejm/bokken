@@ -59,16 +59,21 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "reply exactly NO_COVERAGE.\n",
     ),
     "empathize/persona_turn": (
-        "v3",
-        "You are the persona described below, answering a research interview question.\n"
-        "Persona: {persona}\n"
-        "Corpus (the only source you may state facts from, cite line spans):\n{context}\n"
+        "v4",
+        # Corpus before the split, persona and question after it: every persona on
+        # an interview panel answers over the same corpus text, so the corpus is
+        # written to cache once and read back for the rest of the interview.
+        "You are a research interviewee, answering an interview question in "
+        "character as the persona named after the corpus below. The corpus is the "
+        "only source you may state facts from, and every fact you state must cite "
+        "its line span.\n"
+        "Corpus:\n{context}" + CACHE_SPLIT + "The persona you are: {persona}\n"
         "Question: {question}\n"
-        "Answer only from the corpus with citations; quote concrete numbers, feature "
-        "names, and file facts when the corpus has them. If the corpus cannot support a "
-        "factual answer, abstain and say precisely what research with real users would "
-        "close the gap. Personal preferences may come from the persona profile and must "
-        "be marked as such.\n",
+        "Answer in character, only from the corpus, with citations; quote concrete "
+        "numbers, feature names, and file facts when the corpus has them. If the "
+        "corpus cannot support a factual answer, abstain and say precisely what "
+        "research with real users would close the gap. Personal preferences may come "
+        "from the persona profile and must be marked as such.\n",
     ),
     "empathize/outcomes": (
         "v1",
@@ -83,12 +88,17 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "measurable. Do not invent evidence.\n",
     ),
     "empathize/outcome_scores": (
-        "v1",
-        "You are the persona described below.\n"
-        "Persona: {persona}\n"
+        "v2",
+        # Shared outcome list first, persona after it, so the per-persona scoring
+        # loop presents a stable prefix. No cache split is declared: the outcome
+        # list is 5-10 statements, well under the smallest cacheable prefix any
+        # routed model accepts, so an explicit cache block would never be hit.
+        "You are scoring a fixed list of desired outcomes in character as a persona. "
+        "The outcomes come first; the persona you play comes after them.\n"
         "Desired outcomes (index. statement):\n{outcomes}\n"
-        "Score EVERY outcome for Importance (1-10: how much achieving it matters to you) "
-        "and Satisfaction (1-10: how well your current options - including the product "
+        "The persona you are: {persona}\n"
+        "Score EVERY outcome above for Importance (1-10: how much achieving it matters "
+        "to you) and Satisfaction (1-10: how well your current options - including the product "
         "as described in the evidence - already serve it). Stay in character; ground "
         "satisfaction in what the evidence says the product does today. Give a one-line "
         "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
@@ -187,11 +197,13 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "duplicate.\n",
     ),
     "ideate/converge": (
-        "v2",
+        "v3",
+        # The lens loop already led with the shared problem, criteria, and option
+        # set; the split makes that prefix explicit so the three lenses write the
+        # option list once and read it back twice.
         QUALITY_CONTRACT
         + "Convergence vote. Problem: {problem_statement}\nCriteria (frozen): {criteria}\n"
-        "Options (id: summary):\n{options}\n"
-        "You vote as {participant}.\n{lens}\n"
+        "Options (id: summary):\n{options}" + CACHE_SPLIT + "You vote as {participant}.\n{lens}\n"
         "Score each option per criterion 0-5 and state a position that a founder can "
         "act on: name the strongest option and the concrete risk of the weakest.\n",
     ),
@@ -261,9 +273,13 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "numbers from the record. No emojis.\n",
     ),
     "test/evaluate": (
-        "v2",
-        "You are the persona described below, evaluating a prototype.\n"
-        "Persona: {persona}\nArtifact ({kind}):\n{artifact}\n"
+        "v3",
+        # Artifact before the split: one test panel reacts to the same artifact once
+        # per assumption in the register, so the artifact is written to cache once
+        # and read back for every remaining assumption.
+        "You are evaluating a prototype in character as the persona named after the "
+        "artifact below.\n"
+        "Artifact ({kind}):\n{artifact}" + CACHE_SPLIT + "The persona you are: {persona}\n"
         "Assumption under test: {assumption}\n"
         "React honestly from the persona's perspective to THIS artifact - quote the "
         "parts that trigger your reaction. Does your reaction support or contradict the "
