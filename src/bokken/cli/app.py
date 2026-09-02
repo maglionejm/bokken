@@ -40,7 +40,8 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
     help="Bokken: an agentic harness for Design Thinking. Sessions are durable and "
-    "resumable by name; state lives in an append-only journal.",
+    "resumable by name; state lives in an append-only journal. "
+    "Created by Juan Martin Maglione and Marc Puig.",
 )
 out = Console()
 
