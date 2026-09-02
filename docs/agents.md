@@ -6,9 +6,10 @@ who does what, on which lane, and what each agent may never do.
 
 The tables name the default Anthropic models. For an OpenAI session, the same
 actors and routing classes use `gpt-5` on the four frontier lanes
-(`research`, `challenge`, `cognition`, `generation`) and `gpt-5-mini` on
-`sidekick` and `extraction`. A `--model` override changes only frontier lanes,
-so delegated reads and extraction retain the Fusion cost boundary. Each actor's
+(`research`, `challenge`, `cognition`, `generation`) and `gpt-5-mini` on the
+economy lanes `sidekick` and `extraction`. A `--model` override changes only
+frontier lanes, so delegated reads and extraction retain the Fusion cost
+boundary. Each actor's
 journaled `model` is resolved from the session's routing table, so an OpenAI run
 attributes these agents to the OpenAI model that served them.
 
@@ -31,8 +32,22 @@ attributes these agents to the OpenAI model that served them.
 
 | Agent | Routing class → model | Does | Never does |
 | --- | --- | --- | --- |
-| Context retriever | `sidekick` → `claude-opus-5`, corpus as cached prefix | Return verbatim source-marked spans for each interview question; truncated output is still used as spans | Paraphrase; answer the question itself; fall back to shipping the full corpus |
-| `ui-tester` stepping | `sidekick` → `claude-opus-5` | Choose the next browser action (click / fill demo values / navigate) from the interactive-element digest | Activate destructive controls (filtered from the digest); journal a final verdict without frontier confirmation |
+| Context retriever | `sidekick` → `claude-sonnet-5`, corpus as cached prefix | Return verbatim source-marked spans for each interview question; truncated output is still used as spans | Paraphrase; answer the question itself; fall back to shipping the full corpus |
+| `ui-tester` stepping | `sidekick` → `claude-sonnet-5` | Choose the next browser action (click / fill demo values / navigate) from the interactive-element digest | Activate destructive controls (filtered from the digest); journal a final verdict without frontier confirmation |
+
+The lane pays for mechanical reading, so it runs on the cheapest model the
+charter allows for non-extraction work — not on the frontier model whose price
+the delegation exists to avoid. The extraction-grade model is not an option
+here: every model declares the lanes it may serve, and `claude-haiku-4-5`
+declares `extraction` only, so routing it to `sidekick` is refused at session
+creation.
+
+Cheapening the lane risks quality, not cost: a model that paraphrases instead
+of quoting produces citations the grounding backstop cannot resolve, and those
+turns are journaled as abstentions that read like honest research gaps.
+`bokken costs <name>` therefore reports persona turns, abstentions, and the
+`citation_invalid` share of them, so the regression is legible rather than
+silent.
 
 ## Extraction lane
 

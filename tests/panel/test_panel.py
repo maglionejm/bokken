@@ -19,6 +19,7 @@ from bokken.panel import (
     check_firewall,
     freeze_criteria,
     frozen_criteria,
+    grounding_health,
     journal_manifest,
     require_skeptic_challenge,
     requires_real_validation,
@@ -153,6 +154,40 @@ def test_invalid_citation_is_converted_to_abstention(store, corpus) -> None:
     )
     assert event.type == "evidence.abstained"
     assert "citation_invalid" in event.payload["gap"]
+
+
+def test_grounding_health_separates_backstop_abstentions_from_real_gaps(store, corpus) -> None:
+    """A paraphrasing sidekick would show up here, not as silent research debt."""
+    source_id = corpus.source_ids[0]
+    generator = ScriptedGenerator(
+        [
+            GroundedAnswer(
+                text="arrival predictability is the pain",
+                citations=[Citation(source_id=source_id, start_line=1, end_line=1)],
+            ),
+            GroundedAnswer(  # paraphrased span: the backstop cannot resolve it
+                text="paraphrased",
+                citations=[Citation(source_id="bogus", start_line=1, end_line=2)],
+            ),
+            Abstention(reason="no pricing data in corpus"),
+        ]
+    )
+    interviewer = Interviewer(corpus, generator, store)
+    persona = _segment_persona()
+    for question in ("what frustrates you?", "how many churn?", "willingness to pay?"):
+        interviewer.ask(persona, question, stage="empathize")
+    # A stage-level research gap is not a persona turn and must not dilute it.
+    store.append(
+        type="evidence.abstained",
+        stage="prototype",
+        actor=AGENT,
+        payload={"question": "Concept research on the live web", "gap": "web research not allowed"},
+    )
+    health = grounding_health(store.events())
+    assert health["persona_turns"] == 3
+    assert health["abstentions"] == 2
+    assert health["citation_invalid_abstentions"] == 1
+    assert health["citation_invalid_rate"] == pytest.approx(0.333, abs=0.001)
 
 
 def test_profile_opinion_is_marked_profile_derived(store, corpus) -> None:

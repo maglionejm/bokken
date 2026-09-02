@@ -9,19 +9,35 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
 
 from pydantic import BaseModel, ValidationError
 
 from bokken.journal import Actor, JournalStore, RoutingClass, Stage, replay
 from bokken.models.prompts import render_prompt
 
+FRONTIER_ROUTING_CLASSES: tuple[RoutingClass, ...] = (
+    "research",
+    "challenge",
+    "cognition",
+    "generation",
+)
+# Lane capability: which routing classes a model is allowed to serve. Taken
+# from the journal taxonomy so the lane vocabulary cannot drift from it.
+ALL_LANES: frozenset[RoutingClass] = frozenset(get_args(RoutingClass))
+# CLAUDE.md reserves the extraction-grade model for the extraction class, so
+# the delegated sidekick lane is not a cheap dumping ground for it either.
+EXTRACTION_ONLY: frozenset[RoutingClass] = frozenset({"extraction"})
+
 DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "research": "claude-fable-5",
     "challenge": "claude-fable-5",
     "cognition": "claude-opus-5",
     "extraction": "claude-haiku-4-5",
-    "sidekick": "claude-opus-5",
+    # The sidekick reads and never judges: verbatim corpus spans, UI-step
+    # picks. It runs on the cheapest charter-compatible model, not on the
+    # frontier model whose price the delegation exists to avoid.
+    "sidekick": "claude-sonnet-5",
     "generation": "claude-opus-5",
 }
 
@@ -41,7 +57,7 @@ class ModelSpec:
 
     provider: str
     price: tuple[float, float]  # list price per million tokens (input, output)
-    frontier: bool = True  # may serve research/challenge/cognition/generation
+    lanes: frozenset[RoutingClass] = ALL_LANES  # routing classes it may serve
     reasoning: bool = True  # accepts a reasoning-effort parameter
 
 
@@ -55,7 +71,7 @@ MODELS: dict[str, ModelSpec] = {
     "claude-opus-4-7": ModelSpec("anthropic", (5.0, 25.0)),
     "claude-sonnet-4-6": ModelSpec("anthropic", (3.0, 15.0)),
     # Extraction only (CLAUDE.md): no effort/adaptive-thinking parameters.
-    "claude-haiku-4-5": ModelSpec("anthropic", (1.0, 5.0), frontier=False, reasoning=False),
+    "claude-haiku-4-5": ModelSpec("anthropic", (1.0, 5.0), lanes=EXTRACTION_ONLY, reasoning=False),
     "gpt-5": ModelSpec("openai", (1.25, 10.0)),
     "gpt-5-mini": ModelSpec("openai", (0.25, 2.0)),
     "gpt-4.1": ModelSpec("openai", (2.0, 8.0), reasoning=False),
@@ -71,12 +87,6 @@ MODEL_PROVIDERS = {name: spec.provider for name, spec in MODELS.items()}
 ANTHROPIC_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "anthropic")
 OPENAI_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "openai")
 PROVIDERS = frozenset({"anthropic", "openai"})
-FRONTIER_ROUTING_CLASSES: tuple[RoutingClass, ...] = (
-    "research",
-    "challenge",
-    "cognition",
-    "generation",
-)
 REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 DEFAULT_REASONING_EFFORT = "high"
 
@@ -151,9 +161,10 @@ def _validate_model_provider(model: str, provider: str) -> ModelSpec:
 
 def _validate_class_model(routing_class: RoutingClass, model: str, provider: str) -> None:
     spec = _validate_model_provider(model, provider)
-    if routing_class in FRONTIER_ROUTING_CLASSES and not spec.frontier:
+    if routing_class not in spec.lanes:
         raise RoutingConfigError(
-            f"model {model!r} may not serve the {routing_class!r} class (extraction-grade model)"
+            f"model {model!r} may not serve the {routing_class!r} class "
+            f"(it serves: {', '.join(sorted(spec.lanes))})"
         )
 
 

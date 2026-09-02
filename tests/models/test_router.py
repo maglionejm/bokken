@@ -63,6 +63,8 @@ def test_routing_defaults_and_overrides() -> None:
     assert routing["cognition"] == "claude-opus-5"
     assert routing["generation"] == "claude-opus-5"
     assert routing["extraction"] == "claude-haiku-4-5"
+    # The delegated lane exists to avoid frontier prices for mechanical reads.
+    assert routing["sidekick"] == "claude-sonnet-5"
     assert resolve_routing({"cognition": "claude-sonnet-4-6"})["cognition"] == "claude-sonnet-4-6"
     assert resolve_routing({"cognition": "gpt-5"}, provider="openai")["cognition"] == "gpt-5"
     openai_routing = resolve_routing(None, provider="openai")
@@ -76,6 +78,23 @@ def test_routing_defaults_and_overrides() -> None:
         resolve_routing({"vibes": "claude-haiku-4-5"})
 
 
+def test_sidekick_default_is_cheaper_than_the_judgment_it_serves() -> None:
+    """The delegation pattern is defeated if the sidekick costs frontier prices."""
+    from bokken.models.router import MODELS
+
+    for provider, routing in (
+        ("anthropic", resolve_routing(None)),
+        ("openai", resolve_routing(None, provider="openai")),
+    ):
+        side_in, side_out = MODELS[routing["sidekick"]].price
+        for judgment_class in ("research", "challenge", "cognition", "generation"):
+            judge_in, judge_out = MODELS[routing[judgment_class]].price
+            assert side_in < judge_in and side_out < judge_out, (
+                f"{provider}: sidekick {routing['sidekick']} is not cheaper than "
+                f"{judgment_class} {routing[judgment_class]}"
+            )
+
+
 def test_frontier_override_preserves_economy_lanes() -> None:
     config = session_model_config("openai", "gpt-5.6-luna", "high")
     assert set(config["routing"]) == {"research", "challenge", "cognition", "generation"}
@@ -83,6 +102,12 @@ def test_frontier_override_preserves_economy_lanes() -> None:
     assert routing["sidekick"] == "gpt-5-mini"
     assert routing["extraction"] == "gpt-5-mini"
     assert config["reasoning_effort"] == "high"
+    # An Anthropic override leaves the economy lanes alone the same way.
+    anthropic_routing = resolve_routing(
+        session_model_config("anthropic", "claude-opus-4-8")["routing"]
+    )
+    assert anthropic_routing["sidekick"] == "claude-sonnet-5"
+    assert anthropic_routing["extraction"] == "claude-haiku-4-5"
 
 
 def test_invocation_is_journaled_with_prompt_version_and_usage(store) -> None:
@@ -176,13 +201,22 @@ def test_prompt_registry_carries_the_quality_contract_and_hill() -> None:
     assert "Ulwick" in rendered or "Jobs-to-be-Done" in rendered
 
 
-def test_extraction_grade_models_are_refused_on_frontier_lanes() -> None:
+def test_extraction_grade_models_are_refused_outside_the_extraction_lane() -> None:
+    """CLAUDE.md reserves haiku for extraction; lane capability enforces it."""
+    from bokken.models.router import ALL_LANES, MODELS
+
     with pytest.raises(RoutingConfigError, match="may not serve"):
         session_model_config("anthropic", "claude-haiku-4-5")
-    with pytest.raises(RoutingConfigError, match="may not serve"):
-        resolve_routing({"cognition": "claude-haiku-4-5"})
+    for routing_class in sorted(ALL_LANES - {"extraction"}):
+        with pytest.raises(RoutingConfigError, match="may not serve"):
+            resolve_routing({routing_class: "claude-haiku-4-5"})
     # The extraction lane itself still accepts it.
     assert resolve_routing({"extraction": "claude-haiku-4-5"})["extraction"] == "claude-haiku-4-5"
+    assert MODELS["claude-haiku-4-5"].lanes == {"extraction"}
+    # Both default tables only route lanes their models declare.
+    for provider in ("anthropic", "openai"):
+        for routing_class, model in resolve_routing(None, provider=provider).items():
+            assert routing_class in MODELS[model].lanes, f"{provider}: {model} / {routing_class}"
 
 
 def test_effort_is_refused_for_models_that_reject_the_parameter() -> None:

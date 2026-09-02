@@ -31,6 +31,7 @@ from bokken.panel.grounding import (
     Interviewer,
     PersonaTurnGenerator,
     ProfileOpinion,
+    grounding_health,
 )
 
 __all__ = [
@@ -56,6 +57,7 @@ __all__ = [
     "check_firewall",
     "freeze_criteria",
     "frozen_criteria",
+    "grounding_health",
     "journal_manifest",
     "require_skeptic_challenge",
     "requires_real_validation",

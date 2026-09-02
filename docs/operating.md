@@ -122,7 +122,7 @@ produced on demand:
 bokken dossier retention
 bokken handoff retention
 bokken export retention     # report/report.pptx + report/report.html
-bokken costs retention      # spend per stage x prompt x class, cache hit rate
+bokken costs retention      # spend per stage x prompt x class, cache hit rate, grounding health
 bokken validate retention   # real-human interview vs the research debt (terminal or --channel twilio)
 bokken library              # cross-run learnings per product (seeds new runs automatically)
 ```
@@ -132,6 +132,14 @@ honesty section) and `dossier/dossier.json` (Part C — the full machine-readabl
 evidence graph). Works mid-run too (labeled *partial*). Dojo dossiers always
 open with the simulated-run banner; decisions resting on synthetic evidence
 carry `requires real validation` — neither can be turned off.
+
+**Costs** — one row per stage x prompt_id x routing class with tokens, cache
+reads, and a list-price estimate, plus a `grounding` block: persona turns,
+abstentions, and how many of those abstentions the grounding backstop forced
+because a citation did not resolve to a corpus span (`citation_invalid`). Read
+the two together — cheaper lane economics are only real if that share stays
+flat, since a delegated read that paraphrases instead of quoting turns into
+abstentions that read like honest research gaps.
 
 **Handoff** — `handoff/` contains a strict OpenSpec change package
 (`openspec/changes/build-mvp-<slug>/` with proposal, design, capability specs,
@@ -230,7 +238,7 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance (works in both modes; the Ulwick outcome ranking remains dojo-only — founder mode relies on the human interviews): the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
 | Tuning knobs | core `config` | `ideation.novelty_window` (6), `empathize.opportunity_bands` / `segment_spike` (15/12/10 · 17), `walkthrough.max_pages` (12), `ui_tests.max_features` / `max_steps` (8/4) |
-| Model routing | `--provider`, `--model`, `--reasoning-effort` | `anthropic` (default) routes research/challenge to fable-5, cognition/generation/sidekick to opus-5, and extraction to haiku-4-5. `openai` routes research/challenge/cognition/generation to gpt-5 and the economical sidekick/extraction lanes to gpt-5-mini. `--model` overrides only the four frontier lanes, preserving sidekick/extraction economics. Effort is `low`, `medium`, or `high` and is applied by either provider to frontier lanes only. Combinations that cannot work are refused at creation: an extraction-grade model (haiku) on a frontier lane, or an effort setting on a model that rejects reasoning parameters (gpt-4.1) |
+| Model routing | `--provider`, `--model`, `--reasoning-effort` | `anthropic` (default) routes research/challenge to fable-5, cognition/generation to opus-5, the delegated sidekick lane to sonnet-5, and extraction to haiku-4-5. `openai` routes research/challenge/cognition/generation to gpt-5 and the economical sidekick/extraction lanes to gpt-5-mini. `--model` overrides only the four frontier lanes, preserving sidekick/extraction economics. Effort is `low`, `medium`, or `high` and is applied by either provider to frontier lanes only. Each model declares the lanes it may serve, so combinations that cannot work are refused at creation: an extraction-grade model (haiku) anywhere but the extraction lane, or an effort setting on a model that rejects reasoning parameters (gpt-4.1) |
 
 **Brief format** (`--brief brief.json`):
 

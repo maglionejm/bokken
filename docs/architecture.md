@@ -128,11 +128,13 @@ state, which is what makes every run crash-safe and resumable by construction.
   library; new runs on the same product are seeded with prior learnings,
   always labeled with the originating session.
 - **Fusion lanes (cost architecture)**: a frontier lane (Fable 5 for
-  research/challenge, Opus 5 for execution/documentation) and a sidekick
-  lane (Opus 5) with parallel per-lane prompt caches. The sidekick reads —
-  corpus retrieval as verbatim spans, UI-step selection — so the frontier
-  judges; anything feeding a `decision.recorded` never leaves the frontier.
-  `bokken costs` reports spend and cache hit-rate from the journal.
+  research/challenge, Opus 5 for execution/documentation) and a cheaper
+  sidekick lane (Sonnet 5) with parallel per-lane prompt caches. The sidekick
+  reads — corpus retrieval as verbatim spans, UI-step selection — so the
+  frontier judges; anything feeding a `decision.recorded` never leaves the
+  frontier. `bokken costs` reports spend, cache hit-rate, and the share of
+  persona turns the grounding backstop had to abstain on, so a cheaper
+  delegated read cannot degrade citations invisibly.
 - **One model seam**: nothing outside `bokken.models` touches a provider SDK;
   Anthropic and optional OpenAI adapters stay behind the router, and the whole
   harness runs offline against a fake provider in tests.
