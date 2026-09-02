@@ -45,4 +45,6 @@ with server-side fallback to `claude-opus-4-8`; cognition/generation on
 the lightweight extraction routing class). Tests
 with pytest; LLM calls are always behind the `ModelRouter` seam so tests can
 run with a fake router — never call the Anthropic SDK directly from stage or
-kata code.
+kata code. Optional extras stay optional: `[ui]` (playwright + beautifulsoup4)
+for walkthrough/feature tests, `[interview]` (twilio) for remote validation
+interviews; core installs and runs without them, degrading honestly.

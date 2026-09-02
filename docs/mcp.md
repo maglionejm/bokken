@@ -255,3 +255,11 @@ bokken journal retention --type session --json \
 
 - `export_report(name)` — regenerates and returns the PPTX + HTML report paths (same shape as `bokken export --json`).
 - `cost_report(name)` — per-stage/prompt/class cost rows with totals and cache hit rate (same data as `bokken costs --json`).
+
+## CLI-only verbs
+
+`bokken validate` (interactive interview channels) and `bokken library`
+(workspace-level, cross-session) are CLI-first and intentionally not MCP
+tools yet: the first needs a live human channel, the second reads outside
+any single session. Reports and costs are available as `export_report` and
+`cost_report`.

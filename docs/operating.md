@@ -173,6 +173,28 @@ done
 bokken dossier retention --json | jq -r .markdown_path
 ```
 
+## Optional extras
+
+| Extra | Installs | Unlocks |
+| --- | --- | --- |
+| `uv sync --extra ui` | playwright, beautifulsoup4 (+ `uv run playwright install chromium`) | UI walkthrough, per-feature functional tests, wireframe exercise |
+| `uv sync --extra interview` | twilio | `bokken validate --channel twilio --to <E.164>` (SMS/WhatsApp, polling, consent-first) |
+
+Without an extra the related step degrades honestly: journaled research debt,
+never a silent skip.
+
+## Validating with real humans
+
+After a run completes, `bokken validate <name>` derives the interview guide
+from the research debt and untested assumptions (artifact
+`artifacts/validation/validation_guide.md`), then an agentic interviewer
+moderates a real participant — one question at a time, laddering into
+concrete incidents, concluding inside a 14-turn budget. Every answer is
+journaled as `reported` human evidence and the register is rescored against
+it; rerun `bokken export` to refresh the reports with the real-validation
+deltas. `--guide-only` stops after the guide; `--participant` labels the
+human (never use a phone number as the label).
+
 ## Configuration reference
 
 Everything is fixed at `bokken new` and journaled in the `session.created`
@@ -187,6 +209,7 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | Token budget | `--budget` (default 20M total) | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance (works in both modes; the Ulwick outcome ranking remains dojo-only — founder mode relies on the human interviews): the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
+| Tuning knobs | core `config` | `ideation.novelty_window` (6), `empathize.opportunity_bands` / `segment_spike` (15/12/10 · 17), `walkthrough.max_pages` (12), `ui_tests.max_features` / `max_steps` (8/4) |
 | Model routing | core `config.routing` | per-class overrides (override only — active defaults are fable-5 for research/challenge, opus-5 for cognition/generation/sidekick, haiku-4-5 for extraction) within the allowlist (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: research/challenge → fable-5 at effort high (server-side refusal fallback to opus-4-8), cognition/generation → opus-5 at effort high, extraction → haiku-4-5 |
 
 **Brief format** (`--brief brief.json`):

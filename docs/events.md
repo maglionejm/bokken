@@ -115,7 +115,7 @@ budgets are enforceable from replay.
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `market_research`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
+| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`, `wireframe_html`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `market_research`, `validation_guide`, `wireframe_html`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
 
 ## Reading the ledger
 
@@ -136,3 +136,13 @@ The taxonomy is versioned. Payloads are read tolerantly (unknown fields are
 preserved), so additive payload fields are non-breaking; new event *types* or
 envelope changes require a spec delta against the `journal` capability with a
 migration note. Records, once written, are never migrated in place.
+
+## Post-completion events
+
+Validation interviews append after `complete`: participant answers are
+`evidence.captured` with `actor.kind: human`, `confidence_class: reported`,
+and source `validation interview (...)`; rescoring appends
+`assumption.scored` with refs to those exchanges. Wireframe exercises journal
+observed evidence with source `wireframe_exercise`. The insights library lives
+outside the journal (workspace `library.jsonl`) and never masquerades as
+session evidence.

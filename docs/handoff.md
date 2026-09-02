@@ -91,3 +91,10 @@ bokken journal <name> --type artifact --json \
 The `handoff_package` event carries the change id and capability list, and its
 `refs` point at the problem-statement, concept, and recommendation decisions it
 was built from.
+
+## Slice plan and sequencing
+
+Each capability carries a slice plan (1–3 slices sized S/M/L with what
+ships) and its dependencies; the proposal ends with a numbered PR-train
+sequencing — build order with a one-line rationale per step (order ≠
+importance), mirroring the house workshop format.
