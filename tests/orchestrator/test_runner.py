@@ -8,6 +8,8 @@ from bokken.orchestrator import (
     MissingEngineError,
     Runner,
     SelfEscalationError,
+    StageContext,
+    StageOutcome,
     StalledStageError,
     create_session,
 )
@@ -139,6 +141,48 @@ def test_budget_exhaustion_stops_and_human_raise_resumes() -> None:
         config_overrides={"budgets": {"total_tokens": 50_000}}, actor=HUMAN
     )
     assert result.halt == "completed"
+
+
+class CachedBurnBudgetFake:
+    """Empathize engine whose spend is almost entirely a cached prompt prefix."""
+
+    def run(self, ctx: StageContext) -> StageOutcome | None:
+        ctx.store.append(
+            type="model.called",
+            stage="empathize",
+            actor=Actor(kind="agent", name="facilitator", model="claude-fable-5"),
+            payload={
+                "routing_class": "research",
+                "model": "claude-fable-5",
+                "prompt_id": "empathize/interview",
+                "prompt_version": "v1",
+                "prompt_hash": "h",
+                "usage": {
+                    "input_tokens": 5_000,
+                    "output_tokens": 500,
+                    "cache_read_tokens": 195_000,
+                    "cache_write_tokens": 0,
+                },
+                "status": "ok",
+            },
+        )
+        return None
+
+
+def test_budget_stops_run_when_spend_is_mostly_cache_reads() -> None:
+    """The budget is a governance control, so a cached prompt cannot defer it:
+    one 200,500-token call blows a 100,000-token budget even though only 5,500
+    of those tokens are uncached input plus output."""
+    session_dir = create_session(
+        "budget-cached", brief=BRIEF, mode="founder", budgets={"total_tokens": 100_000}
+    )
+    engines = full_engine_suite() | {"empathize": CachedBurnBudgetFake()}
+    result = Runner(session_dir, engines=engines).run()
+    assert result.halt == "stopped" and result.detail == "budget_exhausted"
+    stopped = [e for e in read_events(session_dir) if e.type == "session.stopped"]
+    assert len(stopped) == 1 and stopped[0].payload["reason"] == "budget_exhausted"
+    state = replay(read_events(session_dir))
+    assert state.tokens_spent() == 200_500
 
 
 def test_agent_cannot_override_config() -> None:
