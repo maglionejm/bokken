@@ -443,6 +443,26 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
     )
 
 
+@app.command("demo")
+@guarded
+def demo(name: str = "demo", as_json: JsonFlag = False) -> None:
+    """A complete run on the bundled Lanzadera case: no API key, no network, ~$0."""
+    from bokken.demo import run_demo
+
+    summary = run_demo(name)
+    if as_json:
+        print(json.dumps({k: str(v) for k, v in summary.items()}, indent=2))
+        return
+    out.print(f"halt: {summary['halt']} - {summary['finalization']}")
+    out.print(f"report (html): {summary['report_html']}")
+    out.print(f"report (deck): {summary['report_pptx']}")
+    out.print(f"dossier:       {summary['dossier']}")
+    out.print(
+        "this demo cost $0.00 and made 0 network calls - a real run on your "
+        f"product is typically $20-35 (`bokken costs {name}` for the math)"
+    )
+
+
 @app.command("validate")
 @guarded
 def validate(
