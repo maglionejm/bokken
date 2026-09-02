@@ -535,7 +535,10 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
 
 @app.command("demo")
 @guarded
-def demo(name: str = "demo", as_json: JsonFlag = False) -> None:
+def demo(
+    name: Annotated[str, typer.Argument(help="Session name for the demo run.")] = "demo",
+    as_json: JsonFlag = False,
+) -> None:
     """A complete run on the bundled Lanzadera case: no API key, no network, ~$0."""
     from bokken.demo import run_demo
 
