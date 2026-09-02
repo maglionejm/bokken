@@ -36,6 +36,10 @@ def _participant_actor(participant: str) -> Actor:
     return Actor(kind="human", name=participant)
 
 
+# The consent contact is a harness act, not a model call: no model stamp.
+_CONSENT_ACTOR = Actor(kind="agent", name="validation-interviewer")
+
+
 def _request_consent(store, channel: Channel, participant: str) -> Consent:
     """Journal the outbound contact, ask once, journal what came back.
 
@@ -48,14 +52,14 @@ def _request_consent(store, channel: Channel, participant: str) -> Consent:
     contact = store.append(
         type="interview.consent_requested",
         stage=None,
-        actor=INTERVIEWER,
+        actor=_CONSENT_ACTOR,
         payload={"participant": participant, "channel": label},
     )
     consent = channel.open(participant)
     store.append(
         type="interview.consent_resolved",
         stage=None,
-        actor=INTERVIEWER,
+        actor=_CONSENT_ACTOR,
         payload={
             "participant": participant,
             "channel": label,
