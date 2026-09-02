@@ -1,0 +1,52 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Sync
+        run: uv sync
+      - name: Lint and tests
+        run: |
+          uv run ruff check src tests
+          uv run ruff format --check src tests
+          uv run pytest -q
+      - name: OpenSpec validation (best effort in CI; mandatory locally via make check)
+        run: |
+          if command -v openspec >/dev/null 2>&1; then
+            openspec validate --strict --all
+          else
+            echo "openspec CLI not available on the runner; validated locally"
+          fi
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # PyPI Trusted Publishing (OIDC)
+      contents: write # attach artifacts to the GitHub release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Cold smoke from the wheel
+        run: uvx --from dist/*.whl bokken version
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Attach artifacts to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/* --clobber || true

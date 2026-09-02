@@ -6,7 +6,17 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Juan Martin Maglione" }]
-keywords = ["design-thinking", "agents", "facilitation", "llm", "mcp"]
+keywords = ["design-thinking", "agents", "facilitation", "llm", "mcp", "product-discovery", "jtbd"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "anthropic>=0.60",
     "pydantic>=2.8",
@@ -15,6 +25,12 @@ dependencies = [
     "mcp>=1.5",
     "python-pptx>=1.0.2",
 ]
+
+[project.urls]
+Homepage = "https://maglionejm.github.io/bokken/"
+Repository = "https://github.com/maglionejm/bokken"
+Changelog = "https://github.com/maglionejm/bokken/releases"
+Issues = "https://github.com/maglionejm/bokken/issues"
 
 [project.scripts]
 bokken = "bokken.cli.app:main"

@@ -130,7 +130,11 @@ def create_session(
 ) -> Path:
     """Validate the brief and journal session.created; the session starts in intake."""
     validated = brief if isinstance(brief, Brief) else Brief.model_validate(brief)
+    import bokken
+
     config = default_config(mode, gate_policy, budgets) | (config_extra or {})
+    # Reproducibility: every journal knows which Bokken created it.
+    config["bokken_version"] = bokken.__version__
     session_dir = create_session_dir(name, base=base)
     with JournalStore.open(session_dir) as store:
         store.append(

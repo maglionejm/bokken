@@ -85,7 +85,24 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/) and Python ≥ 3.12.
+Requires [uv](https://docs.astral.sh/uv/) and an `ANTHROPIC_API_KEY`.
+
+```sh
+export ANTHROPIC_API_KEY=...
+uvx bokken version            # installs and runs in one command
+```
+
+Until the PyPI release lands you can run straight from the repo tag:
+
+```sh
+uvx --from git+https://github.com/maglionejm/bokken bokken version
+```
+
+Optional extras: `uvx --from 'bokken[ui]' bokken ...` unlocks the UI
+walkthrough and per-feature tests (plus `uvx playwright install chromium`
+once); `bokken[interview]` unlocks the Twilio interview channel.
+
+**Development mode** (the repo is the runtime — what the maintainers use):
 
 ```sh
 git clone https://github.com/maglionejm/bokken && cd bokken
@@ -211,6 +228,21 @@ the **Journal** (the faithful record of how understanding was earned), the
 **Kata** (named, drilled, repeatable moves), the **Dojo** (where practice runs
 full-contact with no client in the room), and **sparring sessions** (runs
 against synthetic participants).
+
+## Stability and support
+
+As of v1.0, these surfaces are **stable**: the Journal event taxonomy (v1,
+with `schema_version` on every event and `bokken_version` in each session's
+config snapshot), the CLI verbs and their `--json` shapes, the MCP tools and
+resources, and the deliverable formats (Dossier, handoff package, reports).
+**Experimental** and subject to change: tuning knobs (`ideation.*`,
+`empathize.*`, `ui_tests.*`, `walkthrough.*`), the Twilio interview channel,
+and the insights-library record shape.
+
+Active development is currently **paused while we gather real-user
+feedback**: issues are triaged, pull requests are welcome, and the spec-first
+workflow (`openspec/`) is the front door for contributions — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
