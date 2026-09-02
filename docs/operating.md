@@ -17,6 +17,12 @@ the directory you run from — like git, workspace-local by default).
 
 ## Creating a session
 
+Never run before? `bokken demo` replays a complete engagement on a bundled
+fictional product — offline, deterministic, $0.00 — and prints the report
+paths. `bokken init` then writes a first brief from a template
+(`saas-retention`, `consumer-app`, `internal-tool`) and shows the exact
+`new`/`run` commands that consume it.
+
 Give Bokken something tangible to start from: the app repo, the numbers, and
 what humans have said.
 
@@ -60,6 +66,10 @@ Gate policy is tunable at creation: `--gates none`,
 bokken run retention        # advance to the next halt
 bokken status retention     # where am I, what blocks progress
 ```
+
+`run` frames its cost before spending (typical full-run range plus the
+session's token guardrail) and prints a receipt — session-to-date list-price
+spend and model-call count — at every halt.
 
 `run` always returns at a **halt**:
 

@@ -1,6 +1,6 @@
 # `make check` is the definition of done (see CONTRIBUTING.md).
 
-.PHONY: install check lint format test validate-specs
+.PHONY: install check lint format test validate-specs gallery
 
 install:
 	uv sync
@@ -20,3 +20,11 @@ validate-specs:
 	openspec validate --strict --all
 
 check: lint test validate-specs
+
+# Rebuild the published demo artifacts on the GitHub Page from `bokken demo`.
+gallery:
+	@H=$$(mktemp -d); BOKKEN_HOME=$$H uv run bokken demo gallery >/dev/null; \
+	mkdir -p docs/gallery; \
+	cp $$H/sessions/gallery/report/report.html docs/gallery/demo-report.html; \
+	cp $$H/sessions/gallery/report/report.pptx docs/gallery/demo-deck.pptx; \
+	echo "gallery refreshed: docs/gallery/demo-report.html + demo-deck.pptx"
