@@ -238,6 +238,41 @@ All `inputs` are optional — a blank-page run is legal — but tangible inputs 
 what let personas cite the product as it exists (`code`), the numbers
 (`metrics`), and real human voices (`discussion`).
 
+Ingestion is narrow on purpose, for every surface: only `.csv`, `.json`, `.md`,
+and `.txt` files are read as text inputs (a declared directory is walked for
+exactly those suffixes; a repo is walked with its own source allowlist and
+exclusions), no single file above 200 kB enters the corpus, and one ingested set
+stops at 4 MB. A declared input that is refused, missing, or capped is journaled
+as `evidence.input_rejected` — the personas' grounding gap is on the record, so
+`bokken journal <name> --type evidence` shows what never made it in.
+
+### Input paths and the MCP trust boundary
+
+At the terminal you are the operator: `--repo`, `--metrics`, `--discussion` and
+`--doc` may name any path on your machine, and that keeps working unchanged.
+
+Over MCP the caller is a remote agent, so the paths in its `brief.inputs` are
+confined. They must resolve inside an **authorized input root**: the workspace
+root (`BOKKEN_HOME`, else `./.bokken`) and the working directory `bokken serve`
+was started in. Traversal, symlinks pointing out of the root, absolute paths
+outside it, missing paths, and files outside the text allowlist are refused as
+tool errors and no session is created. Accepted paths are journaled resolved and
+re-checked when the run reads them, so a symlink swapped in later is skipped,
+not read. Start `bokken serve` from the workspace directory (or set
+`BOKKEN_HOME`) rather than from your home directory — the launch directory is
+the reach you grant the agent.
+
+To widen that reach deliberately, name the roots before starting the server:
+
+```sh
+export BOKKEN_INPUT_ROOTS=/srv/research:/srv/repos   # os.pathsep-separated
+bokken serve
+```
+
+`BOKKEN_INPUT_ROOTS` **replaces** the default roots and applies to
+client-supplied paths only; each root is journaled in the session's
+`config.panel.input_roots`, so an audit shows what a run was allowed to read.
+
 ## Development operations
 
 ```sh

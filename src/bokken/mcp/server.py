@@ -18,10 +18,11 @@ from bokken.journal import (
     replay,
     resolve_session_dir,
 )
-from bokken.journal.schema import short_id
+from bokken.journal.schema import BriefInputs, short_id
 from bokken.journal.store import read_events
 from bokken.models import RoutingConfigError, session_model_config
 from bokken.orchestrator import InputRequired, Runner, create_session
+from bokken.panel.corpus import confine_inputs, input_roots
 
 mcp = MCPServer(
     "bokken",
@@ -45,6 +46,7 @@ def surfaced(fn):
     from bokken.journal.store import SessionLockedError
     from bokken.orchestrator import IllegalTransitionError, OrchestratorError
     from bokken.panel import PanelConfigError
+    from bokken.panel.corpus import InputPathRefused
 
     refused = (
         WorkspaceError,
@@ -53,6 +55,7 @@ def surfaced(fn):
         SessionLockedError,
         PanelConfigError,
         RoutingConfigError,
+        InputPathRefused,
         ValidationError,
         ValueError,
         FileNotFoundError,
@@ -196,16 +199,33 @@ def create_session_tool(
 ) -> dict:
     """Create a Design Thinking session. The brief needs problem_space,
     target_segments, success_criteria, risk_tolerance, and may declare inputs
-    (repo path, metrics/discussion/document files)."""
+    (repo path, metrics/discussion/document files). Input paths are resolved on
+    the server and confined to the authorized input root(s): traversal,
+    escaping symlinks, and outside absolute paths are refused."""
     budgets = {"total_tokens": total_token_budget} if total_token_budget else None
+    roots = input_roots()
+    validated = Brief.model_validate(brief)
+    validated = validated.model_copy(
+        update={
+            "inputs": BriefInputs.model_validate(
+                confine_inputs(validated.inputs.model_dump(), roots)
+            )
+        }
+    )
     session_dir = create_session(
         name,
-        brief=Brief.model_validate(brief),
+        brief=validated,
         mode=mode,
         gate_policy=gate_policy,  # type: ignore[arg-type]
         budgets=budgets,
         config_extra={
-            "panel": {"size": panel_size, "seed": seed},
+            "panel": {
+                "size": panel_size,
+                "seed": seed,
+                # Journaled so the run re-checks confinement when it reads the
+                # inputs, not only at creation time.
+                "input_roots": [str(root) for root in roots],
+            },
             **session_model_config(provider, model, reasoning_effort),
         },
     )

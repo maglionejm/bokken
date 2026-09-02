@@ -46,6 +46,35 @@ def test_new_and_status_machine_output(brief_file: Path) -> None:
     assert result.stderr == ""
 
 
+def test_operator_supplied_absolute_input_path_is_not_confined(tmp_path: Path) -> None:
+    """A human at the terminal names paths on their own machine; confinement is
+    the untrusted MCP surface's rule, not a core restriction."""
+    from bokken.journal import read_events, resolve_session_dir
+    from bokken.panel.corpus import Corpus
+
+    doc = tmp_path / "outside-the-workspace" / "market-note.md"
+    doc.parent.mkdir()
+    doc.write_text("The commuter market is consolidating.\n")
+    brief_path = tmp_path / "plain-brief.json"
+    brief_path.write_text(json.dumps(BRIEF))
+
+    created = runner.invoke(
+        app,
+        ["new", "operator", "--brief", str(brief_path), "--mode", "dojo", "--doc", str(doc)],
+    )
+    assert created.exit_code == 0, created.output
+
+    event = next(iter(read_events(resolve_session_dir("operator"))))
+    inputs = event.payload["brief"]["inputs"]
+    panel = event.payload["config"]["panel"]
+    assert inputs["documents"] == [str(doc)]
+    assert "input_roots" not in panel  # the CLI declares no confinement
+
+    corpus = Corpus.ingest_inputs(inputs, roots=panel.get("input_roots"))
+    assert corpus.skipped == ()
+    assert "consolidating" in corpus.context_for()
+
+
 def test_unknown_session_exits_2_naming_workspace() -> None:
     result = runner.invoke(app, ["status", "ghost"])
     assert result.exit_code == 2

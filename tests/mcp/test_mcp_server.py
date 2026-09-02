@@ -61,7 +61,9 @@ def result_json(result) -> dict | list:
 
 
 def brief_with_inputs(tmp_path: Path) -> dict:
-    return {**BRIEF, "inputs": make_inputs(tmp_path)}
+    """Inputs live inside the workspace root: over MCP, client-supplied paths
+    are confined to it (see `test_input_path_outside_root_is_refused`)."""
+    return {**BRIEF, "inputs": make_inputs(tmp_path / "home")}
 
 
 async def test_capabilities_listing() -> None:
@@ -119,6 +121,59 @@ async def test_dojo_create_run_gate_loop(tmp_path: Path) -> None:
         assert dossier["status"] == "complete"
         resource = await client.read_resource("bokken://sessions/mcp-dojo/dossier")
         assert json.loads(resource.contents[0].text)["status"] == "complete"
+
+
+async def test_client_input_paths_are_confined_to_the_workspace(tmp_path: Path) -> None:
+    """The MCP caller is untrusted: its brief cannot name files outside the root."""
+    outside = tmp_path / "victim"
+    outside.mkdir()
+    (outside / "notes.md").write_text("the launch codes\n")
+    root = tmp_path / "home"
+    root.mkdir(parents=True, exist_ok=True)
+    suffixless = root / "id_rsa"
+    suffixless.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nhunter2\n")
+
+    async with connected() as client:
+        cases = {
+            # a named file outside the text allowlist is refused, not read
+            "suffix": {"documents": [str(suffixless)]},
+            # traversal out of the root
+            "traversal": {"documents": ["../victim/notes.md"]},
+            # absolute path outside the root
+            "absolute": {"documents": [str(outside / "notes.md")]},
+            # a symlink inside the root pointing out of it
+            "symlink": {"documents": ["escape.md"]},
+        }
+        (root / "escape.md").symlink_to(outside / "notes.md")
+        for label, inputs in cases.items():
+            refused = await client.call_tool(
+                "create_session_tool",
+                {"name": f"refused-{label}", "brief": {**BRIEF, "inputs": inputs}},
+            )
+            assert refused.is_error, label
+            message = refused.content[0].text
+            assert "allowlist" in message or "outside the authorized input root" in message, label
+        assert not list((root / "sessions").glob("refused-*"))
+
+
+async def test_operator_can_widen_the_input_root(tmp_path: Path, monkeypatch) -> None:
+    elsewhere = tmp_path / "research"
+    elsewhere.mkdir()
+    note = elsewhere / "interview.md"
+    note.write_text("I stopped riding because arrivals were unpredictable.\n")
+    monkeypatch.setenv("BOKKEN_INPUT_ROOTS", str(elsewhere))
+
+    async with connected() as client:
+        created = result_json(
+            await client.call_tool(
+                "create_session_tool",
+                {"name": "widened", "brief": {**BRIEF, "inputs": {"discussions": [str(note)]}}},
+            )
+        )
+        assert created["stage"] == "intake"
+        event = next(e for e in read_events(resolve_session_dir("widened")))
+        assert event.payload["brief"]["inputs"]["discussions"] == [str(note.resolve())]
+        assert event.payload["config"]["panel"]["input_roots"] == [str(elsewhere.resolve())]
 
 
 async def test_duplicate_create_is_tool_error(tmp_path: Path) -> None:

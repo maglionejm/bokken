@@ -52,6 +52,7 @@ Invariants enforced at the append boundary: persona evidence must be
 | --- | --- | --- |
 | `evidence.captured` | `content, source, confidence_class, speaker?, segment?, grounding?, citations[]` | citations carry `source_id`, line span, and `source_kind` (`code · metrics · discussion · document`) |
 | `evidence.abstained` | `question, gap, segment?` | research debt: an unanswerable question, never papered over |
+| `evidence.input_rejected` | `path, reason` | a declared corpus input the ingestion refused (outside the authorized input root, missing, unsupported suffix, over the size cap) — a grounding gap on the record, not a silent skip |
 
 ### `interpretation.*` — what was made of it
 
