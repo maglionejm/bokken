@@ -26,3 +26,9 @@ same data as one JSON document.
 
 - **WHEN** a run's persona turns include answers whose citations did not resolve to a corpus span
 - **THEN** the costs report counts those turns separately from honest abstentions and reports their share of persona turns
+
+#### Scenario: One trace, one number
+
+- **WHEN** a session containing a cache-heavy call is priced by the cost
+  report and by the exported report's model usage lines
+- **THEN** both quote the same total for that session

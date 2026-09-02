@@ -255,6 +255,15 @@ code,kbd{font-family:var(--mono);font-size:.86em;background:#F1EFE6;border:1px s
 .term .hl{color:var(--term-flag)}
 .term-note{font-size:.88rem;color:var(--ink-soft);margin-top:.7rem;max-width:none}
 
+/* ---------- demo showcase ---------- */
+.demo-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:2rem;align-items:start;margin-top:1.8rem}
+@media (max-width:880px){.demo-grid{grid-template-columns:1fr}}
+.demo-preview{position:relative;display:block;height:430px;overflow:hidden;border:1px solid var(--indigo-deep);border-radius:5px;background:#fff;box-shadow:0 18px 44px -24px rgba(24,38,68,.45)}
+.demo-preview iframe{width:143%;height:1400px;border:0;transform:scale(.7);transform-origin:0 0;pointer-events:none}
+.demo-preview::after{content:"open the full report \2192";position:absolute;inset:auto 0 0 0;padding:.6rem 1rem;font-family:var(--mono);font-size:.78rem;color:var(--paper);background:linear-gradient(to top,rgba(15,23,42,.92),rgba(15,23,42,0));text-align:right}
+.demo-cta{display:flex;gap:.8rem;margin-top:1.2rem;flex-wrap:wrap}
+.receipt{font-family:var(--mono);font-size:.82rem;color:var(--seal);margin-top:1rem}
+
 /* ---------- dossier cards ---------- */
 .dossier{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:1.8rem}
 @media (max-width:860px){.dossier{grid-template-columns:1fr 1fr}}
@@ -331,6 +340,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
   <div class="wrap nav-inner">
     <a class="wordmark" href="#top"><span class="mk" aria-hidden="true">木</span>bokken</a>
     <div class="nav-links">
+      <a href="#demo">demo</a>
       <a href="#how">how it works</a>
       <a href="#architecture">architecture</a>
       <a href="#operating">operating</a>
@@ -349,6 +359,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     <p class="sub">Bokken encodes the <strong>Empathize → Define → Ideate → Prototype → Test</strong> loop as an executable, event-sourced, governed process. It runs interactively with you in the loop, or fully autonomously against a governed synthetic persona panel — and records every step, including the paths not taken. Terminal-first, MCP-consumable, written in Python. No GUI.</p>
     <div class="hero-cta">
       <a class="btn" href="https://github.com/maglionejm/bokken"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>View on GitHub</a>
+      <a class="btn ghost" href="#demo">See a full run — free</a>
       <a class="btn ghost" href="#how">How it works</a>
     </div>
     <p class="tagline">Test with wood; commit steel when it counts.
@@ -436,6 +447,42 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     <li><span class="kj">検証</span><span class="en">Test</span><span class="nt">Assumptions scored against results; the loop goes back when evidence disagrees — and after completion, real humans rescore the register via agentic interviews (terminal or Twilio).</span></li>
   </ul>
 </header>
+
+<section id="demo" class="alt">
+  <div class="wrap">
+  <div class="mark"><span class="kj" aria-hidden="true">見本</span><span class="rm">mihon — the specimen</span></div>
+  <h2>See a whole run before you spend a cent.</h2>
+  <p style="max-width:62ch">The package ships a complete fictional engagement: <em>Lanzadera</em>, a commuter-shuttle
+  SaaS whose ±6-minute pickup promise is quietly breaking. One command replays the whole loop on it —
+  offline, deterministic, no API key. Every citation resolves to the bundled evidence; every dissent,
+  including a red feasibility veto, is on the record; the verdict is an honest <em>iterate</em>, not a happy ending.</p>
+  <div class="demo-grid">
+    <div>
+      <div class="term">
+        <div class="term-bar">bokken — terminal</div>
+        <pre><span class="p">$</span> uvx bokken demo
+<span class="o">halt: completed - dossier generated; handoff specs</span>
+<span class="o">generated; report exported (pptx + html)</span>
+<span class="o">report (html): …/demo/report/report.html</span>
+<span class="o">report (deck): …/demo/report/report.pptx</span>
+<span class="o">this demo cost $0.00 and made 0 network calls -</span>
+<span class="o">a real run on your product is typically $20-35</span></pre>
+      </div>
+      <div class="demo-cta">
+        <a class="btn" href="gallery/demo-report.html">Open the demo report</a>
+        <a class="btn ghost" href="gallery/demo-deck.pptx">Download the deck (.pptx)</a>
+      </div>
+      <p class="receipt">10 seconds · $0.00 · 0 network calls · deterministic</p>
+    </div>
+    <a class="demo-preview" href="gallery/demo-report.html" aria-label="Preview of the demo report — opens the full HTML report">
+      <iframe src="gallery/demo-report.html" title="Bokken demo report preview" loading="lazy" tabindex="-1"></iframe>
+    </a>
+  </div>
+  <p class="term-note">Then point it at something real: <code>bokken init</code> writes a brief from a template
+  (SaaS retention, consumer app, internal tool), and <code>bokken run</code> states its cost before spending
+  and prints a receipt when it halts.</p>
+  </div>
+</section>
 
 <section id="how" class="wrap">
   <div class="mark"><span class="kj" aria-hidden="true">帳</span><span class="rm">chō — the register / 01 how it works</span></div>
@@ -561,12 +608,19 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
   <h2>Create. Run. Gate. Dossier. Handoff.</h2>
   <div class="term">
     <div class="term-bar">bokken — terminal</div>
-    <pre><span class="p">$</span> bokken new mars-lander --mode dojo --brief brief.md \
+    <pre><span class="p">$</span> bokken init
+<span class="o">brief written to bokken-brief.json   <span class="c"># from a template: saas-retention ·</span></span>
+<span class="o">                                     <span class="c"># consumer-app · internal-tool</span></span>
+
+<span class="p">$</span> bokken new mars-lander --mode dojo --brief bokken-brief.json \
     --repo ./app --metrics data/kpis.csv --discussion research/interviews.md
 <span class="o">created session mars-lander  ·  gates: stage_boundaries</span>
 
 <span class="p">$</span> bokken run mars-lander
+<span class="o">cost framing: a full run typically lands at $20-35 list price;</span>
+<span class="o">stops at 20,000,000 tokens</span>
 <span class="o">halt: gate_pending  (empathize → define)</span>
+<span class="o">receipt: $0.00 across 0 model calls so far</span>
 
 <span class="p">$</span> bokken gate mars-lander approve
 <span class="p">$</span> bokken run mars-lander
@@ -598,7 +652,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="p">$</span> bokken library
 <span class="o">mars-lander · verdict iterate        <span class="c"># learnings compound into the next run</span></span></pre>
   </div>
-  <p class="term-note"><b>Get started in one command</b> — <code>uvx bokken version</code> (or, until the PyPI release: <code>uvx --from git+https://github.com/maglionejm/bokken bokken version</code>). Extras: <code>bokken[ui]</code> for browser tests, <code>bokken[interview]</code> for Twilio interviews. Found something? <a href="https://github.com/maglionejm/bokken/issues/new/choose">Open a run-feedback issue</a> or join the <a href="https://github.com/maglionejm/bokken/discussions">discussions</a>.</p>
+  <p class="term-note"><b>Get started in one command</b> — <code>uvx bokken demo</code> shows a whole run for $0.00; <code>bokken init</code> then writes your first brief from a template. Extras: <code>bokken[ui]</code> for browser tests, <code>bokken[interview]</code> for Twilio interviews. Found something? <a href="https://github.com/maglionejm/bokken/issues/new/choose">Open a run-feedback issue</a> or join the <a href="https://github.com/maglionejm/bokken/discussions">discussions</a>.</p>
   <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
   <div class="dossier" aria-label="The Session Dossier and the handoff">
     <div><b>A — outcomes</b>What was decided, built, and committed to, by whom.</div>

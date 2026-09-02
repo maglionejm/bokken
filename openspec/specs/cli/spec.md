@@ -121,15 +121,31 @@ visible in the journaled config/brief snapshot.
 
 `bokken costs <name>` SHALL print a deterministic cost report derived from
 replayed `model.called` events: one row per stage x prompt_id x routing
-class with calls, input, output, and cache-read tokens, a list-price
-estimate labeled as such, per-model subtotals with cache hit-rate, and the
-run total. `--json` SHALL emit the same data as one JSON document.
+class with calls, input, output, cache-read and cache-write tokens, a
+list-price estimate labeled as such, per-model subtotals with cache hit-rate,
+and the run total. `--json` SHALL emit the same data as one JSON document.
+
+Every surface that estimates cost SHALL price a call through one shared
+pricing function covering all four billed buckets, so the same journaled trace
+is never quoted at two different numbers. Cache multipliers SHALL be applied
+per provider, derived from the model registry's provider and list price:
+Anthropic cache reads at a tenth of input and cache writes at a premium over
+input; OpenAI cached input at a reduced rate with no separate cache-write
+charge. Provider-side tool fees (such as web search request charges) are not
+reported in provider usage metadata and SHALL be omitted rather than
+estimated.
 
 #### Scenario: Costs from the terminal
 
 - **WHEN** `bokken costs mars-lander --json` runs on a completed session
 - **THEN** stdout is one JSON document whose totals equal the sum of the
   journaled usage priced at the list table
+
+#### Scenario: One trace, one number
+
+- **WHEN** a session containing a cache-heavy call is priced by the cost
+  report and by the exported report's model usage lines
+- **THEN** both quote the same total for that session
 
 ### Requirement: Validate verb
 
@@ -154,3 +170,62 @@ emit the raw records.
 
 - **WHEN** `bokken library --json` runs after a finalized session
 - **THEN** stdout is one JSON document containing that session's record
+
+### Requirement: Demo verb
+
+`bokken demo [name]` SHALL create and run a complete dojo session offline —
+no API key, no network calls — against a bundled scripted provider and
+corpus whose citations resolve, finishing with finalization (dossier, PPTX,
+HTML) and printing the report paths plus a zero-cost receipt that states
+what a real run typically costs. The output SHALL be deterministic across
+runs and machines, and SHALL carry every honesty marker of a real dojo run
+(simulated banner, journaled walkthrough skip, requires-real-validation).
+
+#### Scenario: One command to a full report
+
+- **WHEN** `bokken demo` runs on a machine with no ANTHROPIC_API_KEY
+- **THEN** it completes with a full journal, resolvable citations, both report files on disk, and a $0.00 receipt printed
+
+#### Scenario: Deterministic showcase
+
+- **WHEN** `bokken demo a` and `bokken demo b` run
+- **THEN** their reports differ only in session name and timestamps
+
+### Requirement: Init wizard
+
+`bokken init` SHALL produce a Brief-schema-valid JSON file from one of three
+bundled templates (`saas-retention`, `consumer-app`, `internal-tool`), either
+interactively (plain prompts, template defaults pre-filled) or
+non-interactively via `--template` and `--out` (placeholders clearly marked
+as TODO). It SHALL validate the result against the Brief schema before
+writing and SHALL end by printing the exact `bokken new`/`bokken run`
+commands that consume the file.
+
+#### Scenario: Guided brief in one sitting
+
+- **WHEN** a user runs `bokken init` and answers the prompts
+- **THEN** a validated brief JSON exists on disk and the terminal shows the two commands that start the run
+
+#### Scenario: Non-interactive template
+
+- **WHEN** `bokken init --template consumer-app --out brief.json` runs without a TTY
+- **THEN** brief.json is written from the template with TODO placeholders and no prompt is issued
+
+### Requirement: Run cost framing and receipt
+
+`bokken run` SHALL print, before entering the loop, the session's token
+guardrail and the typical full-run cost range; and on halt SHALL print a
+receipt computed from journaled model calls — session-to-date list-price
+cost in USD and total calls — with a pointer to `bokken costs` for the
+per-stage breakdown. In `--as-json` mode the receipt fields SHALL appear in
+the result payload.
+
+#### Scenario: Receipt on halt
+
+- **WHEN** a run halts for any reason (gate, budget, completion, stop)
+- **THEN** the terminal shows the session-to-date cost and call count derived from the journal
+
+#### Scenario: Framing before spend
+
+- **WHEN** `bokken run` starts on a fresh session
+- **THEN** the guardrail and typical cost range are shown before the first model call

@@ -10,11 +10,11 @@ from bokken.library import prior_learnings_text
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
 from bokken.stages.base import (
-    FOUNDER,
     RouterFactory,
     dumps,
     evidence_lines,
     facilitator,
+    journal_rejected_inputs,
     open_stage,
     structured,
 )
@@ -85,14 +85,18 @@ class EmpathizeEngine:
     def _founder_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         for q in program.questions:
             answer = ctx.input_port.ask(q.question)
-            if not answer.strip() or answer.strip().lower() == "skip":
+            if not answer.text.strip() or answer.text.strip().lower() == "skip":
                 ctx.store.append(
                     type="evidence.abstained",
                     stage="empathize",
-                    actor=FOUNDER,
+                    actor=answer.actor,
                     payload={
                         "question": q.question,
-                        "gap": "the founder could not answer; needs real research",
+                        "gap": (
+                            "the founder could not answer; needs real research"
+                            if answer.is_human
+                            else f"no answer from {answer.actor.name}; needs real research"
+                        ),
                         "segment": q.segment,
                     },
                 )
@@ -100,11 +104,11 @@ class EmpathizeEngine:
             ctx.store.append(
                 type="evidence.captured",
                 stage="empathize",
-                actor=FOUNDER,
+                actor=answer.actor,
                 payload={
-                    "content": answer,
-                    "source": "founder interview",
-                    "confidence_class": "reported",
+                    "content": answer.text,
+                    "source": answer.source("founder interview"),
+                    "confidence_class": answer.confidence_class("reported"),
                     "segment": q.segment,
                 },
             )
@@ -114,19 +118,19 @@ class EmpathizeEngine:
                 "empathize/followup",
                 FollowUp,
                 stage="empathize",
-                params={"question": q.question, "answer": answer},
+                params={"question": q.question, "answer": answer.text},
             )
             if followup and followup.question:
                 follow_answer = ctx.input_port.ask(followup.question)
-                if follow_answer.strip():
+                if follow_answer.text.strip():
                     ctx.store.append(
                         type="evidence.captured",
                         stage="empathize",
-                        actor=FOUNDER,
+                        actor=follow_answer.actor,
                         payload={
-                            "content": follow_answer,
-                            "source": "founder interview (laddering)",
-                            "confidence_class": "reported",
+                            "content": follow_answer.text,
+                            "source": follow_answer.source("founder interview (laddering)"),
+                            "confidence_class": follow_answer.confidence_class("reported"),
                             "segment": q.segment,
                         },
                     )
@@ -134,8 +138,11 @@ class EmpathizeEngine:
     def _dojo_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         config = ctx.state.config.get("panel", {})
         corpus = Corpus.ingest_inputs(
-            ctx.state.brief.get("inputs", {}), base=Path(config.get("input_base", "."))
+            ctx.state.brief.get("inputs", {}),
+            base=Path(config.get("input_base", ".")),
+            roots=config.get("input_roots"),
         )
+        journal_rejected_inputs(ctx.store, corpus, stage="empathize")
         personas = cast_panel(
             brief=ctx.state.brief,
             size=config.get("size", 6),

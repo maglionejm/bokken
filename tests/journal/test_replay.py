@@ -199,6 +199,62 @@ def test_replay_is_deterministic() -> None:
     assert replay(b.events) == replay(b.events)
 
 
+def test_meter_counts_cached_prompt_tokens_at_face_value() -> None:
+    """A cached corpus prefix is the largest number on the call; the budget
+    meter must see it. Providers report it disjointly from ``input_tokens``, so
+    summing only input+output would register 5,500 of 200,500 billed tokens."""
+    b = EventBuilder()
+    b.add("session.created", created_payload(mode="dojo"), stage="intake")
+    b.add(
+        "model.called",
+        {
+            "routing_class": "research",
+            "model": "claude-fable-5",
+            "prompt_id": "empathize/interview",
+            "prompt_version": "v1",
+            "prompt_hash": "abc",
+            "usage": {
+                "input_tokens": 5_000,
+                "output_tokens": 500,
+                "cache_read_tokens": 195_000,
+                "cache_write_tokens": 0,
+            },
+            "status": "ok",
+        },
+        stage="empathize",
+        actor=AGENT,
+    )
+    state = replay(b.events)
+    assert state.token_usage["research"]["cache_read_tokens"] == 195_000
+    assert state.tokens_spent("research") == 200_500
+    assert state.tokens_spent() == 200_500
+
+
+def test_meter_counts_cache_writes() -> None:
+    b = EventBuilder()
+    b.add("session.created", created_payload(mode="dojo"), stage="intake")
+    b.add(
+        "model.called",
+        {
+            "routing_class": "cognition",
+            "model": "claude-opus-5",
+            "prompt_id": "define/cluster",
+            "prompt_version": "v1",
+            "prompt_hash": "abc",
+            "usage": {
+                "input_tokens": 1_000,
+                "output_tokens": 200,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 40_000,
+            },
+            "status": "ok",
+        },
+        stage="define",
+        actor=AGENT,
+    )
+    assert replay(b.events).tokens_spent() == 41_200
+
+
 def test_gate_pending_and_resolution() -> None:
     b = build_dojo_run()
     b.add(

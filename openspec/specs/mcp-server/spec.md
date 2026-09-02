@@ -68,7 +68,19 @@ The server SHALL expose `query_journal` (same filters as the CLI: type/family, s
 
 ### Requirement: Actor attribution
 
-Every state-changing operation arriving over MCP SHALL be journaled with `actor.kind: agent` and the connected client's declared identity (client name/version from the MCP handshake); gate resolutions and inputs submitted over MCP SHALL therefore be distinguishable in the ledger from human terminal actions. Attribution SHALL be applied by the server, not trusted from tool arguments.
+Every state-changing operation arriving over MCP SHALL be journaled with
+`actor.kind: agent` and the connected client's declared identity (client
+name/version from the MCP handshake); gate resolutions and inputs submitted
+over MCP SHALL therefore be distinguishable in the ledger from human terminal
+actions. Attribution SHALL be applied by the server, not trusted from tool
+arguments.
+
+Attribution SHALL extend to answer content, not only to the act of submitting
+it: `submit_input` SHALL stamp the handshake actor onto the stored answer, and
+the engine that consumes it SHALL journal the resulting evidence with that
+actor and confidence class `simulated`. The server SHALL NOT provide any way
+for a client to have its answer journaled as human evidence or in a human
+confidence class, and SHALL NOT accept a supplied actor for an answer.
 
 #### Scenario: Agent-approved gate is attributed
 
@@ -79,6 +91,11 @@ Every state-changing operation arriving over MCP SHALL be journaled with `actor.
 
 - **WHEN** a tool call includes a forged actor field in its arguments
 - **THEN** the journaled actor reflects the handshake identity, not the argument
+
+#### Scenario: Submitted answer is not human evidence
+
+- **WHEN** a client answers a pending Founder-mode question via `submit_input` and calls `run_session`
+- **THEN** the `evidence.captured` event carries the client's agent actor and confidence class `simulated`, the session's ledger contains no human-attributed record, and decisions resting on that evidence carry `requires_real_validation`
 
 ### Requirement: Surface parity
 
@@ -102,3 +119,41 @@ The server SHALL expose `generate_handoff` returning the package directory, chan
 
 - **WHEN** `generate_handoff` is called for a session whose recommendation is `kill`
 - **THEN** the client receives a tool error explaining a killed concept has no build handoff
+
+### Requirement: Client input path confinement
+
+Paths arriving in a tool argument (the `brief.inputs` block of
+`create_session`) are untrusted and SHALL be resolved only inside an authorized
+input root: the workspace root (`BOKKEN_HOME`, else `./.bokken`) and the working
+directory the server was started in. An input path whose resolved real path lies
+outside every root — through traversal, a symlink whose target leaves the root,
+or an absolute path — SHALL be refused, as SHALL a path that does not exist and
+a named file outside the text allowlist. Refusals SHALL surface as tool errors
+naming the path and the reason, and no session SHALL be created.
+
+Accepted paths SHALL be journaled in resolved form, and the authorized roots
+SHALL be journaled in the immutable session config snapshot so that ingestion
+re-checks them when the run actually reads the files. An operator MAY widen the
+roots explicitly with `BOKKEN_INPUT_ROOTS` (`os.pathsep`-separated), which
+replaces the defaults; a run SHALL never widen its own roots. Operator-supplied
+paths on the CLI surface SHALL remain unconfined.
+
+#### Scenario: Named file outside the text allowlist is refused
+
+- **WHEN** `create_session` declares `inputs.documents` naming a suffix-less file such as `id_rsa`
+- **THEN** the client receives a tool error naming the allowlist, no session exists, and the file is never read
+
+#### Scenario: Traversal out of the root is refused
+
+- **WHEN** `create_session` declares an input path containing `../` that resolves outside the authorized roots
+- **THEN** the client receives a tool error naming the roots and no session is created
+
+#### Scenario: Escaping symlink is refused
+
+- **WHEN** a declared input inside the root is a symlink whose target lies outside it
+- **THEN** creation is refused, and a symlink swapped in after creation is skipped by the run rather than read
+
+#### Scenario: Operator widens the roots deliberately
+
+- **WHEN** the operator starts the server with `BOKKEN_INPUT_ROOTS` naming a research directory and a client declares an input inside it
+- **THEN** the session is created, the resolved path is journaled in the brief, and the authorized roots appear in the config snapshot

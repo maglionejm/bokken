@@ -29,7 +29,7 @@ Every journal record SHALL be a single JSON object with the envelope fields: `sc
 The Journal SHALL support exactly the following event families and types in schema v1, and SHALL reject events whose `type` is not among them:
 
 - `session.*`: `session.created` (brief, mode, config snapshot), `session.resumed`, `session.gate_requested`, `session.gate_resolved` (approve/reject + who), `session.stopped` (with `reason` ∈ `completed | budget_exhausted | novelty_floor | criteria_met | human_stop | error`).
-- `evidence.*`: `evidence.captured` — an utterance, document span, data point, or synthetic-persona answer entering the record, with `source`, `confidence_class` ∈ `observed | reported | assumed | simulated`, and speaker/persona provenance; `evidence.abstained` — a persona or interviewee explicitly declining for lack of grounding (research debt).
+- `evidence.*`: `evidence.captured` — an utterance, document span, data point, or synthetic-persona answer entering the record, with `source`, `confidence_class` ∈ `observed | reported | assumed | simulated`, and speaker/persona provenance; `evidence.abstained` — a persona or interviewee explicitly declining for lack of grounding (research debt); `evidence.input_rejected` — a declared corpus input that ingestion refused or capped (`path`, `reason`), so a grounding gap is on the record rather than a silent omission.
 - `interpretation.*`: `interpretation.derived` — an insight, theme, or POV statement, a JTBD desired-outcome statement, a per-persona outcome score (importance/satisfaction), or a computed opportunity record (kinds `insight | theme | pov | hmw | desired_outcome | outcome_score | opportunity`), with `refs` pointing at supporting evidence or outcome events and a mandatory `ungrounded: true` flag when `refs` is empty.
 - `option.*`: `option.created`, `option.built_on`, `option.merged`, `option.split`, `option.parked`, `option.killed` — the idea lineage graph; each carries contributor provenance and, for merge/kill, the surviving/killing option ids in `refs`.
 - `decision.*`: `decision.recorded` — IBIS-style: the question at issue, the options on the table (`refs` to option events), the criteria applied, positions by named actor, the resolution, and explicitly recorded `dissent` (possibly empty list of `{actor, reservation}`).
@@ -54,6 +54,16 @@ The Journal SHALL support exactly the following event families and types in sche
 - **WHEN** a decision is recorded with one participant registering a reservation
 - **THEN** the persisted `decision.recorded` event contains that reservation verbatim in `dissent`, and replay exposes it on the decision log
 
+#### Scenario: A contact and its outcome are one linked pair
+
+- **WHEN** a run asks a real human for consent to be interviewed
+- **THEN** `interview.consent_requested` is appended before the channel reaches them and the `interview.consent_resolved` that follows carries the outcome and `refs` back to that request
+
+#### Scenario: Rejected corpus input is on the record
+
+- **WHEN** a declared input is refused by ingestion (outside the authorized input root, missing, unsupported suffix, or over a size cap)
+- **THEN** an `evidence.input_rejected` event names the path and the reason, so the missing grounding is auditable
+
 ### Requirement: Append-only durable storage with hash chain
 
 The Journal SHALL be stored as one JSONL file per session (`journal.jsonl` in the session workspace). Appends SHALL be atomic (a reader never observes a partial line), flushed durably before the append call returns, and strictly ordered by `seq`. Each record SHALL carry `prev_hash` (the `hash` of the previous record, or the fixed genesis value for `seq=1`) and `hash` (SHA-256 over the record's canonical serialization excluding `hash` itself). Records SHALL never be mutated or deleted; corrections are new events referencing the corrected event.
@@ -77,6 +87,13 @@ The Journal SHALL be stored as one JSONL file per session (`journal.jsonl` in th
 
 The system SHALL derive session state exclusively by folding the journal in `seq` order into a typed state: current stage, session mode and brief, pending gate (if any), evidence index by confidence class, insight/POV list with grounding links, idea lineage graph, assumption register, decision log with dissent, budget counters (tokens spent per routing class), and stop status. Replay SHALL be deterministic: the same journal always yields the same state.
 
+Budget counters SHALL count every token bucket the provider billed — uncached
+input, output, cache read, and cache write — at face value, because budgets
+are expressed as token counts and provider adapters report the cached prompt
+prefix disjointly from `input_tokens`. No billed bucket SHALL be invisible to
+the meter, and the meter SHALL NOT apply prices or weights: pricing belongs to
+the cost report.
+
 #### Scenario: Resume reconstructs exactly where the run left off
 
 - **WHEN** a session that stopped mid-`ideate` is reopened and replayed
@@ -86,6 +103,13 @@ The system SHALL derive session state exclusively by folding the journal in `seq
 
 - **WHEN** the same journal file is replayed twice
 - **THEN** both derived states are equal field-for-field
+
+#### Scenario: A cached prompt prefix is not invisible to the budget
+
+- **WHEN** a `model.called` event reports 5,000 input, 500 output, and 195,000
+  cache-read tokens
+- **THEN** `tokens_spent` for that routing class is 200,500, and a session
+  budget of 100,000 total tokens is exhausted
 
 ### Requirement: Session workspace and addressing
 

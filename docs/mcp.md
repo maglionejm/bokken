@@ -16,8 +16,11 @@ Two properties make the surface safe to hand to agents:
 - **Attribution.** Every state-changing call is journaled with
   `actor.kind: "agent"` and the client's *handshake* identity (name@version
   from the MCP `initialize` exchange). Identity is stamped server-side and
-  cannot be supplied — or forged — via tool arguments. The ledger always shows
-  whether a human or an agent approved a gate.
+  cannot be supplied — or forged — via tool arguments. That includes answers:
+  text submitted through `submit_input` is journaled as the client's own
+  contribution in the `simulated` confidence class, never as human testimony.
+  The ledger always shows whether a human or an agent approved a gate or
+  answered a question.
 
 ## Setup
 
@@ -91,7 +94,7 @@ refusal (see Error semantics).
 | Argument | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `name` | string | — | becomes the session slug; duplicates are refused |
-| `brief` | object | — | `problem_space`, `target_segments[]`, `success_criteria[]`, `risk_tolerance`, optional `constraints[]` and `inputs{repo, metrics[], discussions[], documents[]}` (paths as seen by the *server*) |
+| `brief` | object | — | `problem_space`, `target_segments[]`, `success_criteria[]`, `risk_tolerance`, optional `constraints[]` and `inputs{repo, metrics[], discussions[], documents[]}` (paths as seen by the *server* and **confined to its authorized input root** — see Input paths) |
 | `mode` | `"founder" \| "dojo"` | `"dojo"` | who supplies participation |
 | `gate_policy` | `"none" \| "stage_boundaries" \|` string[] | mode default | dojo defaults to `stage_boundaries`, founder to `none` |
 | `total_token_budget` | int | none | run-wide token budget |
@@ -100,6 +103,22 @@ refusal (see Error semantics).
 Returns a **StatusResult**: `{kind:"status", name, mode, stage, state,
 pending_gate?, stopped_reason?, evidence_by_class, research_debt,
 options_alive, assumptions_scored, tokens_spent, last_seq, last_ts}`.
+
+#### Input paths
+
+`brief.inputs` paths are resolved by the server, so they are treated as
+untrusted input: each one must resolve inside an authorized input root — the
+workspace root (`BOKKEN_HOME`, else `./.bokken`) and the working directory
+`bokken serve` was started in. Refused as tool errors, with no session created:
+traversal (`../`), symlinks whose target leaves the root, absolute paths outside
+it, paths that do not exist, and named files outside the text allowlist
+(`.csv .json .md .txt` — a declared directory is walked for those suffixes).
+Accepted paths are journaled resolved and re-checked against the root when the
+run reads them, so a symlink swapped in after creation is skipped rather than
+read. Ingestion is capped at 200 kB per file and 4 MB per ingested set; anything
+skipped is journaled as `evidence.input_rejected` instead of vanishing. An
+operator who wants a wider reach sets `BOKKEN_INPUT_ROOTS` before starting the
+server (`docs/operating.md`); it replaces the default roots.
 
 **`run_session`** — advance to the next halt. Returns a **RunOutcome**:
 `{kind:"run", halt, stage, detail, pending_question?, pending_question_id?,
@@ -118,9 +137,11 @@ stage for rework. Returns `{kind:"gate", resolution, stage}`. Errors when no
 gate is pending.
 
 **`submit_input`** (`question_id`, `answer`) — answer the pending Founder-mode
-question, then call `run_session` again to consume it. Errors on a stale or
-unknown `question_id` (see Founder mode below). Returns
-`{stored: true, question_id}`.
+question, then call `run_session` again to consume it. The answer is attributed
+to your handshake identity, so it is journaled as agent-supplied `simulated`
+evidence, not as the founder's own words. Errors on a stale or unknown
+`question_id` (see Founder mode below). Returns
+`{stored: true, question_id, attributed_to}`.
 
 **`request_loopback`** (`to_stage`, `reason`) — journaled human/agent-initiated
 return to an earlier stage. Legal edges only: `test→define`,
@@ -173,12 +194,22 @@ questions flow through an **input mailbox**:
    `pending_question` text and a stable `pending_question_id`.
 2. Obtain the answer (ask your own user, look it up, etc.) and call
    `submit_input` with that exact `question_id`.
-3. Call `run_session` again — the engine consumes the answer (journaling it as
-   human-reported evidence) and continues to the next question or halt.
+3. Call `run_session` again — the engine consumes the answer and continues to
+   the next question or halt.
 
 A `submit_input` whose id doesn't match the currently pending question is
 refused — answers can't be queued blindly against questions that were never
 asked.
+
+**The mailbox does not make you the founder.** An answer that arrives over MCP
+is journaled with your handshake actor (`actor.kind: "agent"`) in the
+`simulated` confidence class, sourced as `agent-supplied (<client>)`. It is a
+machine contribution and Bokken labels it as one: everything derived from it
+inherits the class, so Dossier lines read `synthetic` and the decisions resting
+on it carry `requires_real_validation`. Relaying a real person's words through
+`submit_input` does not upgrade them — only a human answering at the terminal
+(or a real validation interview) produces `observed`/`reported` human evidence.
+If your run needs human-grade evidence, get it from a human surface.
 
 ## Worked example: an agent runs the Dojo end to end
 
@@ -187,8 +218,9 @@ asked.
     brief:{problem_space:"commuter shuttle retention",
            target_segments:["commuters"], success_criteria:["churn below 5%"],
            risk_tolerance:"medium",
-           inputs:{repo:"/work/myapp", metrics:["/work/kpis.csv"],
-                   discussions:["/work/interview-ana.md"]}}}
+           inputs:{repo:"myapp", metrics:["kpis.csv"],
+                   discussions:["interview-ana.md"]}}}
+   # relative to (or absolute inside) the server's input root
 ← {kind:"status", stage:"intake", state:"in_progress", ...}
 
 → run_session {name:"retention"}
@@ -249,8 +281,12 @@ bokken journal retention --type session --json \
   `pending_question_id`.
 - **`a killed concept has no build handoff`** — by design; generate the
   Dossier for the post-mortem instead.
-- **Paths in `brief.inputs` resolve on the server**, not the client — pass
-  absolute paths the `bokken serve` process can read.
+- **`input path ... is outside the authorized input root(s)`** — paths in
+  `brief.inputs` resolve on the server and are confined to its workspace and
+  working directory. Put the file inside one of them, or ask the operator to
+  widen `BOKKEN_INPUT_ROOTS`.
+- **`input file ... is not in the text allowlist`** — declare `.csv`, `.json`,
+  `.md`, or `.txt` files (or a directory of them); other suffixes are not read.
 
 ## Report and cost tools
 
