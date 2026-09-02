@@ -1,6 +1,8 @@
 """AutoProvider must refuse up front, not journal config errors as model failures."""
 
 import builtins
+import sys
+from types import ModuleType
 
 import pytest
 
@@ -20,18 +22,29 @@ def test_missing_openai_extra_is_a_configuration_refusal(monkeypatch) -> None:
             raise ImportError("No module named 'openai'")
         return real_import(name, *args, **kwargs)
 
-    monkeypatch.delitem(__import__("sys").modules, "bokken.models.openai_provider", raising=False)
+    monkeypatch.delitem(sys.modules, "openai", raising=False)
+
+    monkeypatch.delitem(sys.modules, "bokken.models.openai_provider", raising=False)
     monkeypatch.setattr(builtins, "__import__", blocked)
     with pytest.raises(ProviderUnavailableError, match="install the 'openai' extra"):
         AutoProvider().preflight(["gpt-5"])
 
 
 def test_client_construction_failure_is_a_configuration_refusal(monkeypatch) -> None:
-    import bokken.models.openai_provider as mod
+    """A constructible SDK whose client refuses (no API key) is still a config error.
 
-    def explode(self, client=None):
-        raise RuntimeError("OPENAI_API_KEY is not set")
+    The stub module keeps this hermetic: the core install has no ``openai``
+    extra, and without the stub the import would fail first and this would
+    assert the wrong refusal.
+    """
+    stub = ModuleType("openai")
 
-    monkeypatch.setattr(mod.OpenAIProvider, "__init__", explode)
+    class _OpenAI:
+        def __init__(self, *a, **kw):
+            raise RuntimeError("The api_key client option must be set")
+
+    stub.OpenAI = _OpenAI
+    monkeypatch.setitem(sys.modules, "openai", stub)
+    monkeypatch.delitem(sys.modules, "bokken.models.openai_provider", raising=False)
     with pytest.raises(ProviderUnavailableError, match="API key"):
         AutoProvider().preflight(["gpt-5"])
