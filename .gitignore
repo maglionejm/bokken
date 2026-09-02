@@ -32,3 +32,6 @@ build/
 
 # Tooling scratch
 .playwright-mcp/
+
+# Agent worktrees created by the local harness; never part of the project.
+.claude/worktrees/
