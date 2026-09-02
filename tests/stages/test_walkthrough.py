@@ -193,15 +193,16 @@ def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> Non
     from bokken.journal.store import JournalStore
     from bokken.models import ModelRouter
     from bokken.orchestrator import create_session
-    from bokken.stages.persona_gen import RouterTurnGenerator
+    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
 
     session_dir = create_session("sidekick-unit", brief=BRIEF, mode="dojo", gate_policy="none")
     provider = ScriptedProvider()
     with JournalStore.open(session_dir) as store:
         generator = RouterTurnGenerator(ModelRouter(store, provider))
         big_context = "\n".join(
-            f"[source abcdef123456 (code) L{i}-L{i}] line {i}" for i in range(2000)
+            f"[source abcdef123456 (code) L{i}-L{i}] line {i}" for i in range(12_000)
         )
+        assert len(big_context) > DELEGATE_THRESHOLD_CHARS
         sliced = generator._sliced_context("what does the code do?", big_context)
     assert provider.calls["sidekick/context_query"] == 1
     assert "[source " in sliced and len(sliced) < len(big_context) / 10
@@ -211,12 +212,33 @@ def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> Non
     assert call.payload["model"] == "claude-opus-5"
 
 
+def test_retrieval_is_reused_across_personas_asking_the_same_question(tmp_path) -> None:
+    """Every persona on the panel asks one question over one corpus: retrieval runs
+    once, so all their turns carry a byte-identical cacheable corpus prefix."""
+    from bokken.journal.store import JournalStore
+    from bokken.models import ModelRouter
+    from bokken.orchestrator import create_session
+    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
+
+    session_dir = create_session("sidekick-reuse", brief=BRIEF, mode="dojo", gate_policy="none")
+    provider = ScriptedProvider()
+    with JournalStore.open(session_dir) as store:
+        generator = RouterTurnGenerator(ModelRouter(store, provider))
+        big_context = "x" * (DELEGATE_THRESHOLD_CHARS + 1) + "\n[source abcdef123456 (code) L1-L1]"
+        first = generator._sliced_context("what does the code do?", big_context)
+        second = generator._sliced_context("what does the code do?", big_context)
+        other = generator._sliced_context("what do the metrics say?", big_context)
+    assert first == second  # identical prefix for every persona on this question
+    assert provider.calls["sidekick/context_query"] == 2  # one per distinct question
+    assert other
+
+
 def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkeypatch) -> None:
     from bokken.journal.store import JournalStore
     from bokken.models import ModelRouter
     from bokken.models.router import ProviderResult
     from bokken.orchestrator import create_session
-    from bokken.stages.persona_gen import RouterTurnGenerator
+    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
 
     class TruncatingProvider:
         def complete(self, **kw):
@@ -232,7 +254,7 @@ def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkey
     session_dir = create_session("trunc-unit", brief=BRIEF, mode="dojo", gate_policy="none")
     with JournalStore.open(session_dir) as store:
         generator = RouterTurnGenerator(ModelRouter(store, TruncatingProvider()))
-        big = "x" * 50_000
+        big = "x" * (DELEGATE_THRESHOLD_CHARS + 1)
         sliced = generator._sliced_context("q?", big)
     assert sliced == "[source abcdef123456 (code) L1-L1] partial span"
 
