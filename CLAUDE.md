@@ -41,8 +41,10 @@ process, consumed via CLI and MCP. No GUI.
 Python ≥ 3.12 with uv. Pydantic v2 (schemas), Typer + Rich (CLI), `mcp`
 (MCP server), `anthropic` (LLM; research/challenge classes on `claude-fable-5` at effort high
 with server-side fallback to `claude-opus-4-8`; cognition/generation on
-`claude-opus-5` adaptive thinking at effort high; `claude-haiku-4-5` only for
-the lightweight extraction routing class). Tests
+`claude-opus-5` adaptive thinking at effort high; the delegated `sidekick`
+lane (verbatim corpus reads, mechanical UI stepping) on `claude-sonnet-5`;
+`claude-haiku-4-5` only for the lightweight extraction routing class and
+never on any other lane). Tests
 with pytest; LLM calls are always behind the `ModelRouter` seam so tests can
 run with a fake router — never call the Anthropic SDK directly from stage or
 kata code. Optional extras stay optional: `[ui]` (playwright + beautifulsoup4)

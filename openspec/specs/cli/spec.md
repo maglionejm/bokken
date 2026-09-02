@@ -121,25 +121,26 @@ visible in the journaled config/brief snapshot.
 
 `bokken costs <name>` SHALL print a deterministic cost report derived from
 replayed `model.called` events: one row per stage x prompt_id x routing
-class with calls, input, output, cache-read and cache-write tokens, a
-list-price estimate labeled as such, per-model subtotals with cache hit-rate,
-and the run total. `--json` SHALL emit the same data as one JSON document.
-
-Every surface that estimates cost SHALL price a call through one shared
-pricing function covering all four billed buckets, so the same journaled trace
-is never quoted at two different numbers. Cache multipliers SHALL be applied
-per provider, derived from the model registry's provider and list price:
-Anthropic cache reads at a tenth of input and cache writes at a premium over
-input; OpenAI cached input at a reduced rate with no separate cache-write
-charge. Provider-side tool fees (such as web search request charges) are not
-reported in provider usage metadata and SHALL be omitted rather than
-estimated.
+class with calls, input, output, and cache-read tokens, a list-price
+estimate labeled as such, per-model subtotals with cache hit-rate, and the
+run total. The report SHALL also carry grounding health folded from the same
+journal: persona turns, how many of them abstained, and how many of those
+abstentions the grounding backstop forced because a citation did not resolve
+to a corpus span, reported as both a count and a share of persona turns. That
+share SHALL be distinguishable from honest research gaps, so a delegated lane
+made cheaper cannot degrade citation quality invisibly. `--json` SHALL emit the
+same data as one JSON document.
 
 #### Scenario: Costs from the terminal
 
 - **WHEN** `bokken costs mars-lander --json` runs on a completed session
 - **THEN** stdout is one JSON document whose totals equal the sum of the
   journaled usage priced at the list table
+
+#### Scenario: Backstop-forced abstentions are visible next to spend
+
+- **WHEN** a run's persona turns include answers whose citations did not resolve to a corpus span
+- **THEN** the costs report counts those turns separately from honest abstentions and reports their share of persona turns
 
 #### Scenario: One trace, one number
 
