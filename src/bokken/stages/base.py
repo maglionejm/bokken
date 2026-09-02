@@ -10,7 +10,8 @@ from pydantic import BaseModel
 
 from bokken.journal import Actor, JournalStore, RoutingClass, Stage
 from bokken.models.router import ModelRouter
-from bokken.orchestrator import StageContext
+from bokken.orchestrator import SYSTEM_ACTOR, StageContext
+from bokken.panel.corpus import Corpus
 
 FOUNDER = Actor(kind="human", name="founder")
 
@@ -44,6 +45,18 @@ def structured[T: BaseModel](
     if not outcome.ok or outcome.data is None:
         raise StageError(f"{prompt_id} failed: {outcome.status} {outcome.detail}")
     return outcome.data
+
+
+def journal_rejected_inputs(store: JournalStore, corpus: Corpus, *, stage: Stage) -> None:
+    """A declared input the corpus refused or skipped is a grounding gap on the
+    record, never a silent omission."""
+    for skipped in corpus.skipped:
+        store.append(
+            type="evidence.input_rejected",
+            stage=stage,
+            actor=SYSTEM_ACTOR,
+            payload={"path": skipped.path, "reason": skipped.reason},
+        )
 
 
 def open_stage(ctx: StageContext, *, goal: str, method: str, exit_bar: str) -> None:

@@ -9,23 +9,79 @@ assumptions with what real people actually said.
 
 from __future__ import annotations
 
-from bokken.interview.channels import Channel
+from bokken.interview.channels import Channel, Consent, ConsentNotGranted
 from bokken.interview.guide import Guide
 from bokken.journal import Actor, replay
 from bokken.stages.schemas import InterviewerTurn, Rescoring
 
 MAX_TURNS = 14
 
+# Why a refusal is a refusal, in the operator's terms. "declined" and
+# "no_response" are operationally different: one person said no, the other
+# never heard from us at all.
+REFUSAL = {
+    "declined": "participant declined consent; no interview question was sent",
+    "no_response": (
+        "no reply to the consent request; consent is affirmative or it does not "
+        "exist, so no interview question was sent"
+    ),
+    "ambiguous": (
+        "the reply to the consent request was not an affirmative opt-in; "
+        "no interview question was sent"
+    ),
+}
+
 
 def _participant_actor(participant: str) -> Actor:
     return Actor(kind="human", name=participant)
 
 
+# The consent contact is a harness act, not a model call: no model stamp.
+_CONSENT_ACTOR = Actor(kind="agent", name="validation-interviewer")
+
+
+def _request_consent(store, channel: Channel, participant: str) -> Consent:
+    """Journal the outbound contact, ask once, journal what came back.
+
+    The request lands in the ledger *before* the channel reaches the human, so
+    contacting a real person can never happen off the record, and the outcome
+    lands before any interview question may be sent. The channel stays
+    journal-free: it only reports what the person said.
+    """
+    label = getattr(channel, "label", type(channel).__name__)
+    contact = store.append(
+        type="interview.consent_requested",
+        stage=None,
+        actor=_CONSENT_ACTOR,
+        payload={"participant": participant, "channel": label},
+    )
+    consent = channel.open(participant)
+    store.append(
+        type="interview.consent_resolved",
+        stage=None,
+        actor=_CONSENT_ACTOR,
+        payload={
+            "participant": participant,
+            "channel": label,
+            "outcome": consent.outcome,
+            "basis": consent.basis,
+        },
+        refs=[contact.id],
+    )
+    if not consent.granted:
+        raise ConsentNotGranted(consent.outcome, REFUSAL[consent.outcome])
+    return consent
+
+
 def run_validation_interview(
     store, router, guide: Guide, channel: Channel, *, participant: str
 ) -> int:
-    """Conduct one interview; returns the number of exchanges journaled."""
-    channel.open(participant)
+    """Conduct one interview; returns the number of exchanges journaled.
+
+    Raises :class:`ConsentNotGranted` - after journaling the contact and its
+    outcome - when the participant did not affirmatively opt in.
+    """
+    _request_consent(store, channel, participant)
     transcript: list[str] = []
     exchanges = 0
     guide_text = guide.markdown()

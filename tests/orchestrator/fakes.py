@@ -45,11 +45,11 @@ class AskingEmpathizeFake(EmpathizeFake):
             ctx.store.append(
                 type="evidence.captured",
                 stage="empathize",
-                actor=HUMAN,
+                actor=answer.actor,
                 payload={
-                    "content": answer,
+                    "content": answer.text,
                     "source": "interview",
-                    "confidence_class": "observed",
+                    "confidence_class": answer.confidence_class("observed"),
                     "segment": segment,
                 },
             )

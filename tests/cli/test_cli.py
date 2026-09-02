@@ -46,6 +46,51 @@ def test_new_and_status_machine_output(brief_file: Path) -> None:
     assert result.stderr == ""
 
 
+def test_operator_supplied_absolute_input_path_is_not_confined(tmp_path: Path) -> None:
+    """A human at the terminal names paths on their own machine; confinement is
+    the untrusted MCP surface's rule, not a core restriction."""
+    from bokken.journal import read_events, resolve_session_dir
+    from bokken.panel.corpus import Corpus
+
+    doc = tmp_path / "outside-the-workspace" / "market-note.md"
+    doc.parent.mkdir()
+    doc.write_text("The commuter market is consolidating.\n")
+    brief_path = tmp_path / "plain-brief.json"
+    brief_path.write_text(json.dumps(BRIEF))
+
+    created = runner.invoke(
+        app,
+        ["new", "operator", "--brief", str(brief_path), "--mode", "dojo", "--doc", str(doc)],
+    )
+    assert created.exit_code == 0, created.output
+
+    event = next(iter(read_events(resolve_session_dir("operator"))))
+    inputs = event.payload["brief"]["inputs"]
+    panel = event.payload["config"]["panel"]
+    assert inputs["documents"] == [str(doc)]
+    assert "input_roots" not in panel  # the CLI declares no confinement
+
+    corpus = Corpus.ingest_inputs(inputs, roots=panel.get("input_roots"))
+    assert corpus.skipped == ()
+    assert "consolidating" in corpus.context_for()
+
+
+def test_terminal_port_answers_are_human_attributed(brief_file: Path, monkeypatch) -> None:
+    """The other side of the input-provenance seam: a human typing at the
+    terminal keeps human attribution, so the CLI and MCP paths stay distinct."""
+    import typer
+
+    from bokken.orchestrator import create_session
+
+    session_dir = create_session("terminal-port", brief=BRIEF, mode="founder")
+    monkeypatch.setattr(typer, "prompt", lambda *a, **kw: "arrivals were unpredictable")
+    answer = wiring.TerminalInputPort(session_dir).ask("why did you churn?")
+    assert answer.text == "arrivals were unpredictable"
+    assert answer.actor.kind == "human" and answer.is_human
+    assert answer.confidence_class("reported") == "reported"
+    assert answer.source("founder interview") == "founder interview"
+
+
 def test_unknown_session_exits_2_naming_workspace() -> None:
     result = runner.invoke(app, ["status", "ghost"])
     assert result.exit_code == 2
@@ -186,3 +231,22 @@ def test_costs_verb_reports_journaled_spend(tmp_path, monkeypatch):
     assert payload["rows"] and all("prompt_id" in r for r in payload["rows"])
     total = round(sum(r["cost_usd"] for r in payload["rows"]), 2)
     assert abs(total - payload["total_usd"]) < 0.01
+
+
+def test_run_prints_cost_framing_and_receipt(brief_file: Path) -> None:
+    new_session(brief_file, "receipts")
+    result = runner.invoke(app, ["run", "receipts"])
+    assert result.exit_code == 0, result.output
+    flat = result.output.replace("\n", "")
+    assert "cost framing:" in flat and "20,000,000 tokens" in flat
+    assert "receipt: $" in flat and "bokken costs receipts" in flat
+
+
+def test_run_json_carries_receipt_fields(brief_file: Path) -> None:
+    new_session(brief_file, "receipts-json")
+    outcome = json.loads(runner.invoke(app, ["run", "receipts-json", "--json"]).stdout)
+    assert outcome["cost_usd"] == 0.0  # halted at the intake gate: nothing spent yet
+    assert outcome["model_calls"] == 0
+    runner.invoke(app, ["gate", "receipts-json", "approve"])
+    outcome = json.loads(runner.invoke(app, ["run", "receipts-json", "--json"]).stdout)
+    assert outcome["model_calls"] >= 1

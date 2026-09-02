@@ -17,6 +17,12 @@ the directory you run from — like git, workspace-local by default).
 
 ## Creating a session
 
+Never run before? `bokken demo` replays a complete engagement on a bundled
+fictional product — offline, deterministic, $0.00 — and prints the report
+paths. `bokken init` then writes a first brief from a template
+(`saas-retention`, `consumer-app`, `internal-tool`) and shows the exact
+`new`/`run` commands that consume it.
+
 Give Bokken something tangible to start from: the app repo, the numbers, and
 what humans have said.
 
@@ -60,6 +66,10 @@ Gate policy is tunable at creation: `--gates none`,
 bokken run retention        # advance to the next halt
 bokken status retention     # where am I, what blocks progress
 ```
+
+`run` frames its cost before spending (typical full-run range plus the
+session's token guardrail) and prints a receipt — session-to-date list-price
+spend and model-call count — at every halt.
 
 `run` always returns at a **halt**:
 
@@ -193,7 +203,13 @@ After a run completes, `bokken validate <name>` derives the interview guide
 from the research debt and untested assumptions (artifact
 `artifacts/validation/validation_guide.md`), then an agentic interviewer
 moderates a real participant — one question at a time, laddering into
-concrete incidents, concluding inside a 14-turn budget. Every answer is
+concrete incidents, concluding inside a 14-turn budget. It asks for consent
+first and asks only once: the contact and its outcome are journaled
+(`interview.consent_requested` / `interview.consent_resolved`) before any
+question goes out, and only an affirmative opt-in starts the interview —
+silence, an ambiguous reply, and a decline all stop it, and the command says
+which. On the terminal channel the operator confirms consent at the prompt.
+Every answer is
 journaled as `reported` human evidence and the register is rescored against
 it; rerun `bokken export` to refresh the reports with the real-validation
 deltas. `--guide-only` stops after the guide; `--participant` labels the
@@ -237,6 +253,41 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 All `inputs` are optional — a blank-page run is legal — but tangible inputs are
 what let personas cite the product as it exists (`code`), the numbers
 (`metrics`), and real human voices (`discussion`).
+
+Ingestion is narrow on purpose, for every surface: only `.csv`, `.json`, `.md`,
+and `.txt` files are read as text inputs (a declared directory is walked for
+exactly those suffixes; a repo is walked with its own source allowlist and
+exclusions), no single file above 200 kB enters the corpus, and one ingested set
+stops at 4 MB. A declared input that is refused, missing, or capped is journaled
+as `evidence.input_rejected` — the personas' grounding gap is on the record, so
+`bokken journal <name> --type evidence` shows what never made it in.
+
+### Input paths and the MCP trust boundary
+
+At the terminal you are the operator: `--repo`, `--metrics`, `--discussion` and
+`--doc` may name any path on your machine, and that keeps working unchanged.
+
+Over MCP the caller is a remote agent, so the paths in its `brief.inputs` are
+confined. They must resolve inside an **authorized input root**: the workspace
+root (`BOKKEN_HOME`, else `./.bokken`) and the working directory `bokken serve`
+was started in. Traversal, symlinks pointing out of the root, absolute paths
+outside it, missing paths, and files outside the text allowlist are refused as
+tool errors and no session is created. Accepted paths are journaled resolved and
+re-checked when the run reads them, so a symlink swapped in later is skipped,
+not read. Start `bokken serve` from the workspace directory (or set
+`BOKKEN_HOME`) rather than from your home directory — the launch directory is
+the reach you grant the agent.
+
+To widen that reach deliberately, name the roots before starting the server:
+
+```sh
+export BOKKEN_INPUT_ROOTS=/srv/research:/srv/repos   # os.pathsep-separated
+bokken serve
+```
+
+`BOKKEN_INPUT_ROOTS` **replaces** the default roots and applies to
+client-supplied paths only; each root is journaled in the session's
+`config.panel.input_roots`, so an audit shows what a run was allowed to read.
 
 ## Development operations
 
