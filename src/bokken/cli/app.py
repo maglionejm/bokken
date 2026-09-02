@@ -130,6 +130,63 @@ def version() -> None:
     print(bokken.__version__)
 
 
+@app.command("init")
+@guarded
+def init(
+    template: Annotated[
+        str | None,
+        typer.Option(help="saas-retention, consumer-app, or internal-tool (skips prompts)."),
+    ] = None,
+    out_path: Annotated[
+        Path, typer.Option("--out", help="Where to write the brief JSON.")
+    ] = Path("bokken-brief.json"),
+    as_json: JsonFlag = False,
+) -> None:
+    """Write a validated brief file from a template; prints the commands that use it."""
+    from bokken.cli.templates import TEMPLATES, build_brief
+
+    if template is not None:
+        if template not in TEMPLATES:
+            raise typer.BadParameter(f"unknown template; pick one of {sorted(TEMPLATES)}")
+        brief_data = build_brief(template)
+    else:
+        names = sorted(TEMPLATES)
+        out.print("Templates: " + ", ".join(f"{i + 1}) {n}" for i, n in enumerate(names)))
+        pick = typer.prompt("Template", default="1")
+        chosen = names[int(pick) - 1] if pick.strip().isdigit() else pick.strip()
+        if chosen not in TEMPLATES:
+            raise typer.BadParameter(f"unknown template; pick one of {names}")
+        product = typer.prompt("Product name")
+        brief_data = build_brief(chosen, product)
+        brief_data["problem_space"] = typer.prompt(
+            "Problem space", default=brief_data["problem_space"]
+        )
+        segments = typer.prompt(
+            "Target segments (comma-separated)",
+            default=", ".join(brief_data["target_segments"]),
+        )
+        brief_data["target_segments"] = [s.strip() for s in segments.split(",") if s.strip()]
+        criteria = typer.prompt(
+            "Success criteria (comma-separated)",
+            default=", ".join(brief_data["success_criteria"]),
+        )
+        brief_data["success_criteria"] = [s.strip() for s in criteria.split(",") if s.strip()]
+        repo = typer.prompt("Path to the product's repo (empty to skip)", default="")
+        if repo.strip():
+            brief_data["inputs"]["repo"] = str(Path(repo.strip()).expanduser().resolve())
+
+    Brief.model_validate(brief_data)  # fail before touching disk
+    out_path.write_text(json.dumps(brief_data, indent=2, ensure_ascii=False) + "\n")
+    session = out_path.stem.removesuffix("-brief") or "my-product"
+    if as_json:
+        print(json.dumps({"brief": str(out_path), "template": template or "interactive"}))
+        return
+    out.print(f"brief written to {out_path}")
+    out.print("next:")
+    out.print(f"  bokken new {session} --brief {out_path}")
+    out.print(f"  bokken run {session}")
+
+
 @app.command("new")
 @guarded
 def new(
