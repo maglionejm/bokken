@@ -20,27 +20,32 @@ The router SHALL resolve invocations by routing class using the provider
 selected in the immutable session config. Anthropic defaults SHALL be:
 `research` and `challenge` → `claude-fable-5` at high effort; `cognition` and
 `generation` → `claude-opus-5` with adaptive thinking at high effort;
-`sidekick` → `claude-opus-5`; and `extraction` → `claude-haiku-4-5`. OpenAI
+`sidekick` → `claude-sonnet-5`; and `extraction` → `claude-haiku-4-5`. OpenAI
 defaults SHALL be: `research`, `challenge`, `cognition`, and `generation` →
 `gpt-5`; and the economical `sidekick` and `extraction` lanes → `gpt-5-mini`.
-Fable requests SHALL retain their server-side refusal fallback to
-`claude-opus-4-8`.
+The delegated `sidekick` lane SHALL never default to a model priced at or above
+the models serving the judgment lanes it delegates for: the lane exists to keep
+mechanical reading off frontier prices. Fable requests SHALL retain their
+server-side refusal fallback to `claude-opus-4-8`.
 
 Provider and per-class routing SHALL be fixed at session creation and journaled
 in the config snapshot. A single-model convenience override SHALL affect only
 frontier classes (`research`, `challenge`, `cognition`, `generation`) and SHALL
 not flatten the sidekick or extraction lanes. Models SHALL come from a single
-model registry that declares each model's provider, list price, and whether it
-may serve frontier classes or accept a reasoning parameter; the allowlist,
-provider map, and cost estimates SHALL derive from that registry. A routing
-configuration SHALL be rejected at session creation when a model cannot serve
-its class or cannot accept the configured effort, rather than failing at first
-dispatch. Configured reasoning effort (`low | medium | high`) SHALL be applied
-by either provider to frontier classes only, never silently ignored and never
-sent to a model that rejects it. Typed consumers SHALL continue to request
-schema-validated structured output. Every `model.called` record SHALL name the
-model that served the call alongside the model routing requested, and journaled
-agent provenance SHALL name the model routed for that agent's lane.
+model registry that declares each model's provider, list price, the set of
+routing classes it may serve, and whether it accepts a reasoning parameter; the
+allowlist, provider map, and cost estimates SHALL derive from that registry.
+The extraction-grade model SHALL declare the `extraction` class only, so
+routing it to any other class — the delegated sidekick lane included — is
+refused rather than merely discouraged. A routing configuration SHALL be
+rejected at session creation when a model may not serve its class or cannot
+accept the configured effort, rather than failing at first dispatch. Configured
+reasoning effort (`low | medium | high`) SHALL be applied by either provider to
+frontier classes only, never silently ignored and never sent to a model that
+rejects it. Typed consumers SHALL continue to request schema-validated
+structured output. Every `model.called` record SHALL name the model that served
+the call alongside the model routing requested, and journaled agent provenance
+SHALL name the model routed for that agent's lane.
 
 #### Scenario: Class resolves to configured model
 
@@ -56,6 +61,11 @@ agent provenance SHALL name the model routed for that agent's lane.
 
 - **WHEN** define clustering and handoff generation use Anthropic defaults
 - **THEN** both target Opus 5 with adaptive thinking at high effort
+
+#### Scenario: Delegated reads stay off frontier prices
+
+- **WHEN** an Anthropic session dispatches a sidekick corpus retrieval or UI-stepping call without overrides
+- **THEN** it targets `claude-sonnet-5`, whose input and output list prices are both below those of the models serving `research`, `challenge`, `cognition`, and `generation`
 
 #### Scenario: OpenAI defaults preserve Fusion economics
 
@@ -76,6 +86,11 @@ agent provenance SHALL name the model routed for that agent's lane.
 
 - **WHEN** a session requests an extraction-grade model for a frontier class, or an effort setting on a model that rejects reasoning parameters
 - **THEN** creation fails with a routing configuration error and no session is journaled
+
+#### Scenario: The extraction-grade model is refused on the sidekick lane
+
+- **WHEN** a session routes `claude-haiku-4-5` to the `sidekick` class, or to any class other than `extraction`
+- **THEN** creation fails with a routing configuration error naming the classes that model may serve
 
 #### Scenario: Provenance names the serving model
 
