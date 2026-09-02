@@ -365,15 +365,19 @@ def export_report(name: str) -> dict:
 def cost_report(name: str) -> dict:
     """Cost report from the journaled model calls (list-price estimate, cache hit rate)."""
     from bokken.dossier.model import build_model
+    from bokken.journal.store import read_events
+    from bokken.panel import grounding_health
     from bokken.report.context import cost_rows
 
-    rows = cost_rows(build_model(resolve_session_dir(name)))
+    session_dir = resolve_session_dir(name)
+    rows = cost_rows(build_model(session_dir))
     hit = sum(r["cache_read"] for r in rows)
     raw = sum(r["input"] for r in rows)
     return {
         "rows": rows,
         "total_usd": round(sum(r["cost_usd"] for r in rows), 2),
         "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+        "grounding": grounding_health(read_events(session_dir)),
     }
 
 

@@ -186,3 +186,8 @@ def test_costs_verb_reports_journaled_spend(tmp_path, monkeypatch):
     assert payload["rows"] and all("prompt_id" in r for r in payload["rows"])
     total = round(sum(r["cost_usd"] for r in payload["rows"]), 2)
     assert abs(total - payload["total_usd"]) < 0.01
+    # Lane economics are reported next to the quality signal they can degrade.
+    grounding = payload["grounding"]
+    assert grounding["persona_turns"] > 0
+    assert grounding["citation_invalid_abstentions"] == 0
+    assert grounding["citation_invalid_rate"] == 0.0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Protocol
 
 from pydantic import BaseModel, Field
@@ -9,6 +10,15 @@ from pydantic import BaseModel, Field
 from bokken.journal import Event, JournalStore, Stage
 from bokken.panel.casting import Persona
 from bokken.panel.corpus import Citation, Corpus
+
+# Marker that opens the gap of an abstention forced by the backstop below,
+# as opposed to one the persona reported honestly.
+CITATION_INVALID = "citation_invalid"
+
+# Turn kinds the grounding backstop mediates: everything the Interviewer can
+# journal as a persona answer. Persona reactions from other stages (prototype
+# evaluation) never pass through citation validation and stay out of the rate.
+GROUNDED_TURN_KINDS = frozenset({"corpus", "profile"})
 
 
 class GroundedAnswer(BaseModel):
@@ -60,7 +70,7 @@ class Interviewer:
             invalid = [c for c in result.citations if not self.corpus.validate_citation(c)]
             if invalid:
                 result = Abstention(
-                    reason=f"citation_invalid: {len(invalid)} citation(s) did not "
+                    reason=f"{CITATION_INVALID}: {len(invalid)} citation(s) did not "
                     "resolve to a corpus span"
                 )
             else:
@@ -108,3 +118,32 @@ class Interviewer:
                 "segment": segment or persona.segment,
             },
         )
+
+
+def grounding_health(events: Iterable[Event]) -> dict[str, float | int]:
+    """Persona-turn grounding health, folded from a journal.
+
+    A weaker model on the delegated sidekick lane fails quietly: paraphrased
+    spans yield citations the backstop cannot resolve, the turn is journaled as
+    an abstention, and that abstention reads exactly like an honest research
+    gap. Counting the backstop-forced ones separately is what makes such a
+    regression legible to an operator comparing two runs.
+    """
+    turns = abstentions = citation_invalid = 0
+    for event in events:
+        if event.actor.persona_id is None:
+            continue
+        if event.type == "evidence.captured":
+            if event.payload.get("grounding") in GROUNDED_TURN_KINDS:
+                turns += 1
+        elif event.type == "evidence.abstained":
+            turns += 1
+            abstentions += 1
+            if str(event.payload.get("gap", "")).startswith(CITATION_INVALID):
+                citation_invalid += 1
+    return {
+        "persona_turns": turns,
+        "abstentions": abstentions,
+        "citation_invalid_abstentions": citation_invalid,
+        "citation_invalid_rate": round(citation_invalid / turns, 3) if turns else 0.0,
+    }

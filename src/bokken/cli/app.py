@@ -523,16 +523,23 @@ def library(
 def costs(name: str, as_json: JsonFlag = False) -> None:
     """Cost report from the journaled model calls (list-price estimate)."""
     from bokken.dossier.model import build_model
+    from bokken.journal.store import read_events
+    from bokken.panel import grounding_health
     from bokken.report.context import cost_rows
 
-    rows = cost_rows(build_model(resolve_session_dir(name)))
+    session_dir = resolve_session_dir(name)
+    rows = cost_rows(build_model(session_dir))
     total = round(sum(r["cost_usd"] for r in rows), 2)
     hit = sum(r["cache_read"] for r in rows)
     raw = sum(r["input"] for r in rows)
+    # Lane economics are only half the picture: a cheaper sidekick that
+    # paraphrases shows up here as backstop-forced abstentions, not as savings.
+    grounding = grounding_health(read_events(session_dir))
     payload = {
         "rows": rows,
         "total_usd": total,
         "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+        "grounding": grounding,
     }
     if as_json:
         print(json.dumps(payload, indent=2))
@@ -546,6 +553,12 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
             f"{r['input']:>12,}{r['cache_read']:>10,}{r['output']:>8,}{r['cost_usd']:>8.2f}"
         )
     out.print(f"total ~${total} (list prices) · cache hit rate {payload['cache_hit_rate']:.0%}")
+    out.print(
+        f"persona turns {grounding['persona_turns']} · abstentions "
+        f"{grounding['abstentions']} · citation-invalid "
+        f"{grounding['citation_invalid_abstentions']} "
+        f"({grounding['citation_invalid_rate']:.0%} of turns)"
+    )
 
 
 @app.command("export")

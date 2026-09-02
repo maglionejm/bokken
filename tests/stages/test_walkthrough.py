@@ -208,7 +208,8 @@ def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> Non
     events = list(read_events(session_dir))
     call = next(e for e in events if e.type == "model.called")
     assert call.payload["routing_class"] == "sidekick"
-    assert call.payload["model"] == "claude-opus-5"
+    # Delegated reads run on the economy lane, not at frontier prices.
+    assert call.payload["model"] == "claude-sonnet-5"
 
 
 def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkeypatch) -> None:
