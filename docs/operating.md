@@ -203,7 +203,13 @@ After a run completes, `bokken validate <name>` derives the interview guide
 from the research debt and untested assumptions (artifact
 `artifacts/validation/validation_guide.md`), then an agentic interviewer
 moderates a real participant — one question at a time, laddering into
-concrete incidents, concluding inside a 14-turn budget. Every answer is
+concrete incidents, concluding inside a 14-turn budget. It asks for consent
+first and asks only once: the contact and its outcome are journaled
+(`interview.consent_requested` / `interview.consent_resolved`) before any
+question goes out, and only an affirmative opt-in starts the interview —
+silence, an ambiguous reply, and a decline all stop it, and the command says
+which. On the terminal channel the operator confirms consent at the prompt.
+Every answer is
 journaled as `reported` human evidence and the register is rescored against
 it; rerun `bokken export` to refresh the reports with the real-validation
 deltas. `--guide-only` stops after the guide; `--participant` labels the

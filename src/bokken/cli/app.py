@@ -573,7 +573,7 @@ def validate(
 ) -> None:
     """Run a real validation interview against the session's research debt."""
     from bokken.interview import build_guide, run_validation_interview
-    from bokken.interview.channels import TerminalChannel
+    from bokken.interview.channels import ChannelUnavailable, TerminalChannel
     from bokken.interview.guide import journal_guide
     from bokken.journal.store import JournalStore
 
@@ -589,7 +589,7 @@ def validate(
         if channel == "terminal":
             live_channel = TerminalChannel()
         elif channel == "twilio":
-            from bokken.interview.channels import ChannelUnavailable, TwilioChannel
+            from bokken.interview.channels import TwilioChannel
 
             if not to:
                 _fail("--channel twilio requires --to <E.164 number>", 2)
@@ -600,9 +600,14 @@ def validate(
         else:
             _fail(f"unknown channel {channel!r} (terminal, twilio)", 2)
         router = wiring.router_factory()(store)
-        exchanges = run_validation_interview(
-            store, router, guide, live_channel, participant=participant
-        )
+        try:
+            exchanges = run_validation_interview(
+                store, router, guide, live_channel, participant=participant
+            )
+        except ChannelUnavailable as exc:
+            # Consent refused (declined, no reply, or ambiguous) is journaled by
+            # the engine; the operator gets the reason, not a stack trace.
+            _fail(str(exc), 2)
         out.print(
             f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"
         )
