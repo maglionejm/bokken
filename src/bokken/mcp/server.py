@@ -21,7 +21,7 @@ from bokken.journal import (
 from bokken.journal.schema import short_id
 from bokken.journal.store import read_events
 from bokken.models import RoutingConfigError, session_model_config
-from bokken.orchestrator import InputRequired, Runner, create_session
+from bokken.orchestrator import Answer, InputRequired, Runner, create_session
 
 mcp = MCPServer(
     "bokken",
@@ -68,9 +68,12 @@ def surfaced(fn):
     return wrapper
 
 
+UNIDENTIFIED_CLIENT = Actor(kind="agent", name="mcp-client")
+
+
 def _client_actor(ctx: Context) -> Actor:
     """Actor attribution from the MCP handshake — never from tool arguments."""
-    name, version = "mcp-client", None
+    name, version = UNIDENTIFIED_CLIENT.name, None
     try:
         params = ctx.session.client_params
         info = getattr(params, "client_info", None) or getattr(params, "clientInfo", None)
@@ -109,23 +112,30 @@ class MailboxPort:
     """Input port backed by workspace files: pending question out, answers in.
 
     Session *state* stays journal-derived; these files are only an input
-    mailbox between run_session halts and submit_input calls.
+    mailbox between run_session halts and submit_input calls. Each mailbox
+    entry carries the handshake actor of the client that submitted it, so the
+    engine that consumes the answer journals the real author.
     """
 
     def __init__(self, session_dir: Path) -> None:
         self.pending_path = session_dir / "pending_question.json"
         self.answers_path = session_dir / "answers.json"
 
-    def ask(self, question: str, *, kind: str = "text") -> str:
-        qid = _question_id(question)
-        answers: dict[str, str] = {}
+    def _answers(self) -> dict[str, Any]:
         if self.answers_path.exists():
-            answers = json.loads(self.answers_path.read_text())
+            return json.loads(self.answers_path.read_text())
+        return {}
+
+    def ask(self, question: str, *, kind: str = "text") -> Answer:
+        qid = _question_id(question)
+        answers = self._answers()
         if qid in answers:
-            answer = answers.pop(qid)
+            entry = answers.pop(qid)
+            if isinstance(entry, str):  # mailbox written before answers carried provenance
+                entry = {"answer": entry, "actor": UNIDENTIFIED_CLIENT.model_dump()}
             _atomic_write(self.answers_path, json.dumps(answers))
             self.pending_path.unlink(missing_ok=True)
-            return answer
+            return Answer(text=entry["answer"], actor=Actor.model_validate(entry["actor"]))
         _atomic_write(self.pending_path, json.dumps({"question_id": qid, "question": question}))
         raise InputRequired(question)
 
@@ -134,17 +144,15 @@ class MailboxPort:
             return json.loads(self.pending_path.read_text())
         return None
 
-    def store_answer(self, question_id: str, answer: str) -> None:
+    def store_answer(self, question_id: str, answer: str, *, actor: Actor) -> None:
         pending = self.pending()
         if pending is None or pending["question_id"] != question_id:
             raise ValueError(
                 f"no pending question with id {question_id!r}; "
                 "run_session first and read its pending_question"
             )
-        answers: dict[str, str] = {}
-        if self.answers_path.exists():
-            answers = json.loads(self.answers_path.read_text())
-        answers[question_id] = answer
+        answers = self._answers()
+        answers[question_id] = {"answer": answer, "actor": actor.model_dump()}
         _atomic_write(self.answers_path, json.dumps(answers))
 
 
@@ -287,11 +295,16 @@ def request_loopback(name: str, to_stage: str, reason: str, ctx: Context) -> dic
 
 @mcp.tool()
 @surfaced
-def submit_input(name: str, question_id: str, answer: str) -> dict:
-    """Answer the session's pending Founder-mode question, then run_session again."""
+def submit_input(name: str, question_id: str, answer: str, ctx: Context) -> dict:
+    """Answer the session's pending Founder-mode question, then run_session again.
+
+    The answer is attributed to this client's handshake identity, so the engine
+    that consumes it journals agent-supplied (`simulated`) evidence rather than
+    human testimony."""
     _, port = _runner(name)
-    port.store_answer(question_id, answer)
-    return {"stored": True, "question_id": question_id}
+    actor = _client_actor(ctx)
+    port.store_answer(question_id, answer, actor=actor)
+    return {"stored": True, "question_id": question_id, "attributed_to": actor.name}
 
 
 @mcp.tool()

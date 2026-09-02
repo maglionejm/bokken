@@ -7,8 +7,9 @@ from pathlib import Path
 from bokken.journal import replay
 from bokken.journal.store import read_events
 from bokken.kata import MVP_MOVES, Kata
-from bokken.orchestrator import InputPort, NoInputPort, Runner
+from bokken.orchestrator import Answer, InputPort, NoInputPort, Runner
 from bokken.stages import RouterFactory, engine_suite
+from bokken.stages.base import FOUNDER
 
 
 def router_factory() -> RouterFactory:
@@ -23,11 +24,13 @@ class TerminalInputPort:
     def __init__(self, session_dir: Path) -> None:
         self.session_dir = session_dir
 
-    def ask(self, question: str, *, kind: str = "text") -> str:
+    def ask(self, question: str, *, kind: str = "text") -> Answer:
         import typer
 
         stage = replay(read_events(self.session_dir)).stage
-        return typer.prompt(f"[{stage}] {question}", default="", show_default=False)
+        text = typer.prompt(f"[{stage}] {question}", default="", show_default=False)
+        # Typed at this terminal: a real human, hence human attribution.
+        return Answer(text=text, actor=FOUNDER)
 
 
 def build_runner(session_dir: Path, *, interactive: bool = True) -> Runner:

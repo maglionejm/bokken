@@ -46,6 +46,22 @@ def test_new_and_status_machine_output(brief_file: Path) -> None:
     assert result.stderr == ""
 
 
+def test_terminal_port_answers_are_human_attributed(brief_file: Path, monkeypatch) -> None:
+    """The other side of the input-provenance seam: a human typing at the
+    terminal keeps human attribution, so the CLI and MCP paths stay distinct."""
+    import typer
+
+    from bokken.orchestrator import create_session
+
+    session_dir = create_session("terminal-port", brief=BRIEF, mode="founder")
+    monkeypatch.setattr(typer, "prompt", lambda *a, **kw: "arrivals were unpredictable")
+    answer = wiring.TerminalInputPort(session_dir).ask("why did you churn?")
+    assert answer.text == "arrivals were unpredictable"
+    assert answer.actor.kind == "human" and answer.is_human
+    assert answer.confidence_class("reported") == "reported"
+    assert answer.source("founder interview") == "founder interview"
+
+
 def test_unknown_session_exits_2_naming_workspace() -> None:
     result = runner.invoke(app, ["status", "ghost"])
     assert result.exit_code == 2
