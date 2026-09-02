@@ -213,7 +213,7 @@ wheels = [
 
 [[package]]
 name = "bokken"
-version = "1.0.0rc1"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
