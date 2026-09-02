@@ -13,7 +13,6 @@ from bokken.panel import (
 )
 from bokken.panel.corpus import Corpus
 from bokken.stages.base import (
-    FOUNDER,
     RouterFactory,
     dumps,
     facilitator,
@@ -159,15 +158,18 @@ class IdeateEngine:
     ) -> StageOutcome | None:
         state = replay(ctx.store.events())
         criteria = frozen_criteria(state) or DEFAULT_CRITERIA
+        decider = facilitator(router)
         if state.mode == "founder":
             choice = ctx.input_port.ask(
                 "Pick the option to advance (number):\n" + self._options_text(options)
             )
             try:
-                winner = options[int(choice.strip()) - 1]
+                winner = options[int(choice.text.strip()) - 1]
             except (ValueError, IndexError):
                 winner = options[0]
-            positions = [{"actor": "founder", "position": winner.payload["summary"]}]
+            # Whoever actually picked owns the decision, human or agent client.
+            decider = choice.actor
+            positions = [{"actor": decider.name, "position": winner.payload["summary"]}]
             dissent: list[dict[str, str]] = []
         else:
             code_context = self._code_context(ctx)
@@ -255,7 +257,7 @@ class IdeateEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="ideate",
-            actor=facilitator(router) if state.mode == "dojo" else FOUNDER,
+            actor=decider,
             payload={
                 "question": "which concept advances to prototype",
                 "options": [o.id for o in options],
@@ -263,7 +265,8 @@ class IdeateEngine:
                 "positions": positions,
                 "resolution": winner.payload["summary"],
                 "dissent": dissent,
-                "requires_real_validation": state.mode == "dojo",
+                # Only a human's own selection escapes the flag.
+                "requires_real_validation": decider.kind != "human",
                 "pivoted_by_timebox": pivoted,
             },
             refs=[winner.id],
@@ -273,14 +276,14 @@ class IdeateEngine:
     def _founder_contributions(self, ctx: StageContext, options: list[Event]) -> None:
         while True:
             idea = ctx.input_port.ask("Add your own option (empty to finish):")
-            if not idea.strip():
+            if not idea.text.strip():
                 break
             options.append(
                 ctx.store.append(
                     type="option.created",
                     stage="ideate",
-                    actor=FOUNDER,
-                    payload={"summary": idea.strip()},
+                    actor=idea.actor,
+                    payload={"summary": idea.text.strip()},
                 )
             )
 
@@ -290,7 +293,9 @@ class IdeateEngine:
 
         config = ctx.state.config.get("panel", {})
         corpus = Corpus.ingest_inputs(
-            ctx.state.brief.get("inputs", {}), base=Path(config.get("input_base", "."))
+            ctx.state.brief.get("inputs", {}),
+            base=Path(config.get("input_base", ".")),
+            roots=config.get("input_roots"),
         )
         scope = corpus.ids_of_kind("code", "document") or corpus.source_ids
         return corpus.context_for(scope) or "(no repository on file)"

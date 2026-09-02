@@ -154,3 +154,62 @@ emit the raw records.
 
 - **WHEN** `bokken library --json` runs after a finalized session
 - **THEN** stdout is one JSON document containing that session's record
+
+### Requirement: Demo verb
+
+`bokken demo [name]` SHALL create and run a complete dojo session offline —
+no API key, no network calls — against a bundled scripted provider and
+corpus whose citations resolve, finishing with finalization (dossier, PPTX,
+HTML) and printing the report paths plus a zero-cost receipt that states
+what a real run typically costs. The output SHALL be deterministic across
+runs and machines, and SHALL carry every honesty marker of a real dojo run
+(simulated banner, journaled walkthrough skip, requires-real-validation).
+
+#### Scenario: One command to a full report
+
+- **WHEN** `bokken demo` runs on a machine with no ANTHROPIC_API_KEY
+- **THEN** it completes with a full journal, resolvable citations, both report files on disk, and a $0.00 receipt printed
+
+#### Scenario: Deterministic showcase
+
+- **WHEN** `bokken demo a` and `bokken demo b` run
+- **THEN** their reports differ only in session name and timestamps
+
+### Requirement: Init wizard
+
+`bokken init` SHALL produce a Brief-schema-valid JSON file from one of three
+bundled templates (`saas-retention`, `consumer-app`, `internal-tool`), either
+interactively (plain prompts, template defaults pre-filled) or
+non-interactively via `--template` and `--out` (placeholders clearly marked
+as TODO). It SHALL validate the result against the Brief schema before
+writing and SHALL end by printing the exact `bokken new`/`bokken run`
+commands that consume the file.
+
+#### Scenario: Guided brief in one sitting
+
+- **WHEN** a user runs `bokken init` and answers the prompts
+- **THEN** a validated brief JSON exists on disk and the terminal shows the two commands that start the run
+
+#### Scenario: Non-interactive template
+
+- **WHEN** `bokken init --template consumer-app --out brief.json` runs without a TTY
+- **THEN** brief.json is written from the template with TODO placeholders and no prompt is issued
+
+### Requirement: Run cost framing and receipt
+
+`bokken run` SHALL print, before entering the loop, the session's token
+guardrail and the typical full-run cost range; and on halt SHALL print a
+receipt computed from journaled model calls — session-to-date list-price
+cost in USD and total calls — with a pointer to `bokken costs` for the
+per-stage breakdown. In `--as-json` mode the receipt fields SHALL appear in
+the result payload.
+
+#### Scenario: Receipt on halt
+
+- **WHEN** a run halts for any reason (gate, budget, completion, stop)
+- **THEN** the terminal shows the session-to-date cost and call count derived from the journal
+
+#### Scenario: Framing before spend
+
+- **WHEN** `bokken run` starts on a fresh session
+- **THEN** the guardrail and typical cost range are shown before the first model call

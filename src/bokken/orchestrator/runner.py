@@ -10,6 +10,7 @@ from uuid import uuid4
 from bokken.journal import (
     Actor,
     Brief,
+    ConfidenceClass,
     JournalStore,
     Mode,
     SessionState,
@@ -67,14 +68,44 @@ class InputRequired(Exception):
         super().__init__(question)
 
 
+@dataclass(frozen=True)
+class Answer:
+    """An answer plus the provenance of whoever actually supplied it.
+
+    Ports return this instead of a bare string so that every record derived
+    from an answer is attributed to its real author — the human at the
+    terminal, or the agent client that submitted it over MCP — rather than to
+    an assumed human founder. Provenance is not optional: ``actor`` has no
+    default, so no port can hand a stage an unattributed answer.
+    """
+
+    text: str
+    actor: Actor
+
+    @property
+    def is_human(self) -> bool:
+        return self.actor.kind == "human"
+
+    def confidence_class(self, human_class: ConfidenceClass) -> ConfidenceClass:
+        """The class to journal: a human answer keeps the call site's class; a
+        machine-supplied one is `simulated` at the record level (honesty rules —
+        synthetic contributions are never laundered into human testimony)."""
+        return human_class if self.is_human else "simulated"
+
+    def source(self, human_source: str) -> str:
+        """Source label to journal; a machine-supplied answer never reads as
+        human testimony."""
+        return human_source if self.is_human else f"agent-supplied ({self.actor.name})"
+
+
 class InputPort(Protocol):
-    def ask(self, question: str, *, kind: str = "text") -> str: ...
+    def ask(self, question: str, *, kind: str = "text") -> Answer: ...
 
 
 class NoInputPort:
     """Input port for headless runs: any question halts the run as input_pending."""
 
-    def ask(self, question: str, *, kind: str = "text") -> str:
+    def ask(self, question: str, *, kind: str = "text") -> Answer:
         raise InputRequired(question)
 
 

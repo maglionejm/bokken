@@ -52,6 +52,78 @@ def test_openai_models_have_explicit_list_prices() -> None:
     assert PRICE_PER_MTOK["gpt-5.6-luna"] == (0.2, 1.2)
 
 
+CACHE_HEAVY_USAGE = {
+    "input_tokens": 5_000,
+    "output_tokens": 500,
+    "cache_read_tokens": 195_000,
+    "cache_write_tokens": 10_000,
+}
+
+
+def test_cache_multipliers_are_per_provider() -> None:
+    """Anthropic bills cache writes at a premium over input; OpenAI bills none.
+    One vendor's multipliers must not be applied to the other's models."""
+    from bokken.report.context import call_cost_usd
+
+    # claude-fable-5 lists at $10/$50 per Mtok: 5k input + 500 output +
+    # 195k cache reads at 0.1x input + 10k cache writes at 1.25x input.
+    assert call_cost_usd("claude-fable-5", CACHE_HEAVY_USAGE) == pytest.approx(0.395)
+    # gpt-5 lists at $1.25/$10 per Mtok: cached input at 0.1x, cache writes free.
+    assert call_cost_usd("gpt-5", CACHE_HEAVY_USAGE) == pytest.approx(0.035625)
+    assert call_cost_usd("gpt-5", {"cache_write_tokens": 10**6}) == 0.0
+
+
+def test_one_trace_prices_identically_through_cost_and_report_paths(dojo_session: Path) -> None:
+    """The `costs` verb and the report appendix are two views of one journal, so
+    a cache-heavy call must be quoted at the same number by both."""
+    from bokken.journal import Actor, JournalStore
+    from bokken.report.context import call_cost_usd, cost_rows
+
+    with JournalStore.open(dojo_session) as store:
+        store.append(
+            type="model.called",
+            stage="empathize",
+            actor=Actor(kind="agent", name="model-router"),
+            payload={
+                "routing_class": "research",
+                "model": "claude-fable-5",
+                "requested_model": "claude-fable-5",
+                "prompt_id": "empathize/interview",
+                "prompt_version": "v1",
+                "prompt_hash": "h" * 64,
+                "request_id": "req-cache",
+                "usage": dict(CACHE_HEAVY_USAGE),
+                "status": "ok",
+            },
+        )
+    model = build_model(dojo_session)
+    rows = cost_rows(model)
+    context = build_context(dojo_session, model)
+    assert sum(r["cost_usd"] for r in rows) == pytest.approx(context.total_cost_usd, abs=1e-3)
+
+    cached_row = next(r for r in rows if r["model"] == "claude-fable-5")
+    cached_line = next(u for u in context.usage if u.model == "claude-fable-5")
+    assert cached_row["cache_read"] == cached_line.cache_read_tokens == 195_000
+    assert cached_row["cache_write"] == cached_line.cache_write_tokens == 10_000
+    assert cached_row["cost_usd"] == pytest.approx(
+        call_cost_usd("claude-fable-5", CACHE_HEAVY_USAGE), abs=1e-4
+    )
+    # The per-model line aggregates the session's other Fable calls too, so it
+    # is priced through the same function over its own four buckets.
+    assert cached_line.cost_usd == pytest.approx(
+        call_cost_usd(
+            "claude-fable-5",
+            {
+                "input_tokens": cached_line.input_tokens,
+                "output_tokens": cached_line.output_tokens,
+                "cache_read_tokens": cached_line.cache_read_tokens,
+                "cache_write_tokens": cached_line.cache_write_tokens,
+            },
+        )
+    )
+    assert cached_line.cost_usd > call_cost_usd("claude-fable-5", CACHE_HEAVY_USAGE) * 0.99
+
+
 def test_export_writes_both_files_journaled_without_model_calls(dojo_session: Path) -> None:
     calls_before = sum(1 for e in read_events(dojo_session) if e.type == "model.called")
     pptx_path, html_path = generate_report(dojo_session)
