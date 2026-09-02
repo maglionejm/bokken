@@ -10,11 +10,11 @@ from bokken.library import prior_learnings_text
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
 from bokken.stages.base import (
-    FACILITATOR,
     FOUNDER,
     RouterFactory,
     dumps,
     evidence_lines,
+    facilitator,
     open_stage,
     structured,
 )
@@ -194,7 +194,7 @@ class EmpathizeEngine:
                 ctx.store.append(
                     type="interpretation.derived",
                     stage="empathize",
-                    actor=FACILITATOR,
+                    actor=facilitator(router),
                     payload={
                         "kind": "desired_outcome",
                         "statement": draft.statement,
@@ -227,7 +227,7 @@ class EmpathizeEngine:
                 event = ctx.store.append(
                     type="interpretation.derived",
                     stage="empathize",
-                    actor=persona.actor(),
+                    actor=persona.actor(router.routing["research"]),
                     payload={
                         "kind": "outcome_score",
                         "statement": (
@@ -264,7 +264,7 @@ class EmpathizeEngine:
             ctx.store.append(
                 type="interpretation.derived",
                 stage="empathize",
-                actor=FACILITATOR,
+                actor=facilitator(router),
                 payload={
                     "kind": "opportunity",
                     "statement": (
@@ -300,7 +300,7 @@ class EmpathizeEngine:
         ctx.store.append(
             type="artifact.generated",
             stage="empathize",
-            actor=FACILITATOR,
+            actor=facilitator(router),
             payload={
                 "path": "artifacts/empathize/opportunity_ranking.md",
                 "kind": "opportunity_ranking",

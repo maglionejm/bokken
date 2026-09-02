@@ -16,6 +16,7 @@ class RouterTurnGenerator:
     def __init__(self, router: ModelRouter, stage: str = "empathize") -> None:
         self.router = router
         self.stage = stage
+        self.model = router.routing["research"]  # persona turns run on research
 
     def _sliced_context(self, question: str, context: str) -> str:
         """Fusion delegation: the sidekick (cached corpus prefix) returns the

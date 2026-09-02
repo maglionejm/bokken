@@ -34,35 +34,42 @@ OPENAI_DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "generation": "gpt-5",
 }
 
-ANTHROPIC_MODELS = frozenset(
-    {
-        "claude-fable-5",
-        "claude-opus-5",
-        "claude-sonnet-5",
-        "claude-opus-4-8",
-        "claude-opus-4-7",
-        "claude-sonnet-4-6",
-        "claude-haiku-4-5",
-    }
-)
-OPENAI_MODELS = frozenset(
-    {
-        "gpt-5",
-        "gpt-5-mini",
-        "gpt-4.1",
-        "gpt-4.1-mini",
-        "o3",
-        "o4-mini",
-        "gpt-5.6-luna",
-        "gpt-5.6-sol",
-        "gpt-5.6-terra",
-    }
-)
-MODEL_ALLOWLIST = ANTHROPIC_MODELS | OPENAI_MODELS
-MODEL_PROVIDERS = {
-    **dict.fromkeys(ANTHROPIC_MODELS, "anthropic"),
-    **dict.fromkeys(OPENAI_MODELS, "openai"),
+
+@dataclass(frozen=True)
+class ModelSpec:
+    """One allowlisted model: who serves it, what it costs, what it can do."""
+
+    provider: str
+    price: tuple[float, float]  # list price per million tokens (input, output)
+    frontier: bool = True  # may serve research/challenge/cognition/generation
+    reasoning: bool = True  # accepts a reasoning-effort parameter
+
+
+# The single registry: allowlist, provider map, prices and capability guards
+# all derive from it so they cannot drift apart.
+MODELS: dict[str, ModelSpec] = {
+    "claude-fable-5": ModelSpec("anthropic", (10.0, 50.0)),
+    "claude-opus-5": ModelSpec("anthropic", (5.0, 25.0)),
+    "claude-sonnet-5": ModelSpec("anthropic", (2.0, 10.0)),
+    "claude-opus-4-8": ModelSpec("anthropic", (5.0, 25.0)),
+    "claude-opus-4-7": ModelSpec("anthropic", (5.0, 25.0)),
+    "claude-sonnet-4-6": ModelSpec("anthropic", (3.0, 15.0)),
+    # Extraction only (CLAUDE.md): no effort/adaptive-thinking parameters.
+    "claude-haiku-4-5": ModelSpec("anthropic", (1.0, 5.0), frontier=False, reasoning=False),
+    "gpt-5": ModelSpec("openai", (1.25, 10.0)),
+    "gpt-5-mini": ModelSpec("openai", (0.25, 2.0)),
+    "gpt-4.1": ModelSpec("openai", (2.0, 8.0), reasoning=False),
+    "gpt-4.1-mini": ModelSpec("openai", (0.4, 1.6), reasoning=False),
+    "o3": ModelSpec("openai", (2.0, 8.0)),
+    "o4-mini": ModelSpec("openai", (1.1, 4.4)),
+    "gpt-5.6-luna": ModelSpec("openai", (0.2, 1.2)),
+    "gpt-5.6-sol": ModelSpec("openai", (4.0, 20.0)),
+    "gpt-5.6-terra": ModelSpec("openai", (2.0, 12.0)),
 }
+MODEL_ALLOWLIST = frozenset(MODELS)
+MODEL_PROVIDERS = {name: spec.provider for name, spec in MODELS.items()}
+ANTHROPIC_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "anthropic")
+OPENAI_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "openai")
 PROVIDERS = frozenset({"anthropic", "openai"})
 FRONTIER_ROUTING_CLASSES: tuple[RoutingClass, ...] = (
     "research",
@@ -71,6 +78,13 @@ FRONTIER_ROUTING_CLASSES: tuple[RoutingClass, ...] = (
     "generation",
 )
 REASONING_EFFORTS = frozenset({"low", "medium", "high"})
+DEFAULT_REASONING_EFFORT = "high"
+
+
+def supports_reasoning(model: str) -> bool:
+    spec = MODELS.get(model)
+    return spec is not None and spec.reasoning
+
 
 ROUTER_ACTOR = Actor(kind="agent", name="model-router")
 
@@ -79,6 +93,10 @@ OutcomeStatus = Literal["ok", "refused", "error", "truncated", "budget_exhausted
 
 class RoutingConfigError(Exception):
     pass
+
+
+class ProviderUnavailableError(RoutingConfigError):
+    """The session's provider cannot serve: SDK extra not installed or key unset."""
 
 
 @dataclass(frozen=True)
@@ -122,26 +140,51 @@ class ModelOutcome:
         return self.status == "ok"
 
 
-def _validate_model_provider(model: str, provider: str) -> None:
-    if model not in MODEL_ALLOWLIST:
+def _validate_model_provider(model: str, provider: str) -> ModelSpec:
+    spec = MODELS.get(model)
+    if spec is None:
         raise RoutingConfigError(f"model {model!r} is not in the allowlist")
-    if MODEL_PROVIDERS[model] != provider:
+    if spec.provider != provider:
         raise RoutingConfigError(f"model {model!r} does not belong to provider {provider!r}")
+    return spec
+
+
+def _validate_class_model(routing_class: RoutingClass, model: str, provider: str) -> None:
+    spec = _validate_model_provider(model, provider)
+    if routing_class in FRONTIER_ROUTING_CLASSES and not spec.frontier:
+        raise RoutingConfigError(
+            f"model {model!r} may not serve the {routing_class!r} class (extraction-grade model)"
+        )
+
+
+def _validate_effort(reasoning_effort: str, routing: dict[RoutingClass, str]) -> None:
+    if reasoning_effort not in REASONING_EFFORTS:
+        raise RoutingConfigError(f"unsupported reasoning effort: {reasoning_effort}")
+    for routing_class in FRONTIER_ROUTING_CLASSES:
+        model = routing[routing_class]
+        if not supports_reasoning(model):
+            raise RoutingConfigError(
+                f"reasoning effort {reasoning_effort!r} cannot be applied: "
+                f"{model!r} ({routing_class}) does not accept a reasoning parameter"
+            )
 
 
 def session_model_config(
     provider: str, model: str | None = None, reasoning_effort: str | None = None
 ) -> dict[str, Any]:
-    """Build validated session config shared by CLI and MCP creation surfaces."""
+    """Build validated session config shared by CLI and MCP creation surfaces.
+
+    Every combination is rejected here rather than at first dispatch, so an
+    impossible session (haiku on a frontier lane, effort on a model that
+    rejects it) never gets created and journaled."""
     if provider not in PROVIDERS:
         raise RoutingConfigError(f"unknown provider: {provider}")
     config: dict[str, Any] = {"provider": provider}
     if model is not None:
-        _validate_model_provider(model, provider)
+        _validate_class_model("cognition", model, provider)
         config["routing"] = {routing_class: model for routing_class in FRONTIER_ROUTING_CLASSES}
     if reasoning_effort is not None:
-        if reasoning_effort not in REASONING_EFFORTS:
-            raise RoutingConfigError(f"unsupported reasoning effort: {reasoning_effort}")
+        _validate_effort(reasoning_effort, resolve_routing(config.get("routing"), provider))
         config["reasoning_effort"] = reasoning_effort
     return config
 
@@ -157,7 +200,7 @@ def resolve_routing(
     for cls, model in (overrides or {}).items():
         if cls not in routing:
             raise RoutingConfigError(f"unknown routing class: {cls}")
-        _validate_model_provider(model, provider)
+        _validate_class_model(cls, model, provider)  # type: ignore[arg-type]
         routing[cls] = model  # type: ignore[index]
     return routing
 
@@ -171,6 +214,15 @@ class ModelRouter:
         state = replay(store.events())
         self.provider_name = state.config.get("provider", "anthropic")
         self.routing = resolve_routing(state.config.get("routing"), self.provider_name)
+        self.reasoning_effort: str | None = state.config.get("reasoning_effort")
+
+    def actor(
+        self, name: str, routing_class: RoutingClass, *, persona_id: str | None = None
+    ) -> Actor:
+        """Provenance for a journaled contribution: the model routed for its lane."""
+        return Actor(
+            kind="agent", name=name, model=self.routing[routing_class], persona_id=persona_id
+        )
 
     def invoke(
         self,
@@ -208,11 +260,7 @@ class ModelRouter:
                 stream=stream,
                 max_tokens=max_tokens,
                 web_search=web_search,
-                **(
-                    {"reasoning_effort": state.config["reasoning_effort"]}
-                    if state.config.get("reasoning_effort") is not None
-                    else {}
-                ),
+                reasoning_effort=self.reasoning_effort,
             )
             status: OutcomeStatus = "ok"
             detail = ""
@@ -223,7 +271,11 @@ class ModelRouter:
             data = result.data
             if status == "ok" and schema is not None and not isinstance(data, schema):
                 try:
-                    data = schema.model_validate(data if data is not None else result.text)
+                    data = (
+                        schema.model_validate(data)
+                        if data is not None
+                        else schema.model_validate_json(result.text)
+                    )
                 except (ValidationError, TypeError, ValueError) as exc:
                     status, detail, data = "error", f"schema validation failed: {exc}", None
         except Exception as exc:  # provider/network failure: journal, then surface
@@ -254,13 +306,14 @@ class ModelRouter:
             status=status,
             duration_ms=int((time.monotonic() - started) * 1000),
             web_search=web_search,
+            served_model=result.model,
         )
         if status != "ok":
             return ModelOutcome(
                 status=status,
                 text=result.text,
                 usage=result.usage,
-                model=model,
+                model=result.model or model,
                 request_id=result.request_id,
                 detail=detail,
             )
@@ -269,7 +322,7 @@ class ModelRouter:
             text=result.text,
             data=data,
             usage=result.usage,
-            model=model,
+            model=result.model or model,
             request_id=result.request_id,
         )
 
@@ -287,14 +340,19 @@ class ModelRouter:
         status: str,
         duration_ms: int,
         web_search: bool = False,
+        served_model: str | None = None,
     ) -> None:
+        # ``model`` is what routing asked for; ``served_model`` is what answered.
+        # They differ when a provider-side fallback re-serves a refused call, and
+        # cost estimates must price the model that actually ran.
         self.store.append(
             type="model.called",
             stage=stage,
             actor=ROUTER_ACTOR,
             payload={
                 "routing_class": routing_class,
-                "model": model,
+                "model": served_model or model,
+                "requested_model": model,
                 "prompt_id": prompt_id,
                 "prompt_version": version,
                 "prompt_hash": content_hash,

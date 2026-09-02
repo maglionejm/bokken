@@ -15,12 +15,10 @@ import json
 import re
 from typing import Protocol
 
-from bokken.journal import Actor
 from bokken.journal.schema import content_hash
-from bokken.stages.base import FACILITATOR, structured
+from bokken.stages.base import facilitator, structured
 from bokken.stages.schemas import FeatureInventory, UIAction
 
-TESTER_ACTOR = Actor(kind="agent", name="ui-tester", model="claude-fable-5")
 MAX_FEATURES = 8  # default; config ui_tests.max_features
 MAX_STEPS = 4  # default; config ui_tests.max_steps
 DESTRUCTIVE = re.compile(
@@ -244,7 +242,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                 ctx.store.append(
                     type="artifact.generated",
                     stage="empathize",
-                    actor=TESTER_ACTOR,
+                    actor=router.actor("ui-tester", "research"),
                     payload={
                         "path": f"artifacts/ui/{shot_name}",
                         "kind": "ui_screenshot",
@@ -263,7 +261,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             ctx.store.append(
                 type="evidence.captured",
                 stage="empathize",
-                actor=TESTER_ACTOR,
+                actor=router.actor("ui-tester", "research"),
                 payload={
                     "content": (
                         f"Functional test - {feature.name}: {verdict}. "
@@ -297,7 +295,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             ctx.store.append(
                 type="artifact.generated",
                 stage="empathize",
-                actor=FACILITATOR,
+                actor=facilitator(router),
                 payload={
                     "path": f"artifacts/ui/{name}",
                     "kind": "ui_feature_tests",

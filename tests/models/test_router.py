@@ -30,6 +30,14 @@ class OneShotProvider:
         return self.result
 
 
+class RecordingProvider(OneShotProvider):
+    """Keeps the last call's kwargs so request shape can be asserted."""
+
+    def complete(self, **kw):
+        self.kwargs = kw
+        return super().complete(**kw)
+
+
 def ok_result(data=None, text="hi", stop_reason="end_turn") -> ProviderResult:
     return ProviderResult(
         text=text,
@@ -91,7 +99,10 @@ def test_invocation_is_journaled_with_prompt_version_and_usage(store) -> None:
     assert len(events) == 1
     payload = events[0].payload
     assert payload["routing_class"] == "extraction"
-    assert payload["model"] == "claude-haiku-4-5"
+    # The provider answered on a different model (server-side fallback shape):
+    # the journal records who served it and what routing asked for.
+    assert payload["model"] == "claude-opus-4-8"
+    assert payload["requested_model"] == "claude-haiku-4-5"
     assert payload["prompt_id"] == "ideate/novelty"
     assert payload["prompt_version"] == "v1"
     assert len(payload["prompt_hash"]) == 64
@@ -163,3 +174,49 @@ def test_prompt_registry_carries_the_quality_contract_and_hill() -> None:
     assert "WHO" in rendered and "We believe" in rendered
     _, rendered, _ = render_prompt("empathize/outcomes", brief="b", evidence="(none)")
     assert "Ulwick" in rendered or "Jobs-to-be-Done" in rendered
+
+
+def test_extraction_grade_models_are_refused_on_frontier_lanes() -> None:
+    with pytest.raises(RoutingConfigError, match="may not serve"):
+        session_model_config("anthropic", "claude-haiku-4-5")
+    with pytest.raises(RoutingConfigError, match="may not serve"):
+        resolve_routing({"cognition": "claude-haiku-4-5"})
+    # The extraction lane itself still accepts it.
+    assert resolve_routing({"extraction": "claude-haiku-4-5"})["extraction"] == "claude-haiku-4-5"
+
+
+def test_effort_is_refused_for_models_that_reject_the_parameter() -> None:
+    with pytest.raises(RoutingConfigError, match="does not accept a reasoning parameter"):
+        session_model_config("openai", "gpt-4.1", "high")
+    assert session_model_config("openai", "gpt-5", "low")["reasoning_effort"] == "low"
+
+
+def test_configured_effort_reaches_the_provider(tmp_path: Path) -> None:
+    with JournalStore.open(tmp_path / "s") as store:
+        payload = created_payload()
+        payload["config"] = session_model_config("anthropic", reasoning_effort="low")
+        store.append(type="session.created", stage="intake", actor=SYSTEM, payload=payload)
+        provider = RecordingProvider(ok_result())
+        ModelRouter(store, provider).invoke(
+            "cognition", "define/select", stage="define", params={"candidates": "x"}
+        )
+        assert provider.kwargs["reasoning_effort"] == "low"
+
+
+def test_actor_provenance_follows_session_routing(tmp_path: Path) -> None:
+    with JournalStore.open(tmp_path / "s") as store:
+        payload = created_payload()
+        payload["config"] = session_model_config("openai")
+        store.append(type="session.created", stage="intake", actor=SYSTEM, payload=payload)
+        router = ModelRouter(store, RecordingProvider(ok_result()))
+        assert router.actor("facilitator", "cognition").model == "gpt-5"
+        assert router.actor("novelty", "extraction").model == "gpt-5-mini"
+
+
+def test_every_allowlisted_model_has_a_list_price() -> None:
+    from bokken.models.router import MODEL_ALLOWLIST, MODELS
+    from bokken.report.context import PRICE_PER_MTOK
+
+    assert set(PRICE_PER_MTOK) == set(MODEL_ALLOWLIST)
+    for name, spec in MODELS.items():
+        assert PRICE_PER_MTOK[name] == spec.price
