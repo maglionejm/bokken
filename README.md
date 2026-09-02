@@ -246,4 +246,6 @@ workflow (`openspec/`) is the front door for contributions — see
 
 ## License
 
-[Apache-2.0](LICENSE). Copyright 2026 Juan Martín Maglione.
+[Apache-2.0](LICENSE). Copyright 2026 Juan Martín Maglione and Marc Puig.
+
+Created and maintained by [Juan Martín Maglione](https://github.com/maglionejm) and [Marc Puig](https://github.com/mpuig).

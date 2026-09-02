@@ -5,7 +5,8 @@ description = "An agentic harness for Design Thinking - one executable, instrume
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Juan Martin Maglione" }]
+authors = [{ name = "Juan Martin Maglione" }, { name = "Marc Puig" }]
+maintainers = [{ name = "Juan Martin Maglione" }, { name = "Marc Puig" }]
 keywords = ["design-thinking", "agents", "facilitation", "llm", "mcp", "product-discovery", "jtbd"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
