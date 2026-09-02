@@ -85,26 +85,36 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/) and a provider API key. Anthropic
-is the default; OpenAI is available via the optional extra:
+See a complete run first — no API key, no network, no cost
+([sample output](https://maglionejm.github.io/bokken/gallery/demo-report.html)):
 
 ```sh
+uvx bokken demo
+# halt: completed - dossier generated; handoff specs generated; report exported
+# this demo cost $0.00 and made 0 network calls - a real run on your
+# product is typically $20-35 (report paths are printed above)
+```
+
+Then point it at something real. Requires [uv](https://docs.astral.sh/uv/)
+and a provider API key — Anthropic is the default, OpenAI via the extra:
+
+```sh
+uvx bokken init          # writes a brief from a template: saas-retention,
+                         # consumer-app, or internal-tool
+
 # default provider
 export ANTHROPIC_API_KEY=...
-uvx bokken version
 
 # OpenAI provider
 uvx --from 'bokken[openai]' bokken version
 export OPENAI_API_KEY=...
 uv run bokken new retention --provider openai --model gpt-5.6-luna \
-  --reasoning-effort high --brief brief.json --mode dojo
+  --reasoning-effort high --brief bokken-brief.json --mode dojo
 ```
 
-Until the PyPI release lands you can run straight from the repo tag:
-
-```sh
-uvx --from git+https://github.com/maglionejm/bokken bokken version
-```
+Every `bokken run` states the typical cost and the session's token guardrail
+before spending, and prints a receipt (`$ · model calls`) whenever it halts;
+`bokken costs <name>` breaks it down per stage × prompt × class.
 
 Optional extras: `uvx --from 'bokken[ui]' bokken ...` unlocks the UI
 walkthrough and per-feature tests (plus `uvx playwright install chromium`

@@ -13,10 +13,9 @@ from bokken.panel import (
 )
 from bokken.panel.corpus import Corpus
 from bokken.stages.base import (
-    FACILITATOR,
-    FOUNDER,
     RouterFactory,
     dumps,
+    facilitator,
     open_stage,
     opportunities_text,
     structured,
@@ -52,10 +51,14 @@ class IdeateEngine:
         problem_statement = self._problem_statement(state)
         if state.mode == "dojo":
             personas = self._dojo_panel(ctx)
-            participants = [(p.name, p.actor(), p) for p in personas if p.role == "segment"]
+            participants = [
+                (p.name, p.actor(router.routing["cognition"]), p)
+                for p in personas
+                if p.role == "segment"
+            ]
             skeptic = next(p for p in personas if p.role == "skeptic")
         else:
-            participants = [("facilitator", FACILITATOR, None)]
+            participants = [("facilitator", facilitator(router), None)]
             skeptic = None
 
         options: list[Event] = []
@@ -132,7 +135,7 @@ class IdeateEngine:
             ctx.store.append(
                 type="evidence.captured",
                 stage="ideate",
-                actor=skeptic.actor(),
+                actor=skeptic.actor(router.routing["challenge"]),
                 payload={
                     "content": challenge.challenge,
                     "source": f"persona:{skeptic.persona_id}",
@@ -155,15 +158,18 @@ class IdeateEngine:
     ) -> StageOutcome | None:
         state = replay(ctx.store.events())
         criteria = frozen_criteria(state) or DEFAULT_CRITERIA
+        decider = facilitator(router)
         if state.mode == "founder":
             choice = ctx.input_port.ask(
                 "Pick the option to advance (number):\n" + self._options_text(options)
             )
             try:
-                winner = options[int(choice.strip()) - 1]
+                winner = options[int(choice.text.strip()) - 1]
             except (ValueError, IndexError):
                 winner = options[0]
-            positions = [{"actor": "founder", "position": winner.payload["summary"]}]
+            # Whoever actually picked owns the decision, human or agent client.
+            decider = choice.actor
+            positions = [{"actor": decider.name, "position": winner.payload["summary"]}]
             dissent: list[dict[str, str]] = []
         else:
             code_context = self._code_context(ctx)
@@ -244,14 +250,14 @@ class IdeateEngine:
                 ctx.store.append(
                     type="option.killed",
                     stage="ideate",
-                    actor=FACILITATOR,
+                    actor=facilitator(router),
                     payload={"reason": "outscored under the frozen criteria"},
                     refs=[option.id],
                 )
         ctx.store.append(
             type="decision.recorded",
             stage="ideate",
-            actor=FACILITATOR if state.mode == "dojo" else FOUNDER,
+            actor=decider,
             payload={
                 "question": "which concept advances to prototype",
                 "options": [o.id for o in options],
@@ -259,7 +265,8 @@ class IdeateEngine:
                 "positions": positions,
                 "resolution": winner.payload["summary"],
                 "dissent": dissent,
-                "requires_real_validation": state.mode == "dojo",
+                # Only a human's own selection escapes the flag.
+                "requires_real_validation": decider.kind != "human",
                 "pivoted_by_timebox": pivoted,
             },
             refs=[winner.id],
@@ -269,14 +276,14 @@ class IdeateEngine:
     def _founder_contributions(self, ctx: StageContext, options: list[Event]) -> None:
         while True:
             idea = ctx.input_port.ask("Add your own option (empty to finish):")
-            if not idea.strip():
+            if not idea.text.strip():
                 break
             options.append(
                 ctx.store.append(
                     type="option.created",
                     stage="ideate",
-                    actor=FOUNDER,
-                    payload={"summary": idea.strip()},
+                    actor=idea.actor,
+                    payload={"summary": idea.text.strip()},
                 )
             )
 

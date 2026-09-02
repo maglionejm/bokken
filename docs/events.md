@@ -112,6 +112,18 @@ Prompt *content* never enters the ledger — the id, version, and content hash
 do, so any output is traceable to the exact prompt that produced it, and token
 budgets are enforceable from replay.
 
+### `interview.*` — reaching a real human
+
+| Type | Payload | Notes |
+| --- | --- | --- |
+| `interview.consent_requested` | `participant, channel` | appended *before* the channel reaches the human: contacting a real person is never off the record |
+| `interview.consent_resolved` | `participant, channel, outcome (granted\|declined\|no_response\|ambiguous), basis` | `refs` → the request (required); only `granted` may be followed by an interview question |
+
+Consent is affirmative or it does not exist: silence, a timed-out answer
+window, and an ambiguous reply are refusals, journaled as such. The raw phone
+number never enters the ledger (the participant label stands in), and a
+consent exchange is never journaled as evidence.
+
 ### `artifact.*` — files on disk, hashes in the ledger
 
 | Type | Payload | Notes |
@@ -140,7 +152,9 @@ migration note. Records, once written, are never migrated in place.
 
 ## Post-completion events
 
-Validation interviews append after `complete`: participant answers are
+Validation interviews append after `complete`: the outbound contact is an
+`interview.consent_requested` / `interview.consent_resolved` pair before any
+question goes out, participant answers are
 `evidence.captured` with `actor.kind: human`, `confidence_class: reported`,
 and source `validation interview (...)`; rescoring appends
 `assumption.scored` with refs to those exchanges. Wireframe exercises journal

@@ -8,7 +8,9 @@ The tables name the default Anthropic models. For an OpenAI session, the same
 actors and routing classes use `gpt-5` on the four frontier lanes
 (`research`, `challenge`, `cognition`, `generation`) and `gpt-5-mini` on
 `sidekick` and `extraction`. A `--model` override changes only frontier lanes,
-so delegated reads and extraction retain the Fusion cost boundary.
+so delegated reads and extraction retain the Fusion cost boundary. Each actor's
+journaled `model` is resolved from the session's routing table, so an OpenAI run
+attributes these agents to the OpenAI model that served them.
 
 ## Frontier lanes (judgment)
 

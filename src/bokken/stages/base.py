@@ -13,8 +13,13 @@ from bokken.models.router import ModelRouter
 from bokken.orchestrator import SYSTEM_ACTOR, StageContext
 from bokken.panel.corpus import Corpus
 
-FACILITATOR = Actor(kind="agent", name="facilitator", model="claude-fable-5")
 FOUNDER = Actor(kind="human", name="founder")
+
+
+def facilitator(router: ModelRouter) -> Actor:
+    """Stage mechanics run on the cognition lane; provenance follows routing."""
+    return router.actor("facilitator", "cognition")
+
 
 RouterFactory = Callable[[JournalStore], ModelRouter]
 

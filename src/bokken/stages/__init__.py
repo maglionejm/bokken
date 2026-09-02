@@ -34,11 +34,20 @@ def anthropic_router_factory() -> Callable[[JournalStore], ModelRouter]:
 
 
 def provider_router_factory() -> Callable[[JournalStore], ModelRouter]:
-    """Router factory selecting Anthropic or OpenAI from session routing."""
+    """Router factory selecting Anthropic or OpenAI from session routing.
+
+    Clients are built up front so a missing SDK extra or API key refuses the
+    run instead of being journaled as a model failure on every call."""
     from bokken.models.auto_provider import AutoProvider
 
     provider = AutoProvider()
-    return lambda store: ModelRouter(store, provider)
+
+    def build(store: JournalStore) -> ModelRouter:
+        router = ModelRouter(store, provider)
+        provider.preflight(list(router.routing.values()))
+        return router
+
+    return build
 
 
 __all__ = [

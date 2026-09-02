@@ -16,8 +16,11 @@ Two properties make the surface safe to hand to agents:
 - **Attribution.** Every state-changing call is journaled with
   `actor.kind: "agent"` and the client's *handshake* identity (name@version
   from the MCP `initialize` exchange). Identity is stamped server-side and
-  cannot be supplied — or forged — via tool arguments. The ledger always shows
-  whether a human or an agent approved a gate.
+  cannot be supplied — or forged — via tool arguments. That includes answers:
+  text submitted through `submit_input` is journaled as the client's own
+  contribution in the `simulated` confidence class, never as human testimony.
+  The ledger always shows whether a human or an agent approved a gate or
+  answered a question.
 
 ## Setup
 
@@ -134,9 +137,11 @@ stage for rework. Returns `{kind:"gate", resolution, stage}`. Errors when no
 gate is pending.
 
 **`submit_input`** (`question_id`, `answer`) — answer the pending Founder-mode
-question, then call `run_session` again to consume it. Errors on a stale or
-unknown `question_id` (see Founder mode below). Returns
-`{stored: true, question_id}`.
+question, then call `run_session` again to consume it. The answer is attributed
+to your handshake identity, so it is journaled as agent-supplied `simulated`
+evidence, not as the founder's own words. Errors on a stale or unknown
+`question_id` (see Founder mode below). Returns
+`{stored: true, question_id, attributed_to}`.
 
 **`request_loopback`** (`to_stage`, `reason`) — journaled human/agent-initiated
 return to an earlier stage. Legal edges only: `test→define`,
@@ -189,12 +194,22 @@ questions flow through an **input mailbox**:
    `pending_question` text and a stable `pending_question_id`.
 2. Obtain the answer (ask your own user, look it up, etc.) and call
    `submit_input` with that exact `question_id`.
-3. Call `run_session` again — the engine consumes the answer (journaling it as
-   human-reported evidence) and continues to the next question or halt.
+3. Call `run_session` again — the engine consumes the answer and continues to
+   the next question or halt.
 
 A `submit_input` whose id doesn't match the currently pending question is
 refused — answers can't be queued blindly against questions that were never
 asked.
+
+**The mailbox does not make you the founder.** An answer that arrives over MCP
+is journaled with your handshake actor (`actor.kind: "agent"`) in the
+`simulated` confidence class, sourced as `agent-supplied (<client>)`. It is a
+machine contribution and Bokken labels it as one: everything derived from it
+inherits the class, so Dossier lines read `synthetic` and the decisions resting
+on it carry `requires_real_validation`. Relaying a real person's words through
+`submit_input` does not upgrade them — only a human answering at the terminal
+(or a real validation interview) produces `observed`/`reported` human evidence.
+If your run needs human-grade evidence, get it from a human surface.
 
 ## Worked example: an agent runs the Dojo end to end
 

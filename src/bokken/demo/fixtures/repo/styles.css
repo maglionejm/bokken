@@ -1,0 +1,17 @@
+/* Lanzadera design tokens — utilitarian transit look */
+:root {
+  --lz-ink: #1c2733;
+  --lz-paper: #f6f8fa;
+  --lz-brand: #0f766e;      /* teal: route lines, primary actions */
+  --lz-brand-soft: #ccfbf1;
+  --lz-alert: #b45309;      /* amber: delay states */
+  --lz-danger: #b91c1c;     /* red: missed pickup */
+  --lz-radius: 10px;
+  --lz-font: -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body { font-family: var(--lz-font); color: var(--lz-ink); background: var(--lz-paper); }
+.btn-primary { background: var(--lz-brand); color: #fff; border-radius: var(--lz-radius); padding: 12px 20px; font-weight: 600; }
+.card { background: #fff; border: 1px solid #e2e8f0; border-radius: var(--lz-radius); padding: 16px; }
+.pickup-window { font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 700; }
+.delay { color: var(--lz-alert); }
+.badge-route { background: var(--lz-brand-soft); color: var(--lz-brand); border-radius: 999px; padding: 2px 10px; font-size: 12px; }

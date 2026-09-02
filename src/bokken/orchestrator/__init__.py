@@ -13,6 +13,7 @@ from bokken.orchestrator.machine import (
 )
 from bokken.orchestrator.runner import (
     SYSTEM_ACTOR,
+    Answer,
     InputPort,
     InputRequired,
     MissingEngineError,
@@ -34,6 +35,7 @@ __all__ = [
     "LOOPBACKS",
     "SYSTEM_ACTOR",
     "TRANSITIONS",
+    "Answer",
     "CriteriaVerdict",
     "IllegalTransitionError",
     "InputPort",

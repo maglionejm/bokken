@@ -4,6 +4,7 @@ import pytest
 
 from bokken.journal import Actor, read_events, replay
 from bokken.orchestrator import (
+    Answer,
     IllegalTransitionError,
     MissingEngineError,
     Runner,
@@ -30,11 +31,13 @@ def home(tmp_path: Path, monkeypatch) -> Path:
 
 
 class ScriptedPort:
+    """Stands in for the terminal: answers come from a real human."""
+
     def __init__(self, answers: list[str]) -> None:
         self.answers = answers
 
-    def ask(self, question: str, *, kind: str = "text") -> str:
-        return self.answers.pop(0)
+    def ask(self, question: str, *, kind: str = "text") -> Answer:
+        return Answer(text=self.answers.pop(0), actor=HUMAN)
 
 
 def founder_session(name: str = "s1", **kw):

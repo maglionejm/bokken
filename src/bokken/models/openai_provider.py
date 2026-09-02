@@ -7,10 +7,19 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from bokken.journal import RoutingClass
-from bokken.models.router import ProviderResult
+from bokken.models.router import (
+    DEFAULT_REASONING_EFFORT,
+    FRONTIER_ROUTING_CLASSES,
+    REASONING_EFFORTS,
+    ProviderResult,
+    supports_reasoning,
+)
 
 if TYPE_CHECKING:
     from openai import OpenAI
+
+# Responses streams end with exactly one of these; each carries the final response.
+_TERMINAL_EVENTS = {"response.completed", "response.incomplete", "response.failed"}
 
 
 def _usage_dict(usage: object) -> dict[str, int]:
@@ -27,11 +36,32 @@ def _usage_dict(usage: object) -> dict[str, int]:
     }
 
 
+def _refused(response: object) -> bool:
+    """A refusal is a message item whose content is a ``refusal`` part."""
+    for item in getattr(response, "output", None) or []:
+        if getattr(item, "type", None) != "message":
+            continue
+        for part in getattr(item, "content", None) or []:
+            if getattr(part, "type", None) == "refusal":
+                return True
+    return False
+
+
 def _stop_reason(response: object) -> str | None:
+    if _refused(response):
+        return "refusal"
     if getattr(response, "status", None) == "incomplete":
         reason = getattr(getattr(response, "incomplete_details", None), "reason", None)
         return "max_tokens" if reason == "max_output_tokens" else reason or "incomplete"
     return "end_turn"
+
+
+def _raise_if_failed(response: object) -> None:
+    status = getattr(response, "status", None)
+    if status in ("failed", "cancelled"):
+        error = getattr(response, "error", None)
+        message = getattr(error, "message", None) or status
+        raise RuntimeError(f"OpenAI response {status}: {message}")
 
 
 class OpenAIProvider:
@@ -57,49 +87,56 @@ class OpenAIProvider:
         web_search: bool = False,
         reasoning_effort: str | None = None,
     ) -> ProviderResult:
-        from bokken.models.prompts import CACHE_SPLIT
+        from bokken.models.prompts import split_cache_marker
 
-        # Anthropic uses this marker to create explicit cache blocks. OpenAI
-        # caches shared prompt prefixes implicitly, so preserve the same order
-        # while ensuring the internal marker never reaches the model.
-        if CACHE_SPLIT in rendered:
-            prefix, suffix = rendered.split(CACHE_SPLIT, 1)
-            rendered = f"{prefix.rstrip()}\n{suffix.lstrip()}"
+        # Anthropic uses the marker for explicit cache blocks; OpenAI caches
+        # shared prefixes implicitly, so send the same text with the marker gone.
         kwargs: dict[str, Any] = {
             "model": model,
-            "input": rendered,
+            "input": "".join(split_cache_marker(rendered)),
             "max_output_tokens": max_tokens,
         }
         if web_search:
             kwargs["tools"] = [{"type": "web_search"}]
-        if reasoning_effort is not None:
-            if reasoning_effort not in {"low", "medium", "high"}:
-                raise ValueError(f"unsupported reasoning effort: {reasoning_effort}")
-            kwargs["reasoning"] = {"effort": reasoning_effort}
+        # Effort applies to the frontier lanes only (parity with the Anthropic
+        # adapter) and never to models that reject the parameter.
+        if routing_class in FRONTIER_ROUTING_CLASSES and supports_reasoning(model):
+            effort = reasoning_effort or DEFAULT_REASONING_EFFORT
+            if effort not in REASONING_EFFORTS:
+                raise ValueError(f"unsupported reasoning effort: {effort}")
+            kwargs["reasoning"] = {"effort": effort}
 
-        if schema is not None:
+        data = None
+        if schema is not None and stream:
+            with self.client.responses.stream(**kwargs, text_format=schema) as events:
+                response = events.get_final_response()
+            data = getattr(response, "output_parsed", None)
+        elif schema is not None:
             response = self.client.responses.parse(**kwargs, text_format=schema)
             data = getattr(response, "output_parsed", None)
+        elif stream:
+            response = self._final_stream_response(
+                self.client.responses.create(**kwargs, stream=True)
+            )
         else:
-            response = self.client.responses.create(**kwargs, stream=stream)
-            if stream:
-                response = self._final_stream_response(response)
-            data = None
+            response = self.client.responses.create(**kwargs)
+        _raise_if_failed(response)
+        stop_reason = _stop_reason(response)
         return ProviderResult(
-            text=getattr(response, "output_text", "") or "",
-            data=data,
+            text=(getattr(response, "output_text", "") or "") if stop_reason != "refusal" else "",
+            data=data if stop_reason != "refusal" else None,
             usage=_usage_dict(getattr(response, "usage", None)),
             request_id=getattr(response, "id", None),
-            stop_reason=_stop_reason(response),
+            stop_reason=stop_reason,
             model=getattr(response, "model", model) or model,
         )
 
     @staticmethod
     def _final_stream_response(events: object) -> object:
         final: object | None = None
-        for event in events:  # Responses stream ends with response.completed.
-            if getattr(event, "type", "") == "response.completed":
+        for event in events:
+            if getattr(event, "type", "") in _TERMINAL_EVENTS:
                 final = getattr(event, "response", None)
         if final is None:
-            raise RuntimeError("OpenAI response stream ended without a completed response")
+            raise RuntimeError("OpenAI response stream ended without a terminal response event")
         return final

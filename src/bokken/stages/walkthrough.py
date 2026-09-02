@@ -16,7 +16,7 @@ from typing import Protocol
 
 from bokken.journal import Actor
 from bokken.journal.schema import content_hash
-from bokken.stages.base import FACILITATOR, structured
+from bokken.stages.base import facilitator, structured
 from bokken.stages.schemas import UIReview
 
 WALKER_ACTOR = Actor(kind="system", name="ui-walker")
@@ -367,7 +367,7 @@ def run_walkthrough(ctx, router) -> None:
     ctx.store.append(
         type="artifact.generated",
         stage="empathize",
-        actor=FACILITATOR,
+        actor=facilitator(router),
         payload={
             "path": "artifacts/ui/ui_review.md",
             "kind": "ui_review",

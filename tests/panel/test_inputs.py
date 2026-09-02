@@ -81,6 +81,8 @@ def test_citation_kind_lands_in_evidence(tmp_path: Path) -> None:
     source_id = corpus.ids_of_kind("metrics")[0]
 
     class OneShot:
+        model = "claude-fable-5"
+
         def answer(self, persona, question, context):
             return GroundedAnswer(
                 text="churn was 8% in July",

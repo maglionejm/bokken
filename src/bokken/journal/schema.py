@@ -32,6 +32,7 @@ StopReason = Literal[
 ]
 RoutingClass = Literal["research", "challenge", "cognition", "extraction", "generation", "sidekick"]
 SuppressionReason = Literal["budget_exhausted", "out_of_stage", "mode_config", "superseded"]
+ConsentOutcome = Literal["granted", "declined", "no_response", "ambiguous"]
 
 
 class Actor(BaseModel):
@@ -228,6 +229,22 @@ class ModelCalled(Payload):
     duration_ms: int | None = None
 
 
+class InterviewConsentRequested(Payload):
+    """An outbound contact asking a real human to take part, before it happens."""
+
+    participant: str
+    channel: str
+
+
+class InterviewConsentResolved(Payload):
+    """What came back. Only `granted` may be followed by an interview question."""
+
+    participant: str
+    channel: str
+    outcome: ConsentOutcome
+    basis: str
+
+
 class ArtifactGenerated(Payload):
     path: str
     kind: str
@@ -257,11 +274,19 @@ TAXONOMY: dict[str, type[Payload]] = {
     "facilitation.move_suppressed": MoveSuppressed,
     "transition.fired": TransitionFired,
     "model.called": ModelCalled,
+    "interview.consent_requested": InterviewConsentRequested,
+    "interview.consent_resolved": InterviewConsentResolved,
     "artifact.generated": ArtifactGenerated,
 }
 
 # Event types that must reference prior events to be meaningful.
-_REFS_REQUIRED = {"option.built_on", "option.merged", "option.killed", "assumption.scored"}
+_REFS_REQUIRED = {
+    "option.built_on",
+    "option.merged",
+    "option.killed",
+    "assumption.scored",
+    "interview.consent_resolved",
+}
 
 
 class Event(BaseModel):
