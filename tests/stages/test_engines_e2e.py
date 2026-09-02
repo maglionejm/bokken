@@ -7,8 +7,9 @@ import pytest
 from bokken.journal import Actor, read_events, replay
 from bokken.kata import MVP_MOVES, Kata
 from bokken.models import ModelRouter
-from bokken.orchestrator import Runner, create_session
+from bokken.orchestrator import Answer, Runner, create_session
 from bokken.stages import engine_suite
+from bokken.stages.base import FOUNDER
 from tests.panel.test_inputs import make_repo
 from tests.stages.fake_provider import ScriptedProvider
 
@@ -169,8 +170,9 @@ class FounderPort:
             "contradicted: nobody tolerates detours",  # test: assumption 2
         ]
 
-    def ask(self, question: str, *, kind: str = "text") -> str:
-        return self.script.pop(0)
+    def ask(self, question: str, *, kind: str = "text") -> Answer:
+        # The human at the terminal, as TerminalInputPort reports them.
+        return Answer(text=self.script.pop(0), actor=FOUNDER)
 
 
 def test_founder_full_run_offline(tmp_path: Path) -> None:
