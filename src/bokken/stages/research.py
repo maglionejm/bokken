@@ -11,12 +11,9 @@ debt: a Dojo run never reaches the outside world silently.
 
 from __future__ import annotations
 
-from bokken.journal import Actor
 from bokken.journal.schema import content_hash
-from bokken.stages.base import FACILITATOR, structured
+from bokken.stages.base import facilitator, structured
 from bokken.stages.schemas import MarketResearch
-
-RESEARCHER = Actor(kind="agent", name="concept-researcher", model="claude-fable-5")
 
 
 def prior_research(ctx) -> str:
@@ -41,7 +38,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="evidence.abstained",
             stage="prototype",
-            actor=RESEARCHER,
+            actor=router.actor("concept-researcher", "research"),
             payload={
                 "question": "Concept research on the live web",
                 "gap": "the brief does not declare allow_web_research: true; deep "
@@ -63,7 +60,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="evidence.abstained",
             stage="prototype",
-            actor=RESEARCHER,
+            actor=router.actor("concept-researcher", "research"),
             payload={
                 "question": "Concept research on the live web",
                 "gap": f"research call failed: {deep.status} {deep.detail}",
@@ -86,7 +83,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         event = ctx.store.append(
             type="evidence.captured",
             stage="prototype",
-            actor=RESEARCHER,
+            actor=router.actor("concept-researcher", "research"),
             payload={
                 "content": signal.stat,
                 "source": signal.source_url,
@@ -98,7 +95,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         event = ctx.store.append(
             type="evidence.captured",
             stage="prototype",
-            actor=RESEARCHER,
+            actor=router.actor("concept-researcher", "research"),
             payload={
                 "content": f"{competitor.name}: {competitor.what}. Overlap: {competitor.overlap}",
                 "source": competitor.url or "web research",
@@ -137,7 +134,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="artifact.generated",
             stage="prototype",
-            actor=FACILITATOR,
+            actor=facilitator(router),
             payload={
                 "path": f"artifacts/research/{name}",
                 "kind": "market_research",

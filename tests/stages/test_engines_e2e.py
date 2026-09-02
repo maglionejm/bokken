@@ -159,6 +159,12 @@ def test_dojo_full_run_offline(tmp_path: Path) -> None:
     )
     assert state.tokens_spent() == 70 * len(model_calls)
 
+    # Journaled agent provenance names the model that served each lane, so an
+    # OpenAI session never attributes its work to a Claude model.
+    served = {e.payload["model"] for e in model_calls}
+    agent_models = {e.actor.model for e in events if e.actor.kind == "agent" and e.actor.model}
+    assert agent_models and agent_models <= served
+
 
 class FounderPort:
     def __init__(self) -> None:
@@ -209,3 +215,26 @@ def test_resume_mid_run_offline(tmp_path: Path) -> None:
     runner.resolve_gate(resolution="approve", actor=Actor(kind="human", name="founder"))
     second = make_runner(session_dir, ScriptedProvider()).run()
     assert second.halt == "completed"
+
+
+def test_openai_session_attributes_agents_to_openai_models(tmp_path: Path) -> None:
+    from bokken.models import session_model_config
+
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "openai-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={
+            "panel": {"size": 6, "seed": 11},
+            **session_model_config("openai", reasoning_effort="low"),
+        },
+    )
+    provider = ScriptedProvider()
+    assert make_runner(session_dir, provider).run().halt == "completed"
+
+    events = list(read_events(session_dir))
+    agent_models = {e.actor.model for e in events if e.actor.kind == "agent" and e.actor.model}
+    assert agent_models and agent_models <= {"gpt-5", "gpt-5-mini"}
+    assert set(provider.efforts) == {"low"}

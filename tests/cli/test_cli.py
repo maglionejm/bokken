@@ -202,3 +202,22 @@ def test_costs_verb_reports_journaled_spend(tmp_path, monkeypatch):
     assert payload["rows"] and all("prompt_id" in r for r in payload["rows"])
     total = round(sum(r["cost_usd"] for r in payload["rows"]), 2)
     assert abs(total - payload["total_usd"]) < 0.01
+
+
+def test_run_prints_cost_framing_and_receipt(brief_file: Path) -> None:
+    new_session(brief_file, "receipts")
+    result = runner.invoke(app, ["run", "receipts"])
+    assert result.exit_code == 0, result.output
+    flat = result.output.replace("\n", "")
+    assert "cost framing:" in flat and "20,000,000 tokens" in flat
+    assert "receipt: $" in flat and "bokken costs receipts" in flat
+
+
+def test_run_json_carries_receipt_fields(brief_file: Path) -> None:
+    new_session(brief_file, "receipts-json")
+    outcome = json.loads(runner.invoke(app, ["run", "receipts-json", "--json"]).stdout)
+    assert outcome["cost_usd"] == 0.0  # halted at the intake gate: nothing spent yet
+    assert outcome["model_calls"] == 0
+    runner.invoke(app, ["gate", "receipts-json", "approve"])
+    outcome = json.loads(runner.invoke(app, ["run", "receipts-json", "--json"]).stdout)
+    assert outcome["model_calls"] >= 1

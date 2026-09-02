@@ -5,7 +5,7 @@ from __future__ import annotations
 from bokken.journal import replay
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import cast_panel, check_firewall, journal_manifest
-from bokken.stages.base import FACILITATOR, RouterFactory, dumps, open_stage, structured
+from bokken.stages.base import RouterFactory, dumps, facilitator, open_stage, structured
 from bokken.stages.schemas import Evaluation, Recommendation
 
 _SCORES = ("supported", "contradicted", "untested")
@@ -61,7 +61,7 @@ class TestEngine:
             reaction = ctx.store.append(
                 type="evidence.captured",
                 stage="test",
-                actor=persona.actor(),
+                actor=persona.actor(router.routing["challenge"]),
                 payload={
                     "content": evaluation.reaction,
                     "source": f"persona:{persona.persona_id}",
@@ -73,7 +73,7 @@ class TestEngine:
             ctx.store.append(
                 type="assumption.scored",
                 stage="test",
-                actor=persona.actor(),
+                actor=persona.actor(router.routing["challenge"]),
                 payload={"score": evaluation.score, "rationale": evaluation.reaction},
                 refs=[assumption.id, reaction.id],
             )
@@ -130,7 +130,7 @@ class TestEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="test",
-            actor=FACILITATOR,
+            actor=facilitator(router),
             payload={
                 "question": "kill, iterate, or proceed",
                 "options": ["kill", "iterate", "proceed"],

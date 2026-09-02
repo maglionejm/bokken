@@ -46,7 +46,8 @@ class Persona(BaseModel):
     ocean: dict[str, float] = Field(default_factory=dict)
     grounding_scope: list[str] = Field(default_factory=list)
 
-    def actor(self, model: str = "claude-opus-4-8") -> Actor:
+    def actor(self, model: str) -> Actor:
+        """``model`` is the one routed for the lane this contribution runs on."""
         return Actor(kind="agent", name=self.name, model=model, persona_id=self.persona_id)
 
 

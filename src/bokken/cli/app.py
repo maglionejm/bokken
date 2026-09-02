@@ -130,6 +130,63 @@ def version() -> None:
     print(bokken.__version__)
 
 
+@app.command("init")
+@guarded
+def init(
+    template: Annotated[
+        str | None,
+        typer.Option(help="saas-retention, consumer-app, or internal-tool (skips prompts)."),
+    ] = None,
+    out_path: Annotated[Path, typer.Option("--out", help="Where to write the brief JSON.")] = Path(
+        "bokken-brief.json"
+    ),
+    as_json: JsonFlag = False,
+) -> None:
+    """Write a validated brief file from a template; prints the commands that use it."""
+    from bokken.cli.templates import TEMPLATES, build_brief
+
+    if template is not None:
+        if template not in TEMPLATES:
+            raise typer.BadParameter(f"unknown template; pick one of {sorted(TEMPLATES)}")
+        brief_data = build_brief(template)
+    else:
+        names = sorted(TEMPLATES)
+        out.print("Templates: " + ", ".join(f"{i + 1}) {n}" for i, n in enumerate(names)))
+        pick = typer.prompt("Template", default="1")
+        chosen = names[int(pick) - 1] if pick.strip().isdigit() else pick.strip()
+        if chosen not in TEMPLATES:
+            raise typer.BadParameter(f"unknown template; pick one of {names}")
+        product = typer.prompt("Product name")
+        brief_data = build_brief(chosen, product)
+        brief_data["problem_space"] = typer.prompt(
+            "Problem space", default=brief_data["problem_space"]
+        )
+        segments = typer.prompt(
+            "Target segments (comma-separated)",
+            default=", ".join(brief_data["target_segments"]),
+        )
+        brief_data["target_segments"] = [s.strip() for s in segments.split(",") if s.strip()]
+        criteria = typer.prompt(
+            "Success criteria (comma-separated)",
+            default=", ".join(brief_data["success_criteria"]),
+        )
+        brief_data["success_criteria"] = [s.strip() for s in criteria.split(",") if s.strip()]
+        repo = typer.prompt("Path to the product's repo (empty to skip)", default="")
+        if repo.strip():
+            brief_data["inputs"]["repo"] = str(Path(repo.strip()).expanduser().resolve())
+
+    Brief.model_validate(brief_data)  # fail before touching disk
+    out_path.write_text(json.dumps(brief_data, indent=2, ensure_ascii=False) + "\n")
+    session = out_path.stem.removesuffix("-brief") or "my-product"
+    if as_json:
+        print(json.dumps({"brief": str(out_path), "template": template or "interactive"}))
+        return
+    out.print(f"brief written to {out_path}")
+    out.print("next:")
+    out.print(f"  bokken new {session} --brief {out_path}")
+    out.print(f"  bokken run {session}")
+
+
 @app.command("new")
 @guarded
 def new(
@@ -226,12 +283,35 @@ def new(
     emit(result, as_json, lambda: out.print(f"created session '{name}' at {session_dir}"))
 
 
+def _session_receipt(session_dir: Path) -> tuple[float, int]:
+    """Session-to-date list-price cost and model-call count from the journal."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import cost_rows
+
+    rows = cost_rows(build_model(session_dir))
+    return round(sum(r["cost_usd"] for r in rows), 2), sum(r["calls"] for r in rows)
+
+
+def _budget_guardrail(session_dir: Path) -> int | None:
+    from bokken.journal.store import read_events
+
+    for event in read_events(session_dir):
+        if event.type == "session.created":
+            budgets = event.payload.get("config", {}).get("budgets", {})
+            return budgets.get("total_tokens")
+    return None
+
+
 @app.command("run")
 @guarded
 def run(name: str, as_json: JsonFlag = False) -> None:
     """Resume and continue the loop until a gate, input, stop, or completion.
     Completed runs are finalized automatically: Dossier, then handoff specs."""
     session_dir = resolve_session_dir(name)
+    if not as_json:
+        guardrail = _budget_guardrail(session_dir)
+        limit = f"stops at {guardrail:,} tokens" if guardrail else "no token guardrail set"
+        out.print(f"cost framing: a full run typically lands at $20-35 list price; {limit}")
     runner = wiring.build_runner(session_dir, interactive=not as_json)
     result = _run_result(runner.run(actor=HUMAN))
     if result.halt == "completed":
@@ -239,7 +319,17 @@ def run(name: str, as_json: JsonFlag = False) -> None:
 
         finalization = finalize_session(session_dir, wiring.router_factory())
         result = result.model_copy(update={"finalization": finalization.summary()})
-    emit(result, as_json, lambda: _print_run(result))
+    cost, calls = _session_receipt(session_dir)
+    result = result.model_copy(update={"cost_usd": cost, "model_calls": calls})
+
+    def _text() -> None:
+        _print_run(result)
+        out.print(
+            f"receipt: ${cost:.2f} across {calls} model calls so far "
+            f"(bokken costs {name} for the breakdown)"
+        )
+
+    emit(result, as_json, _text)
 
 
 @app.command("step")
@@ -443,6 +533,29 @@ def dossier(name: str, as_json: JsonFlag = False) -> None:
     )
 
 
+@app.command("demo")
+@guarded
+def demo(
+    name: Annotated[str, typer.Argument(help="Session name for the demo run.")] = "demo",
+    as_json: JsonFlag = False,
+) -> None:
+    """A complete run on the bundled Lanzadera case: no API key, no network, ~$0."""
+    from bokken.demo import run_demo
+
+    summary = run_demo(name)
+    if as_json:
+        print(json.dumps({k: str(v) for k, v in summary.items()}, indent=2))
+        return
+    out.print(f"halt: {summary['halt']} - {summary['finalization']}")
+    out.print(f"report (html): {summary['report_html']}")
+    out.print(f"report (deck): {summary['report_pptx']}")
+    out.print(f"dossier:       {summary['dossier']}")
+    out.print(
+        "this demo cost $0.00 and made 0 network calls - a real run on your "
+        f"product is typically $20-35 (`bokken costs {name}` for the math)"
+    )
+
+
 @app.command("validate")
 @guarded
 def validate(
@@ -460,7 +573,7 @@ def validate(
 ) -> None:
     """Run a real validation interview against the session's research debt."""
     from bokken.interview import build_guide, run_validation_interview
-    from bokken.interview.channels import TerminalChannel
+    from bokken.interview.channels import ChannelUnavailable, TerminalChannel
     from bokken.interview.guide import journal_guide
     from bokken.journal.store import JournalStore
 
@@ -476,7 +589,7 @@ def validate(
         if channel == "terminal":
             live_channel = TerminalChannel()
         elif channel == "twilio":
-            from bokken.interview.channels import ChannelUnavailable, TwilioChannel
+            from bokken.interview.channels import TwilioChannel
 
             if not to:
                 _fail("--channel twilio requires --to <E.164 number>", 2)
@@ -487,9 +600,14 @@ def validate(
         else:
             _fail(f"unknown channel {channel!r} (terminal, twilio)", 2)
         router = wiring.router_factory()(store)
-        exchanges = run_validation_interview(
-            store, router, guide, live_channel, participant=participant
-        )
+        try:
+            exchanges = run_validation_interview(
+                store, router, guide, live_channel, participant=participant
+            )
+        except ChannelUnavailable as exc:
+            # Consent refused (declined, no reply, or ambiguous) is journaled by
+            # the engine; the operator gets the reason, not a stack trace.
+            _fail(str(exc), 2)
         out.print(
             f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"
         )

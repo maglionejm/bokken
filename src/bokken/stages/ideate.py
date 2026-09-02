@@ -13,9 +13,9 @@ from bokken.panel import (
 )
 from bokken.panel.corpus import Corpus
 from bokken.stages.base import (
-    FACILITATOR,
     RouterFactory,
     dumps,
+    facilitator,
     open_stage,
     opportunities_text,
     structured,
@@ -51,10 +51,14 @@ class IdeateEngine:
         problem_statement = self._problem_statement(state)
         if state.mode == "dojo":
             personas = self._dojo_panel(ctx)
-            participants = [(p.name, p.actor(), p) for p in personas if p.role == "segment"]
+            participants = [
+                (p.name, p.actor(router.routing["cognition"]), p)
+                for p in personas
+                if p.role == "segment"
+            ]
             skeptic = next(p for p in personas if p.role == "skeptic")
         else:
-            participants = [("facilitator", FACILITATOR, None)]
+            participants = [("facilitator", facilitator(router), None)]
             skeptic = None
 
         options: list[Event] = []
@@ -131,7 +135,7 @@ class IdeateEngine:
             ctx.store.append(
                 type="evidence.captured",
                 stage="ideate",
-                actor=skeptic.actor(),
+                actor=skeptic.actor(router.routing["challenge"]),
                 payload={
                     "content": challenge.challenge,
                     "source": f"persona:{skeptic.persona_id}",
@@ -154,7 +158,7 @@ class IdeateEngine:
     ) -> StageOutcome | None:
         state = replay(ctx.store.events())
         criteria = frozen_criteria(state) or DEFAULT_CRITERIA
-        decider = FACILITATOR
+        decider = facilitator(router)
         if state.mode == "founder":
             choice = ctx.input_port.ask(
                 "Pick the option to advance (number):\n" + self._options_text(options)
@@ -246,7 +250,7 @@ class IdeateEngine:
                 ctx.store.append(
                     type="option.killed",
                     stage="ideate",
-                    actor=FACILITATOR,
+                    actor=facilitator(router),
                     payload={"reason": "outscored under the frozen criteria"},
                     refs=[option.id],
                 )

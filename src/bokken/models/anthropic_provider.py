@@ -7,7 +7,17 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from bokken.journal import RoutingClass
-from bokken.models.router import ProviderResult
+from bokken.models.router import (
+    DEFAULT_REASONING_EFFORT,
+    FRONTIER_ROUTING_CLASSES,
+    REASONING_EFFORTS,
+    ProviderResult,
+    supports_reasoning,
+)
+
+# The SDK refuses non-streaming requests that could exceed its 10-minute read
+# timeout; above this many max_tokens a structured call must stream instead.
+MAX_NONSTREAMING_TOKENS = 21_000
 
 if TYPE_CHECKING:
     import anthropic
@@ -49,22 +59,23 @@ class AnthropicProvider:
         web_search: bool = False,
         reasoning_effort: str | None = None,
     ) -> ProviderResult:
-        from bokken.models.prompts import CACHE_SPLIT
+        from bokken.models.prompts import split_cache_marker
 
-        if CACHE_SPLIT in rendered:
-            prefix, suffix = rendered.split(CACHE_SPLIT, 1)
-            content = [
+        prefix, suffix = split_cache_marker(rendered)
+        content = (
+            [
                 {"type": "text", "text": prefix, "cache_control": {"type": "ephemeral"}},
                 {"type": "text", "text": suffix},
             ]
-        else:
-            content = rendered
+            if suffix
+            else prefix
+        )
         messages = [{"role": "user", "content": content}]
         kwargs: dict = {"model": model, "max_tokens": max_tokens, "messages": messages}
         is_fable = model.startswith("claude-fable")
-        if routing_class in ("research", "challenge", "cognition", "generation"):
-            effort = reasoning_effort or "high"
-            if effort not in {"low", "medium", "high"}:
+        if routing_class in FRONTIER_ROUTING_CLASSES and supports_reasoning(model):
+            effort = reasoning_effort or DEFAULT_REASONING_EFFORT
+            if effort not in REASONING_EFFORTS:
                 raise ValueError(f"unsupported reasoning effort: {effort}")
             kwargs["output_config"] = {"effort": effort}
             if not is_fable:
@@ -81,10 +92,16 @@ class AnthropicProvider:
             ]
         surface = self.client.beta.messages if is_fable else self.client.messages
         if schema is not None:
-            response = surface.parse(**kwargs, output_format=schema)
+            # Long structured generations (handoff specs) exceed the SDK's
+            # non-streaming ceiling, so stream them and parse the final message.
+            if stream or max_tokens > MAX_NONSTREAMING_TOKENS:
+                with surface.stream(**kwargs, output_format=schema) as message_stream:
+                    response = message_stream.get_final_message()
+            else:
+                response = surface.parse(**kwargs, output_format=schema)
             return ProviderResult(
                 text=_text_of(response),
-                data=response.parsed_output,
+                data=getattr(response, "parsed_output", None),
                 usage=_usage_dict(response.usage),
                 request_id=getattr(response, "_request_id", None),
                 stop_reason=response.stop_reason,

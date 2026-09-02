@@ -17,6 +17,12 @@ the directory you run from — like git, workspace-local by default).
 
 ## Creating a session
 
+Never run before? `bokken demo` replays a complete engagement on a bundled
+fictional product — offline, deterministic, $0.00 — and prints the report
+paths. `bokken init` then writes a first brief from a template
+(`saas-retention`, `consumer-app`, `internal-tool`) and shows the exact
+`new`/`run` commands that consume it.
+
 Give Bokken something tangible to start from: the app repo, the numbers, and
 what humans have said.
 
@@ -60,6 +66,10 @@ Gate policy is tunable at creation: `--gates none`,
 bokken run retention        # advance to the next halt
 bokken status retention     # where am I, what blocks progress
 ```
+
+`run` frames its cost before spending (typical full-run range plus the
+session's token guardrail) and prints a receipt — session-to-date list-price
+spend and model-call count — at every halt.
 
 `run` always returns at a **halt**:
 
@@ -193,7 +203,13 @@ After a run completes, `bokken validate <name>` derives the interview guide
 from the research debt and untested assumptions (artifact
 `artifacts/validation/validation_guide.md`), then an agentic interviewer
 moderates a real participant — one question at a time, laddering into
-concrete incidents, concluding inside a 14-turn budget. Every answer is
+concrete incidents, concluding inside a 14-turn budget. It asks for consent
+first and asks only once: the contact and its outcome are journaled
+(`interview.consent_requested` / `interview.consent_resolved`) before any
+question goes out, and only an affirmative opt-in starts the interview —
+silence, an ambiguous reply, and a decline all stop it, and the command says
+which. On the terminal channel the operator confirms consent at the prompt.
+Every answer is
 journaled as `reported` human evidence and the register is rescored against
 it; rerun `bokken export` to refresh the reports with the real-validation
 deltas. `--guide-only` stops after the guide; `--participant` labels the
@@ -214,7 +230,7 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance (works in both modes; the Ulwick outcome ranking remains dojo-only — founder mode relies on the human interviews): the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
 | Tuning knobs | core `config` | `ideation.novelty_window` (6), `empathize.opportunity_bands` / `segment_spike` (15/12/10 · 17), `walkthrough.max_pages` (12), `ui_tests.max_features` / `max_steps` (8/4) |
-| Model routing | `--provider`, `--model`, `--reasoning-effort` | `anthropic` (default) routes research/challenge to fable-5, cognition/generation/sidekick to opus-5, and extraction to haiku-4-5. `openai` routes research/challenge/cognition/generation to gpt-5 and the economical sidekick/extraction lanes to gpt-5-mini. `--model` overrides only the four frontier lanes, preserving sidekick/extraction economics. Effort is `low`, `medium`, or `high` and is applied by either provider |
+| Model routing | `--provider`, `--model`, `--reasoning-effort` | `anthropic` (default) routes research/challenge to fable-5, cognition/generation/sidekick to opus-5, and extraction to haiku-4-5. `openai` routes research/challenge/cognition/generation to gpt-5 and the economical sidekick/extraction lanes to gpt-5-mini. `--model` overrides only the four frontier lanes, preserving sidekick/extraction economics. Effort is `low`, `medium`, or `high` and is applied by either provider to frontier lanes only. Combinations that cannot work are refused at creation: an extraction-grade model (haiku) on a frontier lane, or an effort setting on a model that rejects reasoning parameters (gpt-4.1) |
 
 **Brief format** (`--brief brief.json`):
 

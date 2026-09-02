@@ -27,6 +27,8 @@ class Abstention(BaseModel):
 
 
 class PersonaTurnGenerator(Protocol):
+    model: str  # the model serving these turns, for journal provenance
+
     def answer(
         self, persona: Persona, question: str, context: str
     ) -> GroundedAnswer | ProfileOpinion | Abstention: ...
@@ -65,7 +67,7 @@ class Interviewer:
                 return self.store.append(
                     type="evidence.captured",
                     stage=stage,
-                    actor=persona.actor(),
+                    actor=persona.actor(self.generator.model),
                     payload={
                         "content": result.text,
                         "source": f"persona:{persona.persona_id}",
@@ -84,7 +86,7 @@ class Interviewer:
             return self.store.append(
                 type="evidence.captured",
                 stage=stage,
-                actor=persona.actor(),
+                actor=persona.actor(self.generator.model),
                 payload={
                     "content": result.text,
                     "source": f"persona:{persona.persona_id}",
@@ -99,7 +101,7 @@ class Interviewer:
         return self.store.append(
             type="evidence.abstained",
             stage=stage,
-            actor=persona.actor(),
+            actor=persona.actor(self.generator.model),
             payload={
                 "question": question,
                 "gap": result.reason,
