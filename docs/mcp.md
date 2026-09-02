@@ -291,7 +291,7 @@ bokken journal retention --type session --json \
 ## Report and cost tools
 
 - `export_report(name)` — regenerates and returns the PPTX + HTML report paths (same shape as `bokken export --json`).
-- `cost_report(name)` — per-stage/prompt/class cost rows with totals and cache hit rate (same data as `bokken costs --json`).
+- `cost_report(name)` — per-stage/prompt/class cost rows with totals, cache hit rate, and the `grounding` block (persona turns, abstentions, and the share forced by citations that did not resolve) — same data as `bokken costs --json`.
 
 ## CLI-only verbs
 
