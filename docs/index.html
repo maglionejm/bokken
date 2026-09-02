@@ -535,7 +535,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
       <div class="layer slim models">
-        <div class="layer-head"><span class="ln">Model ops</span><span class="lt">Fusion lanes: frontier judges (Fable 5 / Opus 5), a cached sidekick reads — every call budgeted, cached, journaled</span></div>
+        <div class="layer-head"><span class="ln">Model ops</span><span class="lt">Fusion lanes: frontier judges (Fable 5 / Opus 5), a cached Sonnet 5 sidekick reads — every call budgeted, cached, journaled</span></div>
       </div>
       <div class="larrow" aria-hidden="true">↓</div>
       <div class="layer slim journal">
@@ -652,7 +652,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="p">$</span> bokken library
 <span class="o">mars-lander · verdict iterate        <span class="c"># learnings compound into the next run</span></span></pre>
   </div>
-  <p class="term-note"><b>Get started in one command</b> — <code>uvx bokken demo</code> shows a whole run for $0.00; <code>bokken init</code> then writes your first brief from a template. Extras: <code>bokken[ui]</code> for browser tests, <code>bokken[interview]</code> for Twilio interviews. Found something? <a href="https://github.com/maglionejm/bokken/issues/new/choose">Open a run-feedback issue</a> or join the <a href="https://github.com/maglionejm/bokken/discussions">discussions</a>.</p>
+  <p class="term-note"><b>Get started in one command</b> — <code>uvx bokken demo</code> shows a whole run for $0.00; <code>bokken init</code> then writes your first brief from a template. Extras: <code>bokken[ui]</code> for browser tests, <code>bokken[interview]</code> for Twilio interviews, <code>bokken[openai]</code> for the OpenAI provider. Found something? <a href="https://github.com/maglionejm/bokken/issues/new/choose">Open a run-feedback issue</a> or join the <a href="https://github.com/maglionejm/bokken/discussions">discussions</a>.</p>
   <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
   <div class="dossier" aria-label="The Session Dossier and the handoff">
     <div><b>A — outcomes</b>What was decided, built, and committed to, by whom.</div>
@@ -744,7 +744,11 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
       </div>
       <div class="rule-row">
         <span class="rn">no self-escalation</span>
-        <p>Dojo runs cannot widen their own brief, contact real humans, or publish externally. Budgets and stopping rules terminate runs; the stopping reason is a Journal event.</p>
+        <p>Dojo runs cannot widen their own brief, contact real humans, or publish externally. Client-supplied input paths are confined at the MCP boundary. Budgets and stopping rules terminate runs; the stopping reason is a Journal event.</p>
+      </div>
+      <div class="rule-row">
+        <span class="rn">real humans opt in</span>
+        <p>A validation interview asks for consent first, once, and journals the contact and its outcome before any question goes out. Silence, a timeout, and an ambiguous reply all refuse — only an affirmative starts the interview. Raw phone numbers never enter the ledger.</p>
       </div>
       <div class="rule-row">
         <span class="rn">structural firewalls</span>
@@ -845,7 +849,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
   <div class="wrap foot">
     <div>
       <span class="status">terminal-first · MCP-consumable · no GUI</span>
-      <p style="max-width:52ch">Bokken is open source. v1.0 is on PyPI (<code>uvx bokken</code>); active development is paused while real-user feedback accumulates.</p>
+      <p style="max-width:52ch">Bokken is open source and on PyPI (<code>uvx bokken demo</code> to see it run). Actively maintained; run feedback shapes the roadmap.</p>
       <p class="foot-meta">Python ≥ 3.12 · uv · Apache-2.0 · created by <a href="https://github.com/maglionejm">Juan Martín Maglione</a> &amp; <a href="https://github.com/mpuig">Marc Puig</a></p>
     </div>
     <div class="foot-links">

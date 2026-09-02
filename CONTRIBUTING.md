@@ -8,7 +8,10 @@ project needs right now.
 Run Bokken against a real product and tell us what happened:
 
 ```sh
-uvx bokken new my-run --brief brief.json --mode dojo --repo ./your-app --app-url http://localhost:PORT
+uvx bokken demo      # see a complete run first — offline, $0.00
+uvx bokken init      # then write a brief for your own product from a template
+
+uvx bokken new my-run --brief bokken-brief.json --mode dojo --repo ./your-app --app-url http://localhost:PORT
 uvx bokken run my-run
 ```
 

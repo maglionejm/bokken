@@ -139,7 +139,11 @@ state, which is what makes every run crash-safe and resumable by construction.
   Anthropic and optional OpenAI adapters stay behind the router, and the whole
   harness runs offline against a fake provider in tests.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
-  the same pydantic shapes (`bokken/contract.py`).
+  the same pydantic shapes (`bokken/contract.py`). Trust differs at the edge,
+  not in the core: client-supplied input paths are confined to authorized
+  roots on the MCP surface, and mailbox answers carry the client's handshake
+  identity — a human operating the CLI on their own machine keeps their own
+  authority.
 
 ## Blueprint mapping
 

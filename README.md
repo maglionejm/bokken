@@ -72,13 +72,15 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
 - **Real humans close the loop**: `bokken validate` turns the research debt
   into an interview guide and an agentic interviewer moderates real
   participants (terminal, or Twilio SMS/WhatsApp behind the `[interview]`
-  extra) — every exchange is `reported` human evidence, and the register is
+  extra) — consent is asked first, once, and journaled before any question
+  goes out; every exchange is `reported` human evidence, and the register is
   rescored against it.
 - **Learnings compound**: every finalized run feeds the insights library; the
   next run on the same product starts knowing what was supported,
   contradicted, or broken — with session provenance on every borrowed line.
 - **Fusion cost architecture**: frontier lanes judge (Fable 5 / Opus 5), a
-  cached sidekick lane reads; `bokken costs` reports spend and cache hit-rate
+  cached Sonnet 5 sidekick lane reads; `bokken costs` reports spend, cache
+  hit-rate, and grounding health (abstentions forced by unresolved citations)
   from the journal.
 - **Crash-safe by construction**: sessions are durable, named, and resumable;
   kill the process anywhere and `bokken run` continues from the ledger.
@@ -176,7 +178,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 
 | | |
 | --- | --- |
-| **CLI** | `new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · costs · validate · library · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
+| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · costs · validate · library · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
 | **MCP** | `bokken serve` (stdio): 14 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation
