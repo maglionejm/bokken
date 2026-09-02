@@ -32,6 +32,11 @@ The Journal SHALL support exactly the following event families and types in sche
 - **WHEN** a decision is recorded with one participant registering a reservation
 - **THEN** the persisted `decision.recorded` event contains that reservation verbatim in `dissent`, and replay exposes it on the decision log
 
+#### Scenario: A contact and its outcome are one linked pair
+
+- **WHEN** a run asks a real human for consent to be interviewed
+- **THEN** `interview.consent_requested` is appended before the channel reaches them and the `interview.consent_resolved` that follows carries the outcome and `refs` back to that request
+
 #### Scenario: Rejected corpus input is on the record
 
 - **WHEN** a declared input is refused by ingestion (outside the authorized input root, missing, unsupported suffix, or over a size cap)
