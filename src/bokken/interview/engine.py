@@ -15,7 +15,6 @@ from bokken.journal import Actor, replay
 from bokken.stages.schemas import InterviewerTurn, Rescoring
 
 MAX_TURNS = 14
-INTERVIEWER = Actor(kind="agent", name="validation-interviewer", model="claude-fable-5")
 
 
 def _participant_actor(participant: str) -> Actor:
@@ -117,7 +116,7 @@ def _rescore(store, router) -> None:
         store.append(
             type="assumption.scored",
             stage=None,
-            actor=INTERVIEWER,
+            actor=router.actor("validation-interviewer", "challenge"),
             payload={"score": scored.score, "rationale": scored.rationale},
             refs=[scored.assumption_id, *refs],
         )

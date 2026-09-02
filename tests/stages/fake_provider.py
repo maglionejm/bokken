@@ -20,6 +20,7 @@ class ScriptedProvider:
 
     def __init__(self) -> None:
         self.calls: dict[str, int] = defaultdict(int)
+        self.efforts: list[str | None] = []
 
     def complete(
         self,
@@ -32,8 +33,10 @@ class ScriptedProvider:
         stream,
         max_tokens,
         web_search=False,
+        reasoning_effort=None,
     ):
         self.calls[prompt_id] += 1
+        self.efforts.append(reasoning_effort)
         data = self._dispatch(prompt_id, rendered)
         if isinstance(data, str):
             text, payload = data, None

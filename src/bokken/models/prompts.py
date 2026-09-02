@@ -339,5 +339,19 @@ def render_prompt(prompt_id: str, **params: Any) -> tuple[str, str, str]:
         for k, v in params.items()
     }
     rendered = template.format(**safe)
-    content_hash = hashlib.sha256(rendered.encode()).hexdigest()
+    # Hash what a provider receives (marker removed) so the journal record
+    # matches the wire payload for every adapter.
+    content_hash = hashlib.sha256("".join(split_cache_marker(rendered)).encode()).hexdigest()
     return version, rendered, content_hash
+
+
+def split_cache_marker(rendered: str) -> tuple[str, str]:
+    """Split a rendered prompt into (cacheable prefix, suffix).
+
+    ``prefix + suffix`` is the exact text every provider sends; the marker
+    itself never reaches a model. Without a marker the suffix is empty.
+    """
+    if CACHE_SPLIT not in rendered:
+        return rendered, ""
+    prefix, suffix = rendered.split(CACHE_SPLIT, 1)
+    return prefix + "\n", suffix

@@ -95,6 +95,8 @@ def test_corpus_span_resolution(corpus: Corpus) -> None:
 
 
 class ScriptedGenerator:
+    model = "claude-fable-5"
+
     def __init__(self, results) -> None:
         self.results = list(results)
 
