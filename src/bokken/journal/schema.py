@@ -119,6 +119,13 @@ class EvidenceAbstained(Payload):
     gap: str
 
 
+class EvidenceInputRejected(Payload):
+    """A declared corpus input that never entered the record, and why."""
+
+    path: str
+    reason: str
+
+
 class InterpretationDerived(Payload):
     kind: Literal[
         "insight", "theme", "pov", "hmw", "desired_outcome", "outcome_score", "opportunity"
@@ -252,6 +259,7 @@ TAXONOMY: dict[str, type[Payload]] = {
     "session.stopped": SessionStopped,
     "evidence.captured": EvidenceCaptured,
     "evidence.abstained": EvidenceAbstained,
+    "evidence.input_rejected": EvidenceInputRejected,
     "interpretation.derived": InterpretationDerived,
     "option.created": OptionCreated,
     "option.built_on": OptionBuiltOn,

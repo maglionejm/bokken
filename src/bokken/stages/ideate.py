@@ -293,7 +293,9 @@ class IdeateEngine:
 
         config = ctx.state.config.get("panel", {})
         corpus = Corpus.ingest_inputs(
-            ctx.state.brief.get("inputs", {}), base=Path(config.get("input_base", "."))
+            ctx.state.brief.get("inputs", {}),
+            base=Path(config.get("input_base", ".")),
+            roots=config.get("input_roots"),
         )
         scope = corpus.ids_of_kind("code", "document") or corpus.source_ids
         return corpus.context_for(scope) or "(no repository on file)"

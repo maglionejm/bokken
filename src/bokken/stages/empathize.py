@@ -14,6 +14,7 @@ from bokken.stages.base import (
     dumps,
     evidence_lines,
     facilitator,
+    journal_rejected_inputs,
     open_stage,
     structured,
 )
@@ -137,8 +138,11 @@ class EmpathizeEngine:
     def _dojo_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         config = ctx.state.config.get("panel", {})
         corpus = Corpus.ingest_inputs(
-            ctx.state.brief.get("inputs", {}), base=Path(config.get("input_base", "."))
+            ctx.state.brief.get("inputs", {}),
+            base=Path(config.get("input_base", ".")),
+            roots=config.get("input_roots"),
         )
+        journal_rejected_inputs(ctx.store, corpus, stage="empathize")
         personas = cast_panel(
             brief=ctx.state.brief,
             size=config.get("size", 6),

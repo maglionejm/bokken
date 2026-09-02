@@ -94,7 +94,7 @@ refusal (see Error semantics).
 | Argument | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `name` | string | — | becomes the session slug; duplicates are refused |
-| `brief` | object | — | `problem_space`, `target_segments[]`, `success_criteria[]`, `risk_tolerance`, optional `constraints[]` and `inputs{repo, metrics[], discussions[], documents[]}` (paths as seen by the *server*) |
+| `brief` | object | — | `problem_space`, `target_segments[]`, `success_criteria[]`, `risk_tolerance`, optional `constraints[]` and `inputs{repo, metrics[], discussions[], documents[]}` (paths as seen by the *server* and **confined to its authorized input root** — see Input paths) |
 | `mode` | `"founder" \| "dojo"` | `"dojo"` | who supplies participation |
 | `gate_policy` | `"none" \| "stage_boundaries" \|` string[] | mode default | dojo defaults to `stage_boundaries`, founder to `none` |
 | `total_token_budget` | int | none | run-wide token budget |
@@ -103,6 +103,22 @@ refusal (see Error semantics).
 Returns a **StatusResult**: `{kind:"status", name, mode, stage, state,
 pending_gate?, stopped_reason?, evidence_by_class, research_debt,
 options_alive, assumptions_scored, tokens_spent, last_seq, last_ts}`.
+
+#### Input paths
+
+`brief.inputs` paths are resolved by the server, so they are treated as
+untrusted input: each one must resolve inside an authorized input root — the
+workspace root (`BOKKEN_HOME`, else `./.bokken`) and the working directory
+`bokken serve` was started in. Refused as tool errors, with no session created:
+traversal (`../`), symlinks whose target leaves the root, absolute paths outside
+it, paths that do not exist, and named files outside the text allowlist
+(`.csv .json .md .txt` — a declared directory is walked for those suffixes).
+Accepted paths are journaled resolved and re-checked against the root when the
+run reads them, so a symlink swapped in after creation is skipped rather than
+read. Ingestion is capped at 200 kB per file and 4 MB per ingested set; anything
+skipped is journaled as `evidence.input_rejected` instead of vanishing. An
+operator who wants a wider reach sets `BOKKEN_INPUT_ROOTS` before starting the
+server (`docs/operating.md`); it replaces the default roots.
 
 **`run_session`** — advance to the next halt. Returns a **RunOutcome**:
 `{kind:"run", halt, stage, detail, pending_question?, pending_question_id?,
@@ -202,8 +218,9 @@ If your run needs human-grade evidence, get it from a human surface.
     brief:{problem_space:"commuter shuttle retention",
            target_segments:["commuters"], success_criteria:["churn below 5%"],
            risk_tolerance:"medium",
-           inputs:{repo:"/work/myapp", metrics:["/work/kpis.csv"],
-                   discussions:["/work/interview-ana.md"]}}}
+           inputs:{repo:"myapp", metrics:["kpis.csv"],
+                   discussions:["interview-ana.md"]}}}
+   # relative to (or absolute inside) the server's input root
 ← {kind:"status", stage:"intake", state:"in_progress", ...}
 
 → run_session {name:"retention"}
@@ -264,8 +281,12 @@ bokken journal retention --type session --json \
   `pending_question_id`.
 - **`a killed concept has no build handoff`** — by design; generate the
   Dossier for the post-mortem instead.
-- **Paths in `brief.inputs` resolve on the server**, not the client — pass
-  absolute paths the `bokken serve` process can read.
+- **`input path ... is outside the authorized input root(s)`** — paths in
+  `brief.inputs` resolve on the server and are confined to its workspace and
+  working directory. Put the file inside one of them, or ask the operator to
+  widen `BOKKEN_INPUT_ROOTS`.
+- **`input file ... is not in the text allowlist`** — declare `.csv`, `.json`,
+  `.md`, or `.txt` files (or a directory of them); other suffixes are not read.
 
 ## Report and cost tools
 
