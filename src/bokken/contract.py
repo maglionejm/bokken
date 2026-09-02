@@ -43,6 +43,8 @@ class RunOutcome(BaseModel):
     detail: str = ""
     pending_question: str | None = None
     finalization: str | None = None  # set when a completed run generated dossier/handoff
+    cost_usd: float | None = None  # session-to-date list price from journaled calls
+    model_calls: int | None = None
 
 
 class HandoffResult(BaseModel):
