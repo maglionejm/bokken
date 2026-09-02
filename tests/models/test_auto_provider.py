@@ -27,6 +27,7 @@ def test_missing_openai_extra_is_a_configuration_refusal(monkeypatch) -> None:
 
 
 def test_client_construction_failure_is_a_configuration_refusal(monkeypatch) -> None:
+    pytest.importorskip("openai", reason="needs the 'openai' extra to reach construction")
     import bokken.models.openai_provider as mod
 
     def explode(self, client=None):
