@@ -22,6 +22,9 @@ DEMO_BRIEF = {
     "allow_web_research": True,
     "inputs": {
         "repo": str(FIXTURES / "repo"),
+        # A static mock of the product: with the [ui] extra installed the real
+        # walkthrough and feature tests run against it - still no network.
+        "app_url": (FIXTURES / "app" / "index.html").as_uri(),
         "metrics": [str(FIXTURES / "kpis.csv")],
         "discussions": [
             str(FIXTURES / "interview_marta.md"),
@@ -47,7 +50,7 @@ def run_demo(name: str = "demo") -> dict:
         brief=DEMO_BRIEF,
         mode="dojo",
         gate_policy="none",
-        config_extra={"panel": {"size": 6, "seed": 11}},
+        config_extra={"panel": {"size": 6, "seed": 11}, "demo": True},
     )
     runner = Runner(
         session_dir,

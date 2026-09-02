@@ -302,6 +302,15 @@ def _budget_guardrail(session_dir: Path) -> int | None:
     return None
 
 
+def _session_is_demo(session_dir: Path) -> bool:
+    from bokken.journal.store import read_events
+
+    for event in read_events(session_dir):
+        if event.type == "session.created":
+            return bool(event.payload.get("config", {}).get("demo"))
+    return False
+
+
 @app.command("run")
 @guarded
 def run(name: str, as_json: JsonFlag = False) -> None:
@@ -550,9 +559,11 @@ def demo(
     out.print(f"report (html): {summary['report_html']}")
     out.print(f"report (deck): {summary['report_pptx']}")
     out.print(f"dossier:       {summary['dossier']}")
+    cost, calls = _session_receipt(summary["session_dir"])
     out.print(
-        "this demo cost $0.00 and made 0 network calls - a real run on your "
-        f"product is typically $20-35 (`bokken costs {name}` for the math)"
+        f"you were charged $0.00 - 0 network calls, 0 real tokens; the journaled "
+        f"usage is an illustrative live-run profile: ~${cost:.0f} list price across "
+        f"{calls} calls (`bokken costs {name}` for the lane-by-lane math)"
     )
 
 
@@ -677,6 +688,8 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
         f"{grounding['citation_invalid_abstentions']} "
         f"({grounding['citation_invalid_rate']:.0%} of turns)"
     )
+    if _session_is_demo(session_dir):
+        out.print("demo session: illustrative usage - you were charged $0.00")
 
 
 @app.command("export")

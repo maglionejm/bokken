@@ -331,7 +331,7 @@ def render_page(ctx: ReportContext) -> str:
 <div class="stat"><div class="num" data-n="{len(m.evidence)}">{len(m.evidence)}</div><small>evidence items ({c.synthetic_evidence} synthetic, labeled)</small></div>
 <div class="stat"><div class="num" data-n="{len(m.options)}">{len(m.options)}</div><small>options generated with full lineage</small></div>
 <div class="stat"><div class="num" data-n="{len(m.assumptions)}">{len(m.assumptions)}</div><small>{counts["supported"]} supported · {counts["contradicted"]} contradicted · {counts["untested"]} untested</small></div>
-<div class="stat"><div class="num" data-n="{c.total_cost_usd:.2f}" data-pre="$">${c.total_cost_usd:,.2f}</div><small>{sum(u.calls for u in c.usage)} model calls, list-price estimate</small></div>
+<div class="stat"><div class="num" data-n="{c.total_cost_usd:.2f}" data-pre="$">${c.total_cost_usd:,.2f}</div><small>{sum(u.calls for u in c.usage)} model calls, {"illustrative — charged $0.00" if c.demo else "list-price estimate"}</small></div>
 </div>""")
     if m.dojo_banner:
         add(
@@ -870,6 +870,13 @@ def render_page(ctx: ReportContext) -> str:
 
     # ---- model ops ----
     add(chapter("ops"))
+    if c.demo:
+        add(
+            "<p class='lede'>Demo session: the usage below is an illustrative "
+            "live-run profile journaled by the scripted provider — nothing was "
+            "charged and no network call was made. A first real run on your own "
+            "product typically lands at $20-35 list price.</p>"
+        )
     add(
         "<div class='chartbox'><h4>Estimated cost by model (USD)</h4><canvas id='c-cost' height='110'></canvas></div>"
     )

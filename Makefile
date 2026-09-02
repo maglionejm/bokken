@@ -22,8 +22,10 @@ validate-specs:
 check: lint test validate-specs
 
 # Rebuild the published demo artifacts on the GitHub Page from `bokken demo`.
+# Built with the [ui] extra so the specimen includes the walkthrough and the
+# per-feature browser tests of the bundled mock app.
 gallery:
-	@H=$$(mktemp -d); BOKKEN_HOME=$$H uv run bokken demo gallery >/dev/null; \
+	@H=$$(mktemp -d); BOKKEN_HOME=$$H uv run --extra ui bokken demo gallery >/dev/null; \
 	mkdir -p docs/gallery; \
 	cp $$H/sessions/gallery/report/report.html docs/gallery/demo-report.html; \
 	cp $$H/sessions/gallery/report/report.pptx docs/gallery/demo-deck.pptx; \

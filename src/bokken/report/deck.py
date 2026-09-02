@@ -287,7 +287,9 @@ class Deck:
             [
                 "Cost",
                 f"${c.total_cost_usd:,.2f} · {sum(u.calls for u in c.usage)} model calls",
-                "list-price estimate, fully journaled",
+                "illustrative profile — charged $0.00"
+                if c.demo
+                else "list-price estimate, fully journaled",
             ]
         )
         self.table(
