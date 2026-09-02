@@ -135,6 +135,13 @@ def new(
         Path | None, typer.Option(help="Brief as a JSON file (non-interactive).")
     ] = None,
     mode: Annotated[str, typer.Option(help="founder or dojo")] = "founder",
+    provider: Annotated[str, typer.Option(help="anthropic or openai")] = "anthropic",
+    model: Annotated[
+        str | None, typer.Option(help="Use this model for every routing class.")
+    ] = None,
+    reasoning_effort: Annotated[
+        str | None, typer.Option(help="Reasoning effort: low, medium, or high.")
+    ] = None,
     gates: Annotated[
         str | None, typer.Option(help="none, stage_boundaries, or CSV of stages")
     ] = None,
@@ -207,7 +214,28 @@ def new(
         mode=mode,  # type: ignore[arg-type]
         gate_policy=gate_policy,
         budgets=budgets,
-        config_extra={"panel": {"size": panel_size, "seed": seed}},
+        config_extra={
+            "panel": {"size": panel_size, "seed": seed},
+            "provider": provider,
+            **(
+                {
+                    "routing": {
+                        cls: model
+                        for cls in (
+                            "research",
+                            "challenge",
+                            "cognition",
+                            "extraction",
+                            "sidekick",
+                            "generation",
+                        )
+                    }
+                }
+                if model
+                else {}
+            ),
+            **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
+        },
     )
     result = contract.status_for_dir(name, session_dir)
     emit(result, as_json, lambda: out.print(f"created session '{name}' at {session_dir}"))

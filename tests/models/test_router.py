@@ -50,8 +50,10 @@ def test_routing_defaults_and_overrides() -> None:
     assert routing["generation"] == "claude-opus-5"
     assert routing["extraction"] == "claude-haiku-4-5"
     assert resolve_routing({"cognition": "claude-sonnet-4-6"})["cognition"] == "claude-sonnet-4-6"
+    assert resolve_routing({"cognition": "gpt-5"})["cognition"] == "gpt-5"
+    assert resolve_routing(None, provider="openai")["extraction"] == "gpt-5-mini"
     with pytest.raises(RoutingConfigError, match="allowlist"):
-        resolve_routing({"cognition": "gpt-5"})
+        resolve_routing({"cognition": "not-a-model"})
     with pytest.raises(RoutingConfigError, match="unknown routing class"):
         resolve_routing({"vibes": "claude-haiku-4-5"})
 

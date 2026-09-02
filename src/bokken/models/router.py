@@ -25,6 +25,15 @@ DEFAULT_ROUTING: dict[RoutingClass, str] = {
     "generation": "claude-opus-5",
 }
 
+OPENAI_DEFAULT_ROUTING: dict[RoutingClass, str] = {
+    "research": "gpt-5",
+    "challenge": "gpt-5",
+    "cognition": "gpt-5",
+    "extraction": "gpt-5-mini",
+    "sidekick": "gpt-5",
+    "generation": "gpt-5",
+}
+
 MODEL_ALLOWLIST = frozenset(
     {
         "claude-fable-5",
@@ -34,8 +43,19 @@ MODEL_ALLOWLIST = frozenset(
         "claude-opus-4-7",
         "claude-sonnet-4-6",
         "claude-haiku-4-5",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "o3",
+        "o4-mini",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
     }
 )
+
+PROVIDERS = frozenset({"anthropic", "openai"})
 
 ROUTER_ACTOR = Actor(kind="agent", name="model-router")
 
@@ -67,6 +87,8 @@ class Provider(Protocol):
         routing_class: RoutingClass,
         stream: bool,
         max_tokens: int,
+        web_search: bool = False,
+        reasoning_effort: str | None = None,
     ) -> ProviderResult: ...
 
 
@@ -85,8 +107,14 @@ class ModelOutcome:
         return self.status == "ok"
 
 
-def resolve_routing(overrides: dict[str, str] | None) -> dict[RoutingClass, str]:
-    routing: dict[RoutingClass, str] = dict(DEFAULT_ROUTING)
+def resolve_routing(
+    overrides: dict[str, str] | None, provider: str = "anthropic"
+) -> dict[RoutingClass, str]:
+    if provider not in PROVIDERS:
+        raise RoutingConfigError(f"unknown provider: {provider}")
+    routing: dict[RoutingClass, str] = dict(
+        OPENAI_DEFAULT_ROUTING if provider == "openai" else DEFAULT_ROUTING
+    )
     for cls, model in (overrides or {}).items():
         if cls not in routing:
             raise RoutingConfigError(f"unknown routing class: {cls}")
@@ -103,7 +131,8 @@ class ModelRouter:
         self.store = store
         self.provider = provider
         state = replay(store.events())
-        self.routing = resolve_routing(state.config.get("routing"))
+        self.provider_name = state.config.get("provider", "anthropic")
+        self.routing = resolve_routing(state.config.get("routing"), self.provider_name)
 
     def invoke(
         self,
@@ -141,6 +170,11 @@ class ModelRouter:
                 stream=stream,
                 max_tokens=max_tokens,
                 web_search=web_search,
+                **(
+                    {"reasoning_effort": state.config["reasoning_effort"]}
+                    if state.config.get("reasoning_effort") is not None
+                    else {}
+                ),
             )
             status: OutcomeStatus = "ok"
             detail = ""

@@ -47,6 +47,7 @@ class AnthropicProvider:
         stream: bool,
         max_tokens: int,
         web_search: bool = False,
+        reasoning_effort: str | None = None,
     ) -> ProviderResult:
         from bokken.models.prompts import CACHE_SPLIT
 

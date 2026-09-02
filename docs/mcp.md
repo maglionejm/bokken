@@ -21,8 +21,9 @@ Two properties make the surface safe to hand to agents:
 
 ## Setup
 
-The server needs two things in its environment: `ANTHROPIC_API_KEY` (for real
-runs) and a workspace. Sessions live in `./.bokken/` relative to the server's
+The server needs a provider API key in its environment for real runs:
+`ANTHROPIC_API_KEY` for Anthropic sessions or `OPENAI_API_KEY` for OpenAI
+sessions, and a workspace. Sessions live in `./.bokken/` relative to the server's
 working directory, or wherever `BOKKEN_HOME` points — start the server where
 you want the sessions to live.
 

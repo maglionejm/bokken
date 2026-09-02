@@ -228,6 +228,9 @@ dependencies = [
 interview = [
     { name = "twilio" },
 ]
+openai = [
+    { name = "openai" },
+]
 ui = [
     { name = "beautifulsoup4" },
     { name = "playwright" },
@@ -245,6 +248,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.60" },
     { name = "beautifulsoup4", marker = "extra == 'ui'", specifier = ">=4.12" },
     { name = "mcp", specifier = ">=1.5" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.60" },
     { name = "playwright", marker = "extra == 'ui'", specifier = ">=1.49" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "python-pptx", specifier = ">=1.0.2" },
@@ -252,7 +256,7 @@ requires-dist = [
     { name = "twilio", marker = "extra == 'interview'", specifier = ">=9.0" },
     { name = "typer", specifier = ">=0.15" },
 ]
-provides-extras = ["ui", "interview"]
+provides-extras = ["openai", "ui", "interview"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1146,6 +1150,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/f7/addf1087b860ac60e6f382240f64fb99f8bfb532bb06f7c542b83c29ca61/multidict-6.7.1-cp314-cp314t-win_amd64.whl", hash = "sha256:497bde6223c212ba11d462853cfa4f0ae6ef97465033e7dc9940cdb3ab5b48e5", size = 53542, upload-time = "2026-01-26T02:46:08.809Z" },
     { url = "https://files.pythonhosted.org/packages/4c/81/4629d0aa32302ef7b2ec65c75a728cc5ff4fa410c50096174c1632e70b3e/multidict-6.7.1-cp314-cp314t-win_arm64.whl", hash = "sha256:2bbd113e0d4af5db41d5ebfe9ccaff89de2120578164f86a5d17d5a576d1e5b2", size = 44719, upload-time = "2026-01-26T02:46:11.146Z" },
     { url = "https://files.pythonhosted.org/packages/81/08/7036c080d7117f28a4af526d794aab6a84463126db031b007717c1a6676e/multidict-6.7.1-py3-none-any.whl", hash = "sha256:55d97cc6dae627efa6a6e548885712d4864b81110ac76fa4e534c03819fa4a56", size = 12319, upload-time = "2026-01-26T02:46:44.004Z" },
+]
+
+[[package]]
+name = "openai"
+version = "3.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ad/ba/6d46da4232f80cb5842280e024242e6fed163418ab81bebc1c83f693bb0b/openai-3.7.0.tar.gz", hash = "sha256:e836eb7effee89df802cd0c7d1bad8de8c993976cf238c44d5b5b844f5aefd38", size = 1455615, upload-time = "2026-09-02T01:30:54.555Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/9d/77e0f43f04ae51a3d21bb08bd372a752856b86ee22648b1458c93a623927/openai-3.7.0-py3-none-any.whl", hash = "sha256:008fa33e0a01dc71039c27355ef8f476eed690e8e48bec18183878dcd32fb841", size = 1699594, upload-time = "2026-09-02T01:30:52.445Z" },
 ]
 
 [[package]]

@@ -26,10 +26,18 @@ def engine_suite(router_factory: RouterFactory) -> dict[Stage, StageEngine]:
 
 
 def anthropic_router_factory() -> Callable[[JournalStore], ModelRouter]:
-    """Router factory backed by the real Anthropic provider (needs ANTHROPIC_API_KEY)."""
+    """Router factory backed by the real Anthropic provider."""
     from bokken.models.anthropic_provider import AnthropicProvider
 
     provider = AnthropicProvider()
+    return lambda store: ModelRouter(store, provider)
+
+
+def provider_router_factory() -> Callable[[JournalStore], ModelRouter]:
+    """Router factory selecting Anthropic or OpenAI from session routing."""
+    from bokken.models.auto_provider import AutoProvider
+
+    provider = AutoProvider()
     return lambda store: ModelRouter(store, provider)
 
 
@@ -44,4 +52,5 @@ __all__ = [
     "TestEngine",
     "anthropic_router_factory",
     "engine_suite",
+    "provider_router_factory",
 ]

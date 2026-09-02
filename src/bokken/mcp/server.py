@@ -184,6 +184,9 @@ def create_session_tool(
     name: str,
     brief: dict,
     mode: Literal["founder", "dojo"] = "dojo",
+    provider: Literal["anthropic", "openai"] = "anthropic",
+    model: str | None = None,
+    reasoning_effort: Literal["low", "medium", "high"] | None = None,
     gate_policy: str | list[str] | None = None,
     total_token_budget: int | None = None,
     panel_size: int = 6,
@@ -199,7 +202,28 @@ def create_session_tool(
         mode=mode,
         gate_policy=gate_policy,  # type: ignore[arg-type]
         budgets=budgets,
-        config_extra={"panel": {"size": panel_size, "seed": seed}},
+        config_extra={
+            "panel": {"size": panel_size, "seed": seed},
+            "provider": provider,
+            **(
+                {
+                    "routing": {
+                        cls: model
+                        for cls in (
+                            "research",
+                            "challenge",
+                            "cognition",
+                            "extraction",
+                            "sidekick",
+                            "generation",
+                        )
+                    }
+                }
+                if model
+                else {}
+            ),
+            **({"reasoning_effort": reasoning_effort} if reasoning_effort else {}),
+        },
     )
     return contract.status_for_dir(name, session_dir).model_dump()
 

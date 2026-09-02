@@ -4,7 +4,10 @@
 
 ```sh
 make install                     # uv sync
-export ANTHROPIC_API_KEY=...     # required for real runs (not for tests)
+export ANTHROPIC_API_KEY=...     # default provider (not needed for tests)
+# Or install the optional OpenAI extra and select it per session:
+# uv sync --extra openai
+# export OPENAI_API_KEY=...
 export BOKKEN_HOME=~/bokken-work # optional; default workspace is ./.bokken
 ```
 
@@ -31,7 +34,7 @@ bokken new retention \
 
 ```json
 {
-  "problem_space": "commuter shuttle retention",
+  "problem_space": "ccan ommuter shuttle retention",
   "constraints": ["no new hardware"],
   "target_segments": ["commuters", "operators"],
   "success_criteria": ["validated demand", "churn below 5%"],
@@ -210,7 +213,7 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance (works in both modes; the Ulwick outcome ranking remains dojo-only — founder mode relies on the human interviews): the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
 | Tuning knobs | core `config` | `ideation.novelty_window` (6), `empathize.opportunity_bands` / `segment_spike` (15/12/10 · 17), `walkthrough.max_pages` (12), `ui_tests.max_features` / `max_steps` (8/4) |
-| Model routing | core `config.routing` | per-class overrides (override only — active defaults are fable-5 for research/challenge, opus-5 for cognition/generation/sidekick, haiku-4-5 for extraction) within the allowlist (`claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`); defaults: research/challenge → fable-5 at effort high (server-side refusal fallback to opus-4-8), cognition/generation → opus-5 at effort high, extraction → haiku-4-5 |
+| Model routing | core `config.provider` + `config.routing` | select `anthropic` (default) or `openai`; per-class overrides within the supported model allowlist. Anthropic defaults remain fable-5 for research/challenge, opus-5 for cognition/generation/sidekick, haiku-4-5 for extraction. OpenAI defaults are gpt-5 for research/challenge/cognition/generation/sidekick and gpt-5-mini for extraction |
 
 **Brief format** (`--brief brief.json`):
 

@@ -85,11 +85,18 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/) and an `ANTHROPIC_API_KEY`.
+Requires [uv](https://docs.astral.sh/uv/) and a provider API key. Anthropic
+is the default; OpenAI is available via the optional extra:
 
 ```sh
+# default provider
 export ANTHROPIC_API_KEY=...
-uvx bokken version            # installs and runs in one command
+uvx bokken version
+
+# OpenAI provider
+uvx --from 'bokken[openai]' bokken version
+export OPENAI_API_KEY=...
+uv run bokken new retention --provider openai --brief brief.json --mode dojo
 ```
 
 Until the PyPI release lands you can run straight from the repo tag:
