@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from bokken.journal import Actor, Event, JournalStore, Stage
 from bokken.journal.schema import content_hash, short_id
+from bokken.models.router import Attribution
 
 PanelKind = Literal["interview", "ideation", "test"]
 Role = Literal["segment", "skeptic", "feasibility", "viability"]
@@ -46,9 +47,15 @@ class Persona(BaseModel):
     ocean: dict[str, float] = Field(default_factory=dict)
     grounding_scope: list[str] = Field(default_factory=list)
 
-    def actor(self, model: str) -> Actor:
-        """``model`` is the one routed for the lane this contribution runs on."""
-        return Actor(kind="agent", name=self.name, model=model, persona_id=self.persona_id)
+    def actor(self, attribution: Attribution) -> Actor:
+        """Provenance for a persona contribution.
+
+        The persona owns its identity (name, ``persona_id``); the completed
+        call owns the model, because which model spoke is knowable only once it
+        has answered. Passing an ``Attribution`` rather than a model string is
+        what keeps the two from being paired by hand.
+        """
+        return attribution.actor(self.name, persona_id=self.persona_id)
 
 
 FIRST_NAMES = [

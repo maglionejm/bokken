@@ -5,7 +5,7 @@ from __future__ import annotations
 from bokken.journal import replay
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import cast_panel, check_firewall, journal_manifest
-from bokken.stages.base import RouterFactory, dumps, facilitator, open_stage, structured
+from bokken.stages.base import RouterFactory, dumps, open_stage, structured
 from bokken.stages.schemas import Evaluation, Recommendation
 
 _SCORES = ("supported", "contradicted", "untested")
@@ -58,12 +58,15 @@ class TestEngine:
             )
             if evaluation is None:
                 return False
+            # One call produced both the reaction and its score; both name the
+            # model that answered it.
+            reviewer = persona.actor(evaluation.attribution)
             reaction = ctx.store.append(
                 type="evidence.captured",
                 stage="test",
-                actor=persona.actor(router.routing["challenge"]),
+                actor=reviewer,
                 payload={
-                    "content": evaluation.reaction,
+                    "content": evaluation.data.reaction,
                     "source": f"persona:{persona.persona_id}",
                     "confidence_class": "simulated",
                     "speaker": persona.name,
@@ -73,8 +76,8 @@ class TestEngine:
             ctx.store.append(
                 type="assumption.scored",
                 stage="test",
-                actor=persona.actor(router.routing["challenge"]),
-                payload={"score": evaluation.score, "rationale": evaluation.reaction},
+                actor=reviewer,
+                payload={"score": evaluation.data.score, "rationale": evaluation.data.reaction},
                 refs=[assumption.id, reaction.id],
             )
         return True
@@ -130,15 +133,15 @@ class TestEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="test",
-            actor=facilitator(router),
+            actor=recommendation.actor("facilitator"),  # the call that recommended
             payload={
                 "question": "kill, iterate, or proceed",
                 "options": ["kill", "iterate", "proceed"],
                 "criteria": ["assumption register scores"],
                 "positions": [],
-                "resolution": recommendation.recommendation,
+                "resolution": recommendation.data.recommendation,
                 "dissent": [],
-                "confidence": recommendation.confidence,
+                "confidence": recommendation.data.confidence,
                 "requires_real_validation": simulated_used,
             },
             refs=[a.id for a in state.assumptions.values()],
@@ -148,7 +151,7 @@ class TestEngine:
                 "loopback_proposal",
                 state,
                 {
-                    "contradiction": recommendation.contradicts
+                    "contradiction": recommendation.data.contradicts
                     or f"{len(contradicted)} assumption(s) contradicted in test",
                     "target_stage": "define",
                     "refs": [a.id for a in contradicted],

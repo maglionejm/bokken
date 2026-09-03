@@ -16,7 +16,7 @@ from typing import Protocol
 
 from bokken.journal import Actor
 from bokken.journal.schema import content_hash
-from bokken.stages.base import facilitator, structured
+from bokken.stages.base import structured
 from bokken.stages.schemas import UIReview
 
 WALKER_ACTOR = Actor(kind="system", name="ui-walker")
@@ -361,13 +361,14 @@ def run_walkthrough(ctx, router) -> None:
     )
     if review is None:
         return
-    content = review.markdown if review.markdown.endswith("\n") else review.markdown + "\n"
+    markdown = review.data.markdown
+    content = markdown if markdown.endswith("\n") else markdown + "\n"
     path = ui_dir / "ui_review.md"
     path.write_text(content, encoding="utf-8")
     ctx.store.append(
         type="artifact.generated",
         stage="empathize",
-        actor=facilitator(router),
+        actor=review.actor("facilitator"),  # the reviewing call wrote this
         payload={
             "path": "artifacts/ui/ui_review.md",
             "kind": "ui_review",

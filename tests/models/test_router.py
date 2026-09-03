@@ -11,6 +11,7 @@ from bokken.models import (
     resolve_routing,
     session_model_config,
 )
+from bokken.models.router import Attributed
 from tests.journal.conftest import SYSTEM, created_payload
 
 
@@ -237,14 +238,56 @@ def test_configured_effort_reaches_the_provider(tmp_path: Path) -> None:
         assert provider.kwargs["reasoning_effort"] == "low"
 
 
-def test_actor_provenance_follows_session_routing(tmp_path: Path) -> None:
+def test_actor_provenance_names_the_model_that_answered(tmp_path: Path) -> None:
+    """A contribution's actor and its own `model.called` record must agree.
+
+    `ok_result` answers on `claude-opus-4-8` whatever routing asked for - the
+    shape of the charter's server-side Fable fallback - so an attribution taken
+    from the routing table would contradict the ledger row for the same call.
+    """
+    with JournalStore.open(tmp_path / "s") as store:
+        payload = created_payload()
+        store.append(type="session.created", stage="intake", actor=SYSTEM, payload=payload)
+        router = ModelRouter(store, RecordingProvider(ok_result(data=Echo(value="x"))))
+        outcome = router.invoke(
+            "cognition", "define/select", stage="define", params={"candidates": "x"}
+        )
+        called = next(e for e in store.events() if e.type == "model.called")
+        assert called.payload["requested_model"] == "claude-opus-5"  # what routing asked
+        assert called.payload["model"] == "claude-opus-4-8"  # what answered
+
+        actor = outcome.attribution.actor("facilitator", persona_id="p1")
+        assert actor.model == called.payload["model"]
+        assert actor.model != called.payload["requested_model"]
+        assert (actor.kind, actor.name, actor.persona_id) == ("agent", "facilitator", "p1")
+
+
+def test_attributed_carries_data_and_provenance_together(tmp_path: Path) -> None:
+    with JournalStore.open(tmp_path / "s") as store:
+        store.append(
+            type="session.created", stage="intake", actor=SYSTEM, payload=created_payload()
+        )
+        router = ModelRouter(store, OneShotProvider(ok_result(data=Echo(value="x"))))
+        outcome = router.invoke(
+            "cognition", "define/select", stage="define", params={"candidates": "x"}, schema=Echo
+        )
+        held = Attributed(data=outcome.data, attribution=outcome.attribution)
+        assert held.data.value == "x"
+        assert held.actor("facilitator").model == "claude-opus-4-8"
+
+
+def test_router_actor_claims_no_model(tmp_path: Path) -> None:
+    """The router cannot honestly attribute: before a call returns it knows only
+    the model it asked for. Silence beats a claim the ledger contradicts."""
     with JournalStore.open(tmp_path / "s") as store:
         payload = created_payload()
         payload["config"] = session_model_config("openai")
         store.append(type="session.created", stage="intake", actor=SYSTEM, payload=payload)
         router = ModelRouter(store, RecordingProvider(ok_result()))
-        assert router.actor("facilitator", "cognition").model == "gpt-5"
-        assert router.actor("novelty", "extraction").model == "gpt-5-mini"
+        assert router.routing["cognition"] == "gpt-5"  # routing itself is unchanged
+        assert router.actor("facilitator", "cognition").model is None
+        assert router.actor("novelty", "extraction").model is None
+        assert router.actor("carmen", persona_id="p1").persona_id == "p1"
 
 
 def test_every_allowlisted_model_has_a_list_price() -> None:

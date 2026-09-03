@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from dataclasses import replace
 
-from bokken.models.router import ProviderResult
+from bokken.models.router import MODELS, ProviderResult
 from bokken.panel.corpus import Citation
 from bokken.stages import schemas as s
 
@@ -387,3 +388,40 @@ class ScriptedProvider:
                 ],
             )
         raise AssertionError(f"ScriptedProvider has no handler for {prompt_id}")
+
+
+# What each routed model gets re-served on, same provider. `claude-fable-5` ->
+# `claude-opus-4-8` is the charter's own server-side fallback; the rest give
+# every lane a served model distinct from the requested one.
+SERVED_INSTEAD: dict[str, str] = {
+    "claude-fable-5": "claude-opus-4-8",
+    "claude-opus-5": "claude-opus-4-7",
+    "claude-sonnet-5": "claude-sonnet-4-6",
+    "claude-haiku-4-5": "claude-sonnet-4-6",
+    "gpt-5": "gpt-5.6-sol",
+    "gpt-5-mini": "gpt-5.6-luna",
+}
+
+
+class FallbackProvider(ScriptedProvider):
+    """Answers on a different model than routing asked for, on every lane.
+
+    CLAUDE.md routes research and challenge to `claude-fable-5` with a
+    server-side fallback to `claude-opus-4-8`: that fallback exists so it fires
+    under load, and when it does, requested and served diverge for a
+    configured, expected reason. Every other fake in this suite echoes the
+    requested model straight back, which makes requested and served identical
+    and leaves every test blind to a record naming the model routing asked for
+    instead of the model that answered. This one keeps the difference visible.
+    """
+
+    def complete(self, **kwargs):
+        requested = kwargs["model"]
+        served = SERVED_INSTEAD.get(requested)
+        # Echoing the request back would quietly defeat every test built on this.
+        assert served is not None, f"no fallback model configured for {requested!r}"
+        assert served != requested, f"{served!r} is not a fallback for {requested!r}"
+        assert MODELS[served].provider == MODELS[requested].provider, (
+            f"{served!r} does not belong to {requested!r}'s provider"
+        )
+        return replace(super().complete(**kwargs), model=served)

@@ -8,7 +8,6 @@ from bokken.panel import requires_real_validation
 from bokken.stages.base import (
     RouterFactory,
     evidence_lines,
-    facilitator,
     open_stage,
     opportunities_text,
     structured,
@@ -44,13 +43,14 @@ class DefineEngine:
             return None
         known_evidence = set(ctx.state.evidence)
         insight_events = []
-        for draft in clusters.insights:
+        for draft in clusters.data.insights:
             refs = [e for e in draft.evidence_ids if e in known_evidence]
             insight_events.append(
                 ctx.store.append(
                     type="interpretation.derived",
                     stage="define",
-                    actor=facilitator(router),
+                    # The clustering call made these insights; it owns them.
+                    actor=clusters.actor("facilitator"),
                     payload={
                         "kind": "insight",
                         "statement": draft.statement,
@@ -76,7 +76,7 @@ class DefineEngine:
             return None
         insight_ids = {e.id for e in insight_events}
         statements: list[tuple[str, list[str]]] = []
-        for candidate in candidates.candidates:
+        for candidate in candidates.data.candidates:
             statement = candidate.statement
             if candidate.solution_shaped and ctx.kata is not None:
                 ctx.kata.evaluate(
@@ -103,9 +103,9 @@ class DefineEngine:
         )
         if selection is None:
             return None
-        winner_index = min(max(selection.winner_index, 0), len(statements) - 1)
+        winner_index = min(max(selection.data.winner_index, 0), len(statements) - 1)
         winner_statement, winner_refs = statements[winner_index]
-        why_lost = {note.index: note.why_lost for note in selection.losers}
+        why_lost = {note.index: note.why_lost for note in selection.data.losers}
         options = [
             s if i == winner_index else f"{s} [lost: {why_lost.get(i, 'outscored on coverage')}]"
             for i, (s, _) in enumerate(statements)
@@ -114,7 +114,7 @@ class DefineEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="define",
-            actor=facilitator(router),
+            actor=selection.actor("facilitator"),  # the call that selected
             payload={
                 "question": "which problem statement do we take forward",
                 "options": options,

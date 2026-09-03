@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from bokken.journal import JournalStore, replay
+from bokken.models.router import Attributed, Attribution
 from bokken.panel import (
     Abstention,
     CastingError,
@@ -95,14 +96,17 @@ def test_corpus_span_resolution(corpus: Corpus) -> None:
     assert not corpus.validate_citation(Citation(source_id="nope", start_line=1, end_line=1))
 
 
-class ScriptedGenerator:
-    model = "claude-fable-5"
+# Deliberately not the model the research lane routes to: the served model is
+# the one that must reach the record.
+SERVED_MODEL = "claude-opus-4-8"
 
+
+class ScriptedGenerator:
     def __init__(self, results) -> None:
         self.results = list(results)
 
     def answer(self, persona, question, context):
-        return self.results.pop(0)
+        return Attributed(data=self.results.pop(0), attribution=Attribution(SERVED_MODEL))
 
 
 def _segment_persona() -> Persona:
@@ -127,6 +131,8 @@ def test_grounded_answer_is_simulated_with_citations(store, corpus) -> None:
     assert event.payload["grounding"] == "corpus"
     assert event.payload["citations"][0]["source_id"] == source_id
     assert event.actor.persona_id is not None
+    # The turn's own call names the speaker's model, not the routing table's.
+    assert event.actor.model == SERVED_MODEL
 
 
 def test_ungrounded_question_becomes_research_debt(store, corpus) -> None:
@@ -154,6 +160,8 @@ def test_invalid_citation_is_converted_to_abstention(store, corpus) -> None:
     )
     assert event.type == "evidence.abstained"
     assert "citation_invalid" in event.payload["gap"]
+    # A backstop-rewritten turn is still that call's: same served model.
+    assert event.actor.model == SERVED_MODEL
 
 
 def test_grounding_health_separates_backstop_abstentions_from_real_gaps(store, corpus) -> None:

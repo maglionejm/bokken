@@ -10,10 +10,10 @@ from bokken.library import prior_learnings_text
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.panel import Corpus, Interviewer, cast_panel, journal_manifest
 from bokken.stages.base import (
+    FACILITATOR,
     RouterFactory,
     dumps,
     evidence_lines,
-    facilitator,
     journal_rejected_inputs,
     open_stage,
     structured,
@@ -75,9 +75,9 @@ class EmpathizeEngine:
         if program is None:
             return None
         if ctx.state.mode == "dojo":
-            self._dojo_interviews(ctx, router, program)
+            self._dojo_interviews(ctx, router, program.data)
         else:
-            self._founder_interviews(ctx, router, program)
+            self._founder_interviews(ctx, router, program.data)
             # Mode parity: a running app deserves its functional test either way.
             run_walkthrough(ctx, router)
         return None
@@ -120,8 +120,8 @@ class EmpathizeEngine:
                 stage="empathize",
                 params={"question": q.question, "answer": answer.text},
             )
-            if followup and followup.question:
-                follow_answer = ctx.input_port.ask(followup.question)
+            if followup and followup.data.question:
+                follow_answer = ctx.input_port.ask(followup.data.question)
                 if follow_answer.text.strip():
                     ctx.store.append(
                         type="evidence.captured",
@@ -195,13 +195,13 @@ class EmpathizeEngine:
             return
         known = set(state.evidence)
         outcome_events = []
-        for draft in outcome_list.outcomes:
+        for draft in outcome_list.data.outcomes:
             refs = [e for e in draft.evidence_ids if e in known]
             outcome_events.append(
                 ctx.store.append(
                     type="interpretation.derived",
                     stage="empathize",
-                    actor=facilitator(router),
+                    actor=outcome_list.actor("facilitator"),
                     payload={
                         "kind": "desired_outcome",
                         "statement": draft.statement,
@@ -228,13 +228,13 @@ class EmpathizeEngine:
             )
             if scores is None:
                 return
-            for s in scores.scores:
+            for s in scores.data.scores:
                 if not 0 <= s.outcome_index < len(outcome_events):
                     continue
                 event = ctx.store.append(
                     type="interpretation.derived",
                     stage="empathize",
-                    actor=persona.actor(router.routing["research"]),
+                    actor=persona.actor(scores.attribution),
                     payload={
                         "kind": "outcome_score",
                         "statement": (
@@ -271,7 +271,9 @@ class EmpathizeEngine:
             ctx.store.append(
                 type="interpretation.derived",
                 stage="empathize",
-                actor=facilitator(router),
+                # Deterministic Ulwick arithmetic over the scores above: the
+                # harness computed this, no model did.
+                actor=FACILITATOR,
                 payload={
                     "kind": "opportunity",
                     "statement": (
@@ -307,7 +309,7 @@ class EmpathizeEngine:
         ctx.store.append(
             type="artifact.generated",
             stage="empathize",
-            actor=facilitator(router),
+            actor=FACILITATOR,  # a table this code rendered from the records above
             payload={
                 "path": "artifacts/empathize/opportunity_ranking.md",
                 "kind": "opportunity_ranking",

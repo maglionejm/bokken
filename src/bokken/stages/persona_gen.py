@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 
-from bokken.models.router import ModelRouter
+from bokken.models.router import Attributed, ModelRouter
 from bokken.panel import Abstention, GroundedAnswer, Persona, ProfileOpinion
+from bokken.panel.grounding import PersonaTurn
 from bokken.stages.base import dumps
-from bokken.stages.schemas import PersonaTurn
+from bokken.stages.schemas import PersonaTurn as TurnPayload
 
 # Below this, slicing costs more than it saves. The persona turn now caches its
 # corpus prefix across the whole interview, so an undelegated corpus is paid for
@@ -24,7 +25,6 @@ class RouterTurnGenerator:
     def __init__(self, router: ModelRouter, stage: str = "empathize") -> None:
         self.router = router
         self.stage = stage
-        self.model = router.routing["research"]  # persona turns run on research
         self._slices: dict[str, str] = {}
 
     def _sliced_context(self, question: str, context: str) -> str:
@@ -57,9 +57,7 @@ class RouterTurnGenerator:
             return outcome.text
         return context
 
-    def answer(
-        self, persona: Persona, question: str, context: str
-    ) -> GroundedAnswer | ProfileOpinion | Abstention:
+    def answer(self, persona: Persona, question: str, context: str) -> PersonaTurn:
         outcome = self.router.invoke(
             "research",
             "empathize/persona_turn",
@@ -69,13 +67,21 @@ class RouterTurnGenerator:
                 "context": self._sliced_context(question, context),
                 "question": question,
             },
-            schema=PersonaTurn,
+            schema=TurnPayload,
         )
+        # The attribution rides along either way: the model that answered on a
+        # good turn, and on a failed one the model the failed call reached for.
         if not outcome.ok or outcome.data is None:
-            return Abstention(reason=f"model_unavailable: {outcome.status}")
-        turn: PersonaTurn = outcome.data
+            return Attributed(
+                data=Abstention(reason=f"model_unavailable: {outcome.status}"),
+                attribution=outcome.attribution,
+            )
+        turn: TurnPayload = outcome.data
+        result: GroundedAnswer | ProfileOpinion | Abstention
         if turn.kind == "grounded" and turn.citations:
-            return GroundedAnswer(text=turn.text, citations=turn.citations)
-        if turn.kind == "opinion":
-            return ProfileOpinion(text=turn.text)
-        return Abstention(reason=turn.gap or "no grounding available")
+            result = GroundedAnswer(text=turn.text, citations=turn.citations)
+        elif turn.kind == "opinion":
+            result = ProfileOpinion(text=turn.text)
+        else:
+            result = Abstention(reason=turn.gap or "no grounding available")
+        return Attributed(data=result, attribution=outcome.attribution)
