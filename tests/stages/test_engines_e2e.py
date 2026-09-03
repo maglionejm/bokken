@@ -11,7 +11,7 @@ from bokken.orchestrator import Answer, Runner, create_session
 from bokken.stages import engine_suite
 from bokken.stages.base import FOUNDER
 from tests.panel.test_inputs import make_repo
-from tests.stages.fake_provider import ScriptedProvider
+from tests.stages.fake_provider import FallbackProvider, ScriptedProvider
 
 
 @pytest.fixture(autouse=True)
@@ -166,6 +166,62 @@ def test_dojo_full_run_offline(tmp_path: Path) -> None:
     assert agent_models and agent_models <= served
 
 
+def test_agent_provenance_names_the_model_that_answered(tmp_path: Path) -> None:
+    """The mechanical guard: run the whole loop against a provider that answers
+    on a different model than routing asked for.
+
+    Until this existed nothing in the suite could see the bug, because every
+    fake echoed the requested model back, making requested and served
+    identical. With them pulled apart, a contribution attributed from the
+    routing table names a model that never answered - and the ledger holds two
+    records disagreeing about one contribution.
+    """
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "fallback-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    assert make_runner(session_dir, FallbackProvider()).run().halt == "completed"
+
+    events = list(read_events(session_dir))
+    model_calls = [e for e in events if e.type == "model.called"]
+    served = {e.payload["model"] for e in model_calls}
+    requested = {e.payload["requested_model"] for e in model_calls}
+    # The premise: every call really was answered by a model routing did not ask
+    # for. Without this the assertions below would pass on identical sets.
+    assert served and requested and served.isdisjoint(requested)
+
+    agent_models = {e.actor.model for e in events if e.actor.kind == "agent" and e.actor.model}
+    assert agent_models
+    assert agent_models <= served, "an actor names a model no call served"
+    assert agent_models.isdisjoint(requested), "an actor names a model that never answered"
+
+    # An agent record that claims no model claims nothing false: facilitation
+    # moves and deterministic tallies are not any one call's output.
+    unattributed = {e.type for e in events if e.actor.kind == "agent" and e.actor.model is None}
+    assert "facilitation.move_executed" in unattributed
+
+    # Per contribution, not just per run: each test-stage persona reaction and
+    # score is journaled straight after the evaluate call that produced it and
+    # must name that call's server.
+    evaluator: str | None = None
+    paired = 0
+    for event in events:
+        if event.type == "model.called" and event.payload["prompt_id"] == "test/evaluate":
+            evaluator = event.payload["model"]
+        elif (
+            event.stage == "test"
+            and event.actor.persona_id
+            and event.type in ("evidence.captured", "assumption.scored")
+        ):
+            assert event.actor.model == evaluator
+            paired += 1
+    assert paired >= 2  # a reaction and a score for at least one assumption
+
+
 class FounderPort:
     def __init__(self) -> None:
         self.script = [
@@ -218,7 +274,11 @@ def test_resume_mid_run_offline(tmp_path: Path) -> None:
 
 
 def test_openai_session_attributes_agents_to_openai_models(tmp_path: Path) -> None:
+    """Provider isolation holds through a fallback: an OpenAI session's actors
+    name the OpenAI model that answered, never a Claude model and never a model
+    that only got asked."""
     from bokken.models import session_model_config
+    from bokken.models.router import MODELS
 
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(
@@ -231,10 +291,16 @@ def test_openai_session_attributes_agents_to_openai_models(tmp_path: Path) -> No
             **session_model_config("openai", reasoning_effort="low"),
         },
     )
-    provider = ScriptedProvider()
+    provider = FallbackProvider()
     assert make_runner(session_dir, provider).run().halt == "completed"
 
     events = list(read_events(session_dir))
+    model_calls = [e for e in events if e.type == "model.called"]
+    served = {e.payload["model"] for e in model_calls}
+    requested = {e.payload["requested_model"] for e in model_calls}
+    assert requested == {"gpt-5", "gpt-5-mini"} and served.isdisjoint(requested)
+
     agent_models = {e.actor.model for e in events if e.actor.kind == "agent" and e.actor.model}
-    assert agent_models and agent_models <= {"gpt-5", "gpt-5-mini"}
+    assert agent_models and agent_models <= served
+    assert all(MODELS[m].provider == "openai" for m in agent_models)
     assert set(provider.efforts) == {"low"}

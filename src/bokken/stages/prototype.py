@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bokken.journal import Actor
 from bokken.orchestrator import StageContext, StageOutcome
-from bokken.stages.base import RouterFactory, StageError, facilitator, open_stage, structured
+from bokken.stages.base import RouterFactory, StageError, open_stage, structured
 from bokken.stages.research import prior_research, run_concept_research
 from bokken.stages.schemas import AssumptionList, FidelityChoice
 
@@ -100,7 +100,7 @@ class PrototypeEngine:
         if drafts is None:
             return None
         ranked = sorted(
-            drafts.assumptions,
+            drafts.data.assumptions,
             key=lambda a: _RISK_ORDER[a.impact] + _RISK_ORDER[a.uncertainty],
             reverse=True,
         )
@@ -108,7 +108,7 @@ class PrototypeEngine:
             ctx.store.append(
                 type="assumption.registered",
                 stage="prototype",
-                actor=facilitator(router),
+                actor=drafts.actor("facilitator"),  # the call that enumerated them
                 payload={
                     "statement": a.statement,
                     "impact": a.impact,
@@ -136,19 +136,19 @@ class PrototypeEngine:
         ctx.store.append(
             type="decision.recorded",
             stage="prototype",
-            actor=facilitator(router),
+            actor=plan.actor("facilitator"),  # the call that chose the fidelity
             payload={
                 "question": "prototype fidelity: cheapest artifact testing the riskiest assumption",
-                "options": [item.kind for item in plan.artifacts],
+                "options": [item.kind for item in plan.data.artifacts],
                 "criteria": ["tests the riskiest assumption at the lowest cost"],
                 "positions": [],
-                "resolution": plan.rationale,
+                "resolution": plan.data.rationale,
                 "dissent": [],
             },
             refs=[riskiest.id],
         )
 
-        for item in plan.artifacts:
+        for item in plan.data.artifacts:
             assumption_refs = [
                 registered[i].id for i in item.assumption_indexes if 0 <= i < len(registered)
             ]
@@ -188,7 +188,8 @@ class PrototypeEngine:
             ctx.store.append(
                 type="artifact.generated",
                 stage="prototype",
-                actor=facilitator(router),
+                # The generation call wrote this file's contents.
+                actor=outcome.attribution.actor("facilitator"),
                 payload={
                     "path": str(relative),
                     "kind": item.kind,

@@ -71,6 +71,7 @@ def test_mixed_inputs_are_independently_addressable(tmp_path: Path) -> None:
 
 def test_citation_kind_lands_in_evidence(tmp_path: Path) -> None:
     from bokken.journal import JournalStore
+    from bokken.models.router import Attributed, Attribution
     from bokken.panel import GroundedAnswer, Interviewer, cast_panel
     from bokken.panel.corpus import Citation
     from tests.journal.conftest import SYSTEM, created_payload
@@ -81,12 +82,13 @@ def test_citation_kind_lands_in_evidence(tmp_path: Path) -> None:
     source_id = corpus.ids_of_kind("metrics")[0]
 
     class OneShot:
-        model = "claude-fable-5"
-
         def answer(self, persona, question, context):
-            return GroundedAnswer(
-                text="churn was 8% in July",
-                citations=[Citation(source_id=source_id, start_line=2, end_line=2)],
+            return Attributed(
+                data=GroundedAnswer(
+                    text="churn was 8% in July",
+                    citations=[Citation(source_id=source_id, start_line=2, end_line=2)],
+                ),
+                attribution=Attribution("claude-opus-4-8"),
             )
 
     with JournalStore.open(tmp_path / "session") as store:
