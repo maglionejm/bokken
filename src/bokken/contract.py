@@ -52,6 +52,7 @@ class HandoffResult(BaseModel):
     package_dir: str
     change_id: str
     capabilities: list[str]
+    adapters: list[str] = []  # emitted target-specific execution files
 
 
 class SessionListItem(BaseModel):

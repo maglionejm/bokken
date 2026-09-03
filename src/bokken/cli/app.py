@@ -819,9 +819,20 @@ def export(name: str, as_json: JsonFlag = False) -> None:
 
 @app.command("handoff")
 @guarded
-def handoff(name: str, as_json: JsonFlag = False) -> None:
+def handoff(
+    name: str,
+    emit_targets: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--emit",
+            help="Also render an executable adapter: claude-code, cursor, or codex (repeatable).",
+        ),
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
     """Generate OpenSpec MVP specifications for the validated concept (the handoff)."""
     from bokken.handoff import HandoffRefusedError, generate_handoff
+    from bokken.handoff.emit import EmitError, emit_adapters
 
     session_dir = resolve_session_dir(name)
     try:
@@ -829,11 +840,20 @@ def handoff(name: str, as_json: JsonFlag = False) -> None:
     except HandoffRefusedError as refusal:
         _fail(str(refusal), 2)
         return
-    result = contract.HandoffResult(**generated)
+    adapter_paths: list[str] = []
+    if emit_targets:
+        try:
+            adapter_paths = [str(p) for p in emit_adapters(session_dir, emit_targets)]
+        except EmitError as exc:
+            _fail(str(exc), 2)
+    result = contract.HandoffResult(**generated, adapters=adapter_paths)
     emit(
         result,
         as_json,
-        lambda: out.print(f"handoff ({', '.join(result.capabilities)}):\n  {result.package_dir}"),
+        lambda: out.print(
+            f"handoff ({', '.join(result.capabilities)}):\n  {result.package_dir}"
+            + ("".join(f"\n  adapter: {a}" for a in adapter_paths))
+        ),
     )
 
 
