@@ -22,6 +22,19 @@ Two properties make the surface safe to hand to agents:
   The ledger always shows whether a human or an agent approved a gate or
   answered a question.
 
+## Install in one line
+
+- **Claude Code**: `claude mcp add bokken -- uvx bokken serve`
+- **Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{"mcpServers": {"bokken": {"command": "uvx", "args": ["bokken", "serve"]}}}
+```
+
+`bokken doctor` verifies the environment (keys, extras, browser, workspace)
+and prints the fix for anything missing. The repo ships a `server.json`
+manifest in the MCP registry format.
+
 ## Setup
 
 The server needs a provider API key in its environment for real runs:

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.maglionejm/bokken",
+  "description": "Design Thinking as an executable, event-sourced, governed process: run autonomous discovery loops against your repo/metrics/interviews, gate them, and get an evidence-traced dossier, reports, and build-ready OpenSpec handoff. 14 tools, journaled client identity, confined input paths.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/maglionejm/bokken",
+    "source": "github"
+  },
+  "version_detail": {
+    "version": "1.2.1"
+  },
+  "packages": [
+    {
+      "registry_name": "pypi",
+      "name": "bokken",
+      "version": "1.2.1",
+      "runtime_hint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtime_arguments": [
+        {
+          "type": "positional",
+          "value": "serve",
+          "description": "start the MCP server on stdio"
+        }
+      ],
+      "environment_variables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "provider key for real runs (bokken demo needs none)",
+          "is_required": false,
+          "is_secret": true
+        },
+        {
+          "name": "BOKKEN_INPUT_ROOTS",
+          "description": "colon-separated roots client-supplied input paths are confined to",
+          "is_required": false
+        }
+      ]
+    }
+  ]
+}

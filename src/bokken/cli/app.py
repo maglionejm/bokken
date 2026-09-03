@@ -857,6 +857,41 @@ def handoff(
     )
 
 
+@app.command("doctor")
+def doctor(
+    network: Annotated[
+        bool, typer.Option("--network", help="Also probe provider reachability.")
+    ] = False,
+    as_json: JsonFlag = False,
+) -> None:
+    """Diagnose the environment: keys, extras, browser, workspace - with fixes."""
+    from bokken.cli.doctor import run_checks
+
+    checks = run_checks(network=network)
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "ok": all(c.ok for c in checks),
+                    "checks": [
+                        {"name": c.name, "ok": c.ok, "detail": c.detail, "fix": c.fix}
+                        for c in checks
+                    ],
+                }
+            )
+        )
+        return
+    for c in checks:
+        mark = "ok " if c.ok else "!! "
+        out.print(f"{mark}{c.name:<22} {c.detail}", markup=False, highlight=False)
+        if c.fix:
+            out.print(f"   fix: {c.fix}", markup=False, highlight=False)
+    if all(c.ok for c in checks):
+        out.print("everything needed for a real run is in place")
+    else:
+        out.print("apply the fixes above, then re-run `bokken doctor`")
+
+
 @app.command("serve")
 @guarded
 def serve() -> None:
