@@ -226,9 +226,14 @@ def render_package(package: SpecPackage, ctx: HandoffContext) -> dict[str, str]:
         "3. Validate: `openspec validate --strict`.\n"
         "4. Implement with your coding harness (e.g. `/opsx:apply` in Claude Code), "
         "then archive.\n\n"
+        "## Evidence lookups\n\n"
         "`traceability.json` maps every capability and requirement back to the "
-        "originating Bokken ledger events; the run's `dossier/` holds the full "
-        "evidence graph.\n"
+        "originating Bokken ledger events. Relative to this file, the full "
+        "evidence graph is at `../dossier/dossier.json` (assumption and evidence "
+        "ids resolve there) and the append-only ledger at `../journal.jsonl`. "
+        "To verify a requirement: take its `assumption_ids` from "
+        "traceability.json, find them under `assumptions` in dossier.json, and "
+        "follow their `evidence_refs`.\n"
     )
 
     trace = {
