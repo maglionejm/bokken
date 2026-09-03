@@ -209,3 +209,56 @@ def test_finalization_is_idempotent_for_report(dojo_session: Path) -> None:
 def test_first_sentence() -> None:
     assert first_sentence("One. Two.") == "One."
     assert first_sentence("No terminal punctuation") == "No terminal punctuation"
+
+
+# A journal written before the typed read path existed; see
+# tests/journal/test_forward_compat.py for what it deliberately contains.
+LEGACY_SESSION = Path(__file__).parent.parent / "journal" / "fixtures" / "legacy-session"
+
+
+def test_legacy_session_still_builds_a_dossier() -> None:
+    """The typed readers must produce the same honesty labels on an old journal."""
+    model = build_model(LEGACY_SESSION)
+
+    by_class = {e.confidence_class: e for e in model.evidence.values()}
+    assert set(by_class) == {"simulated", "reported"}
+    assert by_class["simulated"].synthetic is True
+    assert by_class["simulated"].speaker == "Marta"
+    assert by_class["simulated"].agent is None  # a persona utterance, not an agent's
+    assert by_class["simulated"].segment == "commuters"
+    assert by_class["simulated"].citations == [{"source_id": "doc-1", "quote": "wrong arrival"}]
+    assert by_class["reported"].synthetic is False
+    assert by_class["reported"].agent == "founder"
+
+    insight = next(iter(model.insights.values()))
+    assert insight.ungrounded is False
+    assert insight.synthetic is False  # grounded partly in `reported` evidence
+
+    decision = next(iter(model.decisions.values()))
+    assert decision.dissent == [{"actor": "skeptic", "reservation": "the feed is the real problem"}]
+    assert decision.requires_real_validation is False
+    assert [m.kind for m in model.pivotal_moments] == ["adopted_with_dissent"]
+
+    trace = model.model_traces[0]
+    assert trace.usage == {
+        "input_tokens": 1200,
+        "output_tokens": 340,
+        "cache_read_tokens": 800,
+        "cache_write_tokens": 0,
+    }
+    assert [(t.from_stage, t.to_stage, t.loopback) for t in model.transitions] == [
+        ("intake", "empathize", False)
+    ]
+    assert model.abstentions[0].gap == "no operational data in the corpus"
+
+
+def test_legacy_session_reads_as_a_demo() -> None:
+    assert build_context(LEGACY_SESSION, build_model(LEGACY_SESSION)).demo is True
+
+
+def test_demo_detection_degrades_on_an_unreadable_journal(tmp_path: Path) -> None:
+    from bokken.report.context import _is_demo_session
+
+    assert _is_demo_session(tmp_path) is False  # no journal at all
+    (tmp_path / "journal.jsonl").write_text("not json\n", encoding="utf-8")
+    assert _is_demo_session(tmp_path) is False

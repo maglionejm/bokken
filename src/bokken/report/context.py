@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bokken.dossier.model import ArtifactNode, DossierModel
+from bokken.journal.schema import SessionCreated, parse_line
 from bokken.models.router import MODELS
 
 # Bookkeeping artifacts (rosters, exports) are never shown as prototype output.
@@ -390,14 +391,18 @@ def _handoff_refusal(model: DossierModel) -> str | None:
 
 
 def _is_demo_session(session_dir: Path) -> bool:
-    import json as _json
+    """Whether the session was created as a demo, read from its first record.
 
+    Only the first line is parsed: `session.created` is always seq 1, and the
+    report must not pay for a full replay to decide how to label its costs.
+    """
     journal = session_dir / "journal.jsonl"
     try:
-        first = _json.loads(journal.read_text(encoding="utf-8").split("\n", 1)[0])
-    except (OSError, ValueError):
-        return False
-    return bool(first.get("payload", {}).get("config", {}).get("demo"))
+        first = parse_line(journal.read_text(encoding="utf-8").split("\n", 1)[0])
+        created = first.payload_as(SessionCreated)
+    except (OSError, ValueError, TypeError):
+        return False  # no journal, an unreadable one, or a first record we cannot type
+    return bool(created.config.get("demo"))
 
 
 def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
