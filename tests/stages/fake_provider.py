@@ -54,6 +54,23 @@ class ScriptedProvider:
 
     def _dispatch(self, prompt_id: str, rendered: str):
         n = self.calls[prompt_id]
+        if prompt_id == "intake/product_facts":
+            return s.ProductFacts(
+                product_name="Acme Notes",
+                what_it_does="a note-taking app for field technicians",
+                apparent_segments=["field technicians", "dispatch managers"],
+                apparent_metrics=["weekly active notes", "sync failures"],
+            )
+        if prompt_id == "intake/draft_brief":
+            return s.BriefDraft(
+                problem_space="Acme Notes captures notes but loses them at sync "
+                "time; the space to explore is what breaks between the field "
+                "and the office.",
+                target_segments=["field technicians", "dispatch managers"],
+                success_criteria=["sync failures halve", "weekly active notes grow"],
+                constraints=["offline-first stays"],
+                rationale="grounded in the repo's own sync-failure metric",
+            )
         if prompt_id == "empathize/interview_program":
             segments = re.findall(r'"target_segments":\s*\[([^\]]*)\]', rendered)
             names = re.findall(r'"([^"]+)"', segments[0]) if segments else ["general"]
