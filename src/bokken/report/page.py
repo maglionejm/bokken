@@ -242,7 +242,7 @@ def _chips(items: list[tuple[str, str]]) -> str:
     )
 
 
-def render_page(ctx: ReportContext) -> str:
+def render_page(ctx: ReportContext, theme=None) -> str:
     m, c = ctx.model, ctx
     parts: list[str] = []
     add = parts.append
@@ -307,6 +307,10 @@ def render_page(ctx: ReportContext) -> str:
             f"<div class='kicker'>{_e(kicker)}</div><h2>{_e(title)}</h2>"
         )
 
+    from bokken.report.theme import BUILTIN, css_override
+
+    theme = theme or BUILTIN["bokken"]
+    _theme_css = css_override(theme)
     from bokken.report.vendor import chartjs_source
 
     _chartjs = chartjs_source()
@@ -314,14 +318,14 @@ def render_page(ctx: ReportContext) -> str:
     # ---- head + shell + rail ----
     add(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bokken run report — {_e(m.name)}</title><style>{_CSS}</style>
+<title>{_e(theme.brand_label)} run report — {_e(m.name)}</title><style>{_CSS}{_theme_css}</style>
 <script>{_chartjs}</script></head><body><div id="prog"></div>
-<div class="shell"><nav class="rail"><div class="brand"><b>Bokken</b> · run report</div>
+<div class="shell"><nav class="rail"><div class="brand"><b>{_e(theme.brand_label)}</b> · run report</div>
 <div class="session">{_e(m.name)} · {_e(m.mode)}</div>
 <div class="verdict-chip">outcome: {_e(outcome)}</div>""")
     for cid, label, *_rest in chapters:
         add(f"<a class='toc' href='#{cid}'><span class='n'>{numbers[cid]}</span>{_e(label)}</a>")
-    add("""<div class="foot">Generated from the append-only Journal.<br>No manual edits.</div></nav>
+    add(f"""<div class="foot">{theme.footer}</div></nav>
 <main>""")
 
     # ---- hero ----

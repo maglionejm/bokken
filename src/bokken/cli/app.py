@@ -277,6 +277,9 @@ def new(
         list[Path] | None, typer.Option(help="Interview/discussion transcript.")
     ] = None,
     doc: Annotated[list[Path] | None, typer.Option(help="Other document input.")] = None,
+    theme: Annotated[
+        str | None, typer.Option(help="Report theme journaled for this session's exports.")
+    ] = None,
     panel_size: Annotated[int, typer.Option(help="Synthetic panel size (dojo).")] = 6,
     seed: Annotated[int, typer.Option(help="Panel casting seed.")] = 7,
     as_json: JsonFlag = False,
@@ -328,6 +331,7 @@ def new(
         budgets=budgets,
         config_extra={
             "panel": {"size": panel_size, "seed": seed},
+            **({"report_theme": theme} if theme else {}),
             **session_model_config(provider, model, reasoning_effort),
         },
     )
@@ -800,12 +804,23 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
 
 @app.command("export")
 @guarded
-def export(name: str, as_json: JsonFlag = False) -> None:
+def export(
+    name: str,
+    theme: Annotated[
+        str | None,
+        typer.Option(help="Report theme: bokken, plain, or a theme JSON path."),
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
     """Export the run report as a PowerPoint deck and a self-contained HTML page."""
     from bokken.report.generate import ReportError, generate_report
+    from bokken.report.theme import ThemeError
 
     try:
-        pptx_path, html_path = generate_report(resolve_session_dir(name))
+        pptx_path, html_path = generate_report(resolve_session_dir(name), theme_spec=theme)
+    except ThemeError as err:
+        _fail(str(err), 2)
+        return
     except ReportError as err:
         _fail(str(err), 2)
         return

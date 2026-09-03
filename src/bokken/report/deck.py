@@ -54,7 +54,10 @@ CHIP_W = Inches(1.95)
 
 
 class Deck:
-    def __init__(self, ctx: ReportContext) -> None:
+    def __init__(self, ctx: ReportContext, theme=None) -> None:
+        from bokken.report.theme import BUILTIN
+
+        self.theme = theme or BUILTIN["bokken"]
         self.ctx = ctx
         self.prs = Presentation()
         self.prs.slide_width = PAGE_W
@@ -626,5 +629,5 @@ class Deck:
         self.prs.save(str(out_path))
 
 
-def render_deck(ctx: ReportContext, out_path: Path) -> None:
-    Deck(ctx).render(out_path)
+def render_deck(ctx: ReportContext, out_path: Path, theme=None) -> None:
+    Deck(ctx, theme=theme).render(out_path)
