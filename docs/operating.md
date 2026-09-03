@@ -17,11 +17,18 @@ the directory you run from — like git, workspace-local by default).
 
 ## Creating a session
 
-Never run before? `bokken demo` replays a complete engagement on a bundled
-fictional product — offline, deterministic, $0.00 — and prints the report
-paths. `bokken init` then writes a first brief from a template
-(`saas-retention`, `consumer-app`, `internal-tool`) and shows the exact
-`new`/`run` commands that consume it.
+Never run before? `bokken doctor` diagnoses the environment (keys, extras,
+browser — every gap with its fix command; `--network` adds reachability).
+`bokken demo` replays a complete engagement on a bundled fictional product —
+offline, deterministic, $0.00 — and prints the report paths. `bokken init`
+writes a first brief from a template (`saas-retention`, `consumer-app`,
+`internal-tool`), or drafts it **from your own repository**:
+
+```sh
+bokken init --from-repo ./myapp --metrics data/kpis.csv
+# two model calls (~$0.10-0.30, disclosed), field-by-field review (--yes to
+# accept), Brief-validated write, scratch journal discarded
+```
 
 Give Bokken something tangible to start from: the app repo, the numbers, and
 what humans have said.
@@ -125,6 +132,9 @@ bokken export retention     # report/report.pptx + report/report.html
 bokken costs retention      # spend per stage x prompt x class, cache hit rate, grounding health
 bokken validate retention   # real-human interview vs the research debt (terminal or --channel twilio)
 bokken library              # cross-run learnings per product (seeds new runs automatically)
+bokken pack retention       # one portable archive: manifest + deliverables (+ journal unless --deliverables-only)
+bokken handoff retention --emit claude-code   # executable HANDOFF.md + .claude command for your coding agent
+bokken export retention --theme acme.json     # white-label the report chrome (builtin: bokken, plain)
 ```
 
 **Dossier** — `dossier/dossier.md` (Part A outcomes + Part B process narrative +

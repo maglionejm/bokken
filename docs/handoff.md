@@ -98,3 +98,16 @@ Each capability carries a slice plan (1–3 slices sized S/M/L with what
 ships) and its dependencies; the proposal ends with a numbered PR-train
 sequencing — build order with a one-line rationale per step (order ≠
 importance), mirroring the house workshop format.
+
+## Executable adapters
+
+`bokken handoff <name> --emit claude-code` (also `cursor`, `codex`,
+repeatable) renders `handoff/adapters/<target>/HANDOFF.md` — an execution
+prompt assembled from the canonical package with zero model calls: why the
+work exists, the execution order, the contradicted-assumption exclusions as
+binding, the spec index, explicit evidence-lookup paths
+(traceability.json → `dossier/dossier.json` → `journal.jsonl`), and the
+verbatim task plan — plus the target-native file (`.claude/commands/
+build-mvp.md`, `.cursor/rules/bokken-handoff.mdc`, or `AGENTS.md`). Copy the
+adapter directory's contents into the target repo alongside the OpenSpec
+change; the package stays the single source of truth.

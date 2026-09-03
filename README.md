@@ -80,6 +80,15 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
   extra) — consent is asked first, once, and journaled before any question
   goes out; every exchange is `reported` human evidence, and the register is
   rescored against it.
+- **The run travels**: `bokken pack` produces one portable archive with an
+  honest manifest (verdict, cost, sha256 index); `--deliverables-only` for
+  external sharing states exactly what was omitted.
+- **The output executes**: `bokken handoff --emit claude-code|cursor|codex`
+  renders the OpenSpec package as an execution prompt your coding agent
+  follows directly — evidence pointers included.
+- **The deliverables are yours**: `bokken export --theme acme.json`
+  white-labels the report (brand color, label, footer) without touching a
+  single journal-derived claim.
 - **Learnings compound**: every finalized run feeds the insights library; the
   next run on the same product starts knowing what was supported,
   contradicted, or broken — with session provenance on every borrowed line.
@@ -110,8 +119,10 @@ Then point it at something real. Requires [uv](https://docs.astral.sh/uv/)
 and a provider API key — Anthropic is the default, OpenAI via the extra:
 
 ```sh
-uvx bokken init          # writes a brief from a template: saas-retention,
-                         # consumer-app, or internal-tool
+uvx bokken doctor        # one-screen environment check, every gap with its fix
+uvx bokken init --from-repo . --yes   # or draft the brief FROM your repo
+                         # (templates still available: saas-retention,
+                         #  consumer-app, internal-tool)
 
 # default provider
 export ANTHROPIC_API_KEY=...
@@ -187,7 +198,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 
 | | |
 | --- | --- |
-| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · costs · validate · library · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
+| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · pack · costs · validate · library · doctor · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
 | **MCP** | `bokken serve` (stdio): 14 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation

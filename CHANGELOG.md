@@ -7,6 +7,16 @@ main may be ahead of the latest PyPI release.
 ## [Unreleased]
 
 ### Added
+- `bokken init --from-repo PATH`: drafts the brief from the repo's own corpus
+  (two disclosed model calls, scratch journal discarded) (#50).
+- `bokken pack NAME [--deliverables-only]`: one portable archive per run with
+  an honest manifest (verdict, cost, sha256 file index) (#51).
+- `bokken handoff --emit claude-code|cursor|codex`: executable adapters over
+  the canonical OpenSpec package, with evidence-lookup paths (#52).
+- `bokken doctor [--network]`: one-screen environment diagnosis, every
+  failing row paired with its fix; `server.json` MCP registry manifest (#53).
+- Report themes: builtin `bokken`/`plain` or a JSON theme (brand, label,
+  footer) — chrome only, never content; journaled at `new` (#54).
 - Demo specimen exercises a bundled mock app in a real browser when the `[ui]`
   extra is installed: per-feature functional tests, screenshots, and an honest
   `broken` finding (#43).
