@@ -8,6 +8,7 @@ from typing import Protocol
 from pydantic import BaseModel, Field
 
 from bokken.journal import Event, JournalStore, Stage
+from bokken.models.router import Attributed
 from bokken.panel.casting import Persona
 from bokken.panel.corpus import Citation, Corpus
 
@@ -36,12 +37,14 @@ class Abstention(BaseModel):
     reason: str
 
 
-class PersonaTurnGenerator(Protocol):
-    model: str  # the model serving these turns, for journal provenance
+# One persona turn plus the provenance of the call that produced it. The
+# generator returns both because a turn's model is knowable only after the
+# call has answered - a generator field could only hold what routing asked for.
+PersonaTurn = Attributed[GroundedAnswer | ProfileOpinion | Abstention]
 
-    def answer(
-        self, persona: Persona, question: str, context: str
-    ) -> GroundedAnswer | ProfileOpinion | Abstention: ...
+
+class PersonaTurnGenerator(Protocol):
+    def answer(self, persona: Persona, question: str, context: str) -> PersonaTurn: ...
 
 
 class Interviewer:
@@ -64,7 +67,11 @@ class Interviewer:
         segment: str | None = None,
     ) -> Event:
         context = self.corpus.context_for(persona.grounding_scope or None)
-        result = self.generator.answer(persona, question, context)
+        turn = self.generator.answer(persona, question, context)
+        # The turn's own call is the only honest source for who spoke, backstop
+        # rewrites included: an abstention forced below is still that call's.
+        actor = persona.actor(turn.attribution)
+        result = turn.data
 
         if isinstance(result, GroundedAnswer):
             invalid = [c for c in result.citations if not self.corpus.validate_citation(c)]
@@ -77,7 +84,7 @@ class Interviewer:
                 return self.store.append(
                     type="evidence.captured",
                     stage=stage,
-                    actor=persona.actor(self.generator.model),
+                    actor=actor,
                     payload={
                         "content": result.text,
                         "source": f"persona:{persona.persona_id}",
@@ -96,7 +103,7 @@ class Interviewer:
             return self.store.append(
                 type="evidence.captured",
                 stage=stage,
-                actor=persona.actor(self.generator.model),
+                actor=actor,
                 payload={
                     "content": result.text,
                     "source": f"persona:{persona.persona_id}",
@@ -111,7 +118,7 @@ class Interviewer:
         return self.store.append(
             type="evidence.abstained",
             stage=stage,
-            actor=persona.actor(self.generator.model),
+            actor=actor,
             payload={
                 "question": question,
                 "gap": result.reason,

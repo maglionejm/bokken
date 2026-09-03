@@ -16,7 +16,7 @@ import re
 from typing import Protocol
 
 from bokken.journal.schema import content_hash
-from bokken.stages.base import facilitator, structured
+from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import FeatureInventory, UIAction
 
 MAX_FEATURES = 8  # default; config ui_tests.max_features
@@ -186,12 +186,15 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
         results: list[dict] = []
         ui_dir = ctx.store.session_dir / "artifacts" / "ui"
         ui_dir.mkdir(parents=True, exist_ok=True)
-        for f_idx, feature in enumerate(inventory.features[:max_features], 1):
+        for f_idx, feature in enumerate(inventory.data.features[:max_features], 1):
             if feature.entry_hint:
                 with contextlib.suppress(Exception):
                     tester.goto(feature.entry_hint)
             steps: list[str] = []
             verdict, finding = "unclear", ""
+            # A loop that exhausts its step budget concluded on no call's verdict,
+            # so the record it leaves behind claims no model.
+            tester_actor = FACILITATOR
             for _step in range(max_steps):
                 # Fusion: mechanical stepping on the sidekick lane; the concluding
                 # verdict escalates to the frontier below.
@@ -210,7 +213,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                 )
                 if action is None:
                     return results
-                if action.action == "done":
+                if action.data.action == "done":
                     confirm = structured(
                         router,
                         "research",
@@ -224,14 +227,19 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                             "page": tester.digest(),
                         },
                     )
-                    final = confirm if confirm and confirm.action == "done" else action
-                    verdict = final.verdict or action.verdict or "unclear"
-                    finding = final.finding or action.finding
+                    final = confirm if confirm and confirm.data.action == "done" else action
+                    verdict = final.data.verdict or action.data.verdict or "unclear"
+                    finding = final.data.finding or action.data.finding
+                    # Whichever call's verdict actually gets journaled owns the
+                    # record: the confirming frontier call normally, the
+                    # sidekick's own when confirmation did not conclude.
+                    tester_actor = final.actor("ui-tester")
                     break
-                observed = tester.act(action)
+                chosen = action.data
+                observed = tester.act(chosen)
                 steps.append(
-                    f"{action.action} "
-                    f"[{action.target_index if action.target_index is not None else action.value}]"
+                    f"{chosen.action} "
+                    f"[{chosen.target_index if chosen.target_index is not None else chosen.value}]"
                     f" -> {observed}"
                 )
             shot = tester.screenshot()
@@ -242,7 +250,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
                 ctx.store.append(
                     type="artifact.generated",
                     stage="empathize",
-                    actor=router.actor("ui-tester", "research"),
+                    actor=tester_actor,
                     payload={
                         "path": f"artifacts/ui/{shot_name}",
                         "kind": "ui_screenshot",
@@ -261,7 +269,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             ctx.store.append(
                 type="evidence.captured",
                 stage="empathize",
-                actor=router.actor("ui-tester", "research"),
+                actor=tester_actor,
                 payload={
                     "content": (
                         f"Functional test - {feature.name}: {verdict}. "
@@ -295,7 +303,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             ctx.store.append(
                 type="artifact.generated",
                 stage="empathize",
-                actor=facilitator(router),
+                actor=FACILITATOR,  # a file this code rendered from the records above
                 payload={
                     "path": f"artifacts/ui/{name}",
                     "kind": "ui_feature_tests",

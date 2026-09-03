@@ -136,6 +136,48 @@ class Provider(Protocol):
 
 
 @dataclass(frozen=True)
+class Attribution:
+    """Provenance for whatever one completed model call produced.
+
+    It carries the model that *answered*, which is knowable only once the call
+    returns: routing asks for a model, and a server-side fallback may serve
+    another (CLAUDE.md routes research and challenge to ``claude-fable-5`` with
+    a fallback to ``claude-opus-4-8`` precisely so it fires under load). An
+    actor built from this can therefore never name a model that the call's own
+    ``model.called`` record contradicts.
+
+    ``model`` is ``None`` when no single call produced the contribution; the
+    actor then makes no model claim at all rather than a false one.
+    """
+
+    model: str | None = None
+
+    def actor(self, name: str, *, persona_id: str | None = None) -> Actor:
+        return Actor(kind="agent", name=name, model=self.model, persona_id=persona_id)
+
+
+UNATTRIBUTED = Attribution()
+"""For work no single model call produced: stage mechanics, facilitation moves."""
+
+
+@dataclass(frozen=True)
+class Attributed[T]:
+    """A payload welded to the provenance of the call that produced it.
+
+    Callers reach for ``data`` to use the payload and ``actor()`` to journal
+    it. Because the two travel together there is no window in which a caller
+    holds a validated payload but has to guess which model produced it, which
+    is what let attribution drift to the requested model.
+    """
+
+    data: T
+    attribution: Attribution
+
+    def actor(self, name: str, *, persona_id: str | None = None) -> Actor:
+        return self.attribution.actor(name, persona_id=persona_id)
+
+
+@dataclass(frozen=True)
 class ModelOutcome:
     status: OutcomeStatus
     text: str = ""
@@ -148,6 +190,11 @@ class ModelOutcome:
     @property
     def ok(self) -> bool:
         return self.status == "ok"
+
+    @property
+    def attribution(self) -> Attribution:
+        """Provenance for anything journaled from this call: the served model."""
+        return Attribution(model=self.model or None)
 
 
 def _validate_model_provider(model: str, provider: str) -> ModelSpec:
@@ -228,12 +275,23 @@ class ModelRouter:
         self.reasoning_effort: str | None = state.config.get("reasoning_effort")
 
     def actor(
-        self, name: str, routing_class: RoutingClass, *, persona_id: str | None = None
+        self, name: str, routing_class: RoutingClass | None = None, *, persona_id: str | None = None
     ) -> Actor:
-        """Provenance for a journaled contribution: the model routed for its lane."""
-        return Actor(
-            kind="agent", name=name, model=self.routing[routing_class], persona_id=persona_id
-        )
+        """An agent actor for router-mediated work no single call produced.
+
+        It deliberately claims no model. Before a call returns the router knows
+        only the model it *asked* for, and a server-side fallback may answer on
+        another; stamping the requested model onto a contribution puts a claim
+        in the ledger that the contribution's own ``model.called`` record can
+        contradict, and two records disagreeing about one contribution is the
+        opposite of what the ledger is for. Anything a call did produce takes
+        its actor from that call - ``outcome.attribution`` or
+        ``Attributed.actor()`` - so the served model travels with the payload.
+
+        ``routing_class`` is accepted for callers that still pass it and is
+        ignored: there is nothing correct to look up before the call.
+        """
+        return UNATTRIBUTED.actor(name, persona_id=persona_id)
 
     def invoke(
         self,

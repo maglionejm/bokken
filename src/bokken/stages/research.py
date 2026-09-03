@@ -12,7 +12,7 @@ debt: a Dojo run never reaches the outside world silently.
 from __future__ import annotations
 
 from bokken.journal.schema import content_hash
-from bokken.stages.base import facilitator, structured
+from bokken.stages.base import FACILITATOR, structured
 from bokken.stages.schemas import MarketResearch
 
 
@@ -38,7 +38,8 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="evidence.abstained",
             stage="prototype",
-            actor=router.actor("concept-researcher", "research"),
+            # No call was dispatched: this gap is the governance rule, not a model.
+            actor=FACILITATOR,
             payload={
                 "question": "Concept research on the live web",
                 "gap": "the brief does not declare allow_web_research: true; deep "
@@ -60,7 +61,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="evidence.abstained",
             stage="prototype",
-            actor=router.actor("concept-researcher", "research"),
+            actor=deep.attribution.actor("concept-researcher"),
             payload={
                 "question": "Concept research on the live web",
                 "gap": f"research call failed: {deep.status} {deep.detail}",
@@ -79,11 +80,12 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         return
 
     refs = []
-    for signal in research.market_signals:
+    researcher = research.actor("concept-researcher")
+    for signal in research.data.market_signals:
         event = ctx.store.append(
             type="evidence.captured",
             stage="prototype",
-            actor=router.actor("concept-researcher", "research"),
+            actor=researcher,
             payload={
                 "content": signal.stat,
                 "source": signal.source_url,
@@ -91,11 +93,11 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
             },
         )
         refs.append(event.id)
-    for competitor in research.competitors:
+    for competitor in research.data.competitors:
         event = ctx.store.append(
             type="evidence.captured",
             stage="prototype",
-            actor=router.actor("concept-researcher", "research"),
+            actor=researcher,
             payload={
                 "content": f"{competitor.name}: {competitor.what}. Overlap: {competitor.overlap}",
                 "source": competitor.url or "web research",
@@ -106,22 +108,24 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
 
     research_dir = ctx.store.session_dir / "artifacts" / "research"
     research_dir.mkdir(parents=True, exist_ok=True)
-    payload_json = research.model_dump_json(indent=2) + "\n"
+    payload_json = research.data.model_dump_json(indent=2) + "\n"
     md_lines = ["# Concept research (web, authorized)", ""]
-    if research.competitors:
+    if research.data.competitors:
         md_lines += ["## Competitors and prior art", ""]
         md_lines += [
             f"- **{c.name}** ({c.url or 'no url'}) — {c.what} Overlap: {c.overlap}"
-            for c in research.competitors
+            for c in research.data.competitors
         ] + [""]
-    if research.market_signals:
+    if research.data.market_signals:
         md_lines += ["## Market signals", ""]
-        md_lines += [f"- {s.stat} (source: {s.source_url})" for s in research.market_signals] + [""]
+        md_lines += [
+            f"- {s.stat} (source: {s.source_url})" for s in research.data.market_signals
+        ] + [""]
     for title, items in (
-        ("Regulatory", research.regulatory),
-        ("Pricing benchmarks", research.pricing_benchmarks),
-        ("Differentiation risks", research.differentiation_risks),
-        ("Open questions", research.open_questions),
+        ("Regulatory", research.data.regulatory),
+        ("Pricing benchmarks", research.data.pricing_benchmarks),
+        ("Differentiation risks", research.data.differentiation_risks),
+        ("Open questions", research.data.open_questions),
     ):
         if items:
             md_lines += [f"## {title}", ""] + [f"- {i}" for i in items] + [""]
@@ -134,7 +138,7 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         ctx.store.append(
             type="artifact.generated",
             stage="prototype",
-            actor=facilitator(router),
+            actor=researcher,  # rendered from what the structuring call returned
             payload={
                 "path": f"artifacts/research/{name}",
                 "kind": "market_research",

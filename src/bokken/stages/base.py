@@ -9,17 +9,17 @@ from typing import Any
 from pydantic import BaseModel
 
 from bokken.journal import Actor, JournalStore, RoutingClass, Stage
-from bokken.models.router import ModelRouter
+from bokken.models.router import UNATTRIBUTED, Attributed, ModelRouter
 from bokken.orchestrator import SYSTEM_ACTOR, StageContext
 from bokken.panel.corpus import Corpus
 
 FOUNDER = Actor(kind="human", name="founder")
 
-
-def facilitator(router: ModelRouter) -> Actor:
-    """Stage mechanics run on the cognition lane; provenance follows routing."""
-    return router.actor("facilitator", "cognition")
-
+FACILITATOR = UNATTRIBUTED.actor("facilitator")
+"""The harness facilitating: stage mechanics, deterministic tallies, files it
+writes itself. No model produced these, so the actor names none - as the kata
+registry has always done for facilitation moves. A record that *is* one call's
+output takes its actor from that call instead (``Attributed.actor``)."""
 
 RouterFactory = Callable[[JournalStore], ModelRouter]
 
@@ -36,15 +36,17 @@ def structured[T: BaseModel](
     *,
     stage: Stage,
     params: dict[str, Any],
-) -> T | None:
-    """Invoke and validate. Returns None on budget exhaustion (engine should
-    return early and let the orchestrator stop the run); raises on error/refusal."""
+) -> Attributed[T] | None:
+    """Invoke and validate. Returns the validated payload together with the
+    provenance of the call that produced it: ``.data`` to use it, ``.actor()``
+    to journal it. Returns None on budget exhaustion (engine should return
+    early and let the orchestrator stop the run); raises on error/refusal."""
     outcome = router.invoke(routing_class, prompt_id, stage=stage, params=params, schema=schema)
     if outcome.status == "budget_exhausted":
         return None
     if not outcome.ok or outcome.data is None:
         raise StageError(f"{prompt_id} failed: {outcome.status} {outcome.detail}")
-    return outcome.data
+    return Attributed(data=outcome.data, attribution=outcome.attribution)
 
 
 def journal_rejected_inputs(store: JournalStore, corpus: Corpus, *, stage: Stage) -> None:

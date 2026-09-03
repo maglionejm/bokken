@@ -13,9 +13,9 @@ from bokken.panel import (
 )
 from bokken.panel.corpus import Corpus
 from bokken.stages.base import (
+    FACILITATOR,
     RouterFactory,
     dumps,
-    facilitator,
     open_stage,
     opportunities_text,
     structured,
@@ -51,21 +51,17 @@ class IdeateEngine:
         problem_statement = self._problem_statement(state)
         if state.mode == "dojo":
             personas = self._dojo_panel(ctx)
-            participants = [
-                (p.name, p.actor(router.routing["cognition"]), p)
-                for p in personas
-                if p.role == "segment"
-            ]
+            participants = [(p.name, p) for p in personas if p.role == "segment"]
             skeptic = next(p for p in personas if p.role == "skeptic")
         else:
-            participants = [("facilitator", facilitator(router), None)]
+            participants = [("facilitator", None)]
             skeptic = None
 
         options: list[Event] = []
         clusters: list[str] = []
         novelty: list[bool] = []
         pivoted = False
-        for name, actor, persona in participants:
+        for name, persona in participants:
             batch = structured(
                 router,
                 "cognition",
@@ -82,7 +78,14 @@ class IdeateEngine:
             )
             if batch is None:
                 return None
-            for idea in batch.ideas[:quota]:
+            # Whoever contributed, the model that answered this batch is the one
+            # that produced these options - not the one routing asked for.
+            actor = (
+                persona.actor(batch.attribution)
+                if persona is not None
+                else batch.actor("facilitator")
+            )
+            for idea in batch.data.ideas[:quota]:
                 payload = {"summary": idea.summary}
                 if persona is not None and idea.private_thought:
                     payload["private_thought"] = idea.private_thought
@@ -99,7 +102,7 @@ class IdeateEngine:
                     stage="ideate",
                     params={"clusters": "\n".join(clusters) or "(none)", "option": idea.summary},
                 )
-                is_novel = verdict is not None and verdict.classification == "novel_cluster"
+                is_novel = verdict is not None and verdict.data.classification == "novel_cluster"
                 if is_novel:
                     clusters.append(idea.summary)
                 novelty.append(is_novel)
@@ -135,9 +138,9 @@ class IdeateEngine:
             ctx.store.append(
                 type="evidence.captured",
                 stage="ideate",
-                actor=skeptic.actor(router.routing["challenge"]),
+                actor=skeptic.actor(challenge.attribution),
                 payload={
-                    "content": challenge.challenge,
+                    "content": challenge.data.challenge,
                     "source": f"persona:{skeptic.persona_id}",
                     "confidence_class": "simulated",
                     "speaker": skeptic.name,
@@ -158,7 +161,9 @@ class IdeateEngine:
     ) -> StageOutcome | None:
         state = replay(ctx.store.events())
         criteria = frozen_criteria(state) or DEFAULT_CRITERIA
-        decider = facilitator(router)
+        # The convergence decision is the harness's deterministic tally over the
+        # lens votes below, not any one call's output, so it claims no model.
+        decider = FACILITATOR
         if state.mode == "founder":
             choice = ctx.input_port.ask(
                 "Pick the option to advance (number):\n" + self._options_text(options)
@@ -220,7 +225,7 @@ class IdeateEngine:
                 )
                 if votes is None:
                     return None
-                for vote in votes.votes:
+                for vote in votes.data.votes:
                     totals[vote.option_id] = totals.get(vote.option_id, 0) + sum(
                         vote.scores.values()
                     )
@@ -250,7 +255,7 @@ class IdeateEngine:
                 ctx.store.append(
                     type="option.killed",
                     stage="ideate",
-                    actor=facilitator(router),
+                    actor=FACILITATOR,  # a deterministic consequence of the tally
                     payload={"reason": "outscored under the frozen criteria"},
                     refs=[option.id],
                 )
