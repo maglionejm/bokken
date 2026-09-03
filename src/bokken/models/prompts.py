@@ -22,6 +22,27 @@ CACHE_SPLIT = "\n<<<CACHE>>>\n"  # provider caches everything before the marker
 # prompt_id -> (version, template). Bump the version whenever a template changes;
 # journals keep the version each run actually used.
 PROMPTS: dict[str, tuple[str, str]] = {
+    "intake/product_facts": (
+        "v1",
+        "Read this product corpus and state plainly what the product is.\n"
+        "Corpus:\n{context}\n"
+        "Return the product name, one sentence on what it does, the user "
+        "segments it visibly serves (from copy, docs, or code), and any "
+        "success metrics the repo itself mentions. Extract only what the "
+        "corpus supports - no invention.",
+    ),
+    "intake/draft_brief": (
+        "v1",
+        QUALITY_CONTRACT + "Draft a Design Thinking run brief for this product. The founder will "
+        "review every line, so write their language, not consultant language.\n"
+        "Product facts (extracted from the repo):\n{facts}\n"
+        "Corpus excerpt:\n{context}\n"
+        "Write: problem_space (2-3 sentences framing the space to explore, not "
+        "a solution), target_segments (the 2-3 segments most worth interviewing), "
+        "success_criteria (observable, from the product's own metrics where "
+        "possible), constraints (real ones visible in the corpus). One-line "
+        "rationale for your framing choice.",
+    ),
     "empathize/interview_program": (
         "v4",
         QUALITY_CONTRACT

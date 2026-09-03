@@ -140,15 +140,54 @@ def init(
         str | None,
         typer.Option(help="saas-retention, consumer-app, or internal-tool (skips prompts)."),
     ] = None,
+    from_repo: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-repo",
+            help="Draft the brief from this repository (two model calls, ~$0.10-0.30).",
+        ),
+    ] = None,
+    metrics: Annotated[
+        list[Path] | None,
+        typer.Option(help="Metrics file to ground the draft (with --from-repo)."),
+    ] = None,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Accept the drafted brief without prompts.")
+    ] = False,
     out_path: Annotated[Path, typer.Option("--out", help="Where to write the brief JSON.")] = Path(
         "bokken-brief.json"
     ),
     as_json: JsonFlag = False,
 ) -> None:
-    """Write a validated brief file from a template; prints the commands that use it."""
+    """Write a validated brief file from a template or drafted from your repo."""
     from bokken.cli.templates import TEMPLATES, build_brief
 
-    if template is not None:
+    drafting_cost: float | None = None
+    if from_repo is not None:
+        from bokken.cli.autopilot import BriefDraftError, draft_brief_from_repo
+
+        try:
+            brief_data, drafting_cost = draft_brief_from_repo(
+                from_repo, metrics or [], wiring.router_factory()
+            )
+        except BriefDraftError as exc:
+            _fail(str(exc), 2)
+        if not yes and not as_json:
+            out.print(f"drafted from {from_repo} (drafting cost ~${drafting_cost:.2f}); review:")
+            brief_data["problem_space"] = typer.prompt(
+                "Problem space", default=brief_data["problem_space"]
+            )
+            segments = typer.prompt(
+                "Target segments (comma-separated)",
+                default=", ".join(brief_data["target_segments"]),
+            )
+            brief_data["target_segments"] = [s.strip() for s in segments.split(",") if s.strip()]
+            criteria = typer.prompt(
+                "Success criteria (comma-separated)",
+                default=", ".join(brief_data["success_criteria"]),
+            )
+            brief_data["success_criteria"] = [s.strip() for s in criteria.split(",") if s.strip()]
+    elif template is not None:
         if template not in TEMPLATES:
             raise typer.BadParameter(f"unknown template; pick one of {sorted(TEMPLATES)}")
         brief_data = build_brief(template)
@@ -182,8 +221,18 @@ def init(
     out_path.write_text(json.dumps(brief_data, indent=2, ensure_ascii=False) + "\n")
     session = out_path.stem.removesuffix("-brief") or "my-product"
     if as_json:
-        print(json.dumps({"brief": str(out_path), "template": template or "interactive"}))
+        print(
+            json.dumps(
+                {
+                    "brief": str(out_path),
+                    "template": template or ("from-repo" if from_repo else "interactive"),
+                    "drafting_cost_usd": drafting_cost,
+                }
+            )
+        )
         return
+    if drafting_cost is not None:
+        out.print(f"drafting cost: ~${drafting_cost:.2f} list price (journal discarded)")
     out.print(f"brief written to {out_path}")
     out.print("next:")
     out.print(f"  bokken new {session} --brief {out_path}")

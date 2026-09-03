@@ -204,3 +204,23 @@ class Recommendation(BaseModel):
     recommendation: Literal["kill", "iterate", "proceed"]
     confidence: str
     contradicts: str = ""
+
+
+class ProductFacts(BaseModel):
+    """Extraction-lane read of a repo: what the product appears to be."""
+
+    product_name: str
+    what_it_does: str
+    apparent_segments: list[str] = Field(min_length=1, max_length=5)
+    apparent_metrics: list[str] = Field(default_factory=list, max_length=6)
+    tech_notes: str = ""
+
+
+class BriefDraft(BaseModel):
+    """Cognition-lane draft of a run brief from product facts + corpus."""
+
+    problem_space: str
+    target_segments: list[str] = Field(min_length=1, max_length=4)
+    success_criteria: list[str] = Field(min_length=1, max_length=4)
+    constraints: list[str] = Field(default_factory=list, max_length=4)
+    rationale: str = ""
