@@ -138,6 +138,11 @@ state, which is what makes every run crash-safe and resumable by construction.
 - **One model seam**: nothing outside `bokken.models` touches a provider SDK;
   Anthropic and optional OpenAI adapters stay behind the router, and the whole
   harness runs offline against a fake provider in tests.
+- **Deliverables are objects**: `bundle.py` packs a finalized session into
+  one archive with a self-describing manifest; `report/theme.py` brands the
+  chrome without touching content; `handoff/emit.py` renders the OpenSpec
+  package as target-native execution prompts. All three are pure functions
+  of the session directory — no model calls, nothing mutated.
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
   the same pydantic shapes (`bokken/contract.py`). Trust differs at the edge,
   not in the core: client-supplied input paths are confined to authorized
