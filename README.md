@@ -1,5 +1,7 @@
 # Bokken
 
+[![ci](https://github.com/maglionejm/bokken/actions/workflows/ci.yml/badge.svg)](https://github.com/maglionejm/bokken/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/bokken)](https://pypi.org/project/bokken/) [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > An agentic harness for Design Thinking — one executable, instrumented loop.
 > **Test with wood; commit steel when it counts.**
 
@@ -17,6 +19,9 @@ process ledger, and a finished run produces two deliverables:
    concept's MVP, ready for a coding agent to ingest and implement.
 
 Terminal-first and MCP-consumable. Python. No GUI.
+
+![The run report: verdict-first, journal-derived, honest](docs/assets/report-hero.png)
+*A finished run: verdict-first report, simulated-run banner, receipts on every number ([live example](https://maglionejm.github.io/bokken/gallery/demo-report.html)).*
 
 ## Why
 
@@ -114,7 +119,7 @@ export ANTHROPIC_API_KEY=...
 # OpenAI provider
 uvx --from 'bokken[openai]' bokken version
 export OPENAI_API_KEY=...
-uv run bokken new retention --provider openai --model gpt-5.6-luna \
+uv run bokken new retention --provider openai --model gpt-5 \
   --reasoning-effort high --brief bokken-brief.json --mode dojo
 ```
 
@@ -212,7 +217,7 @@ bokken/
 │   ├── cli/           # the terminal surface
 │   ├── mcp/           # the MCP surface
 │   └── contract.py    # one result contract for both surfaces
-├── openspec/          # bokken's own spec-driven development (10 capabilities)
+├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
 ├── tests/             # 127 tests; the whole loop runs offline against a fake provider
 └── scripts/           # live smoke run

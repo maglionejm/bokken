@@ -1,7 +1,7 @@
 # The MCP surface
 
 `bokken serve` exposes the entire harness over the Model Context Protocol
-(stdio transport): **12 tools and 4 resources** over exactly the same core the
+(stdio transport): **14 tools and 4 resources** over exactly the same core the
 CLI uses, returning exactly the same JSON shapes (`src/bokken/contract.py` is
 the single contract for both surfaces). Anything a human can do at the
 terminal, an agent can do over MCP — create sessions, drive the loop, resolve

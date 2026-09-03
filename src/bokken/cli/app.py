@@ -125,8 +125,11 @@ def _root() -> None:
 
 
 @app.command("version")
-def version() -> None:
+def version(as_json: JsonFlag = False) -> None:
     """Print the bokken version."""
+    if as_json:
+        print(json.dumps({"version": bokken.__version__}))
+        return
     print(bokken.__version__)
 
 
@@ -353,10 +356,17 @@ def step(name: str, as_json: JsonFlag = False) -> None:
 
 @app.command("stop")
 @guarded
-def stop(name: str, reason: Annotated[str | None, typer.Option("--reason")] = None) -> None:
+def stop(
+    name: str,
+    reason: Annotated[str | None, typer.Option("--reason")] = None,
+    as_json: JsonFlag = False,
+) -> None:
     """Stop the run (journaled as a human stop). The session stays resumable."""
     runner = wiring.build_runner(resolve_session_dir(name), interactive=False)
     runner.stop(actor=HUMAN, detail=reason)
+    if as_json:
+        print(json.dumps({"stopped": name, "reason": reason, "resumable": True}))
+        return
     out.print(f"stopped '{name}' (resumable)")
 
 
@@ -578,6 +588,7 @@ def validate(
     guide_only: Annotated[
         bool, typer.Option("--guide-only", help="Produce the guide and stop.")
     ] = False,
+    as_json: JsonFlag = False,
     to: Annotated[
         str | None, typer.Option(help="Phone for --channel twilio (E.164); never journaled.")
     ] = None,
@@ -594,8 +605,11 @@ def validate(
         if guide.empty:
             _fail("nothing to validate: no research debt and no untested assumptions", 2)
         path = journal_guide(store, guide)
-        out.print(f"guide: {session_dir / path}")
+        if not as_json:
+            out.print(f"guide: {session_dir / path}")
         if guide_only:
+            if as_json:
+                print(json.dumps({"guide": str(session_dir / path), "exchanges": 0}))
             return
         if channel == "terminal":
             live_channel = TerminalChannel()
@@ -619,6 +633,9 @@ def validate(
             # Consent refused (declined, no reply, or ambiguous) is journaled by
             # the engine; the operator gets the reason, not a stack trace.
             _fail(str(exc), 2)
+        if as_json:
+            print(json.dumps({"guide": str(session_dir / path), "exchanges": exchanges}))
+            return
         out.print(
             f"journaled {exchanges} exchange(s); rerun `bokken export {name}` to refresh reports"
         )

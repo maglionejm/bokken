@@ -307,11 +307,15 @@ def render_page(ctx: ReportContext) -> str:
             f"<div class='kicker'>{_e(kicker)}</div><h2>{_e(title)}</h2>"
         )
 
+    from bokken.report.vendor import chartjs_source
+
+    _chartjs = chartjs_source()
+
     # ---- head + shell + rail ----
     add(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bokken run report — {_e(m.name)}</title><style>{_CSS}</style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script></head><body><div id="prog"></div>
+<script>{_chartjs}</script></head><body><div id="prog"></div>
 <div class="shell"><nav class="rail"><div class="brand"><b>Bokken</b> · run report</div>
 <div class="session">{_e(m.name)} · {_e(m.mode)}</div>
 <div class="verdict-chip">outcome: {_e(outcome)}</div>""")
