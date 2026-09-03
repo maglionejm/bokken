@@ -5,10 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar, cast
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 SCHEMA_VERSION = "1"
 GENESIS_HASH = "0" * 64
@@ -45,10 +53,18 @@ class Actor(BaseModel):
 
 
 # --- Payload models (extra="allow": tolerant reader, forward compatible) ---
+#
+# `extra="allow"` is a reader guarantee, not a writer license: a key a newer
+# Bokken wrote must survive this version's read untouched. The write path is
+# strict instead (see `EXTENSION_KEYS` and `Event._validate_payload_and_invariants`),
+# because the Journal is append-only and a key misspelled on append is immortal.
 
 
 class Payload(BaseModel):
     model_config = ConfigDict(extra="allow")
+
+
+PayloadT = TypeVar("PayloadT", bound=Payload)
 
 
 class BriefInputs(Payload):
@@ -279,6 +295,71 @@ TAXONOMY: dict[str, type[Payload]] = {
     "artifact.generated": ArtifactGenerated,
 }
 
+# Payload keys that producers write today but that are deliberately NOT fields of
+# their payload model. They are declared here so the strict write path can tell a
+# known extension from a typo, without changing a single byte on disk.
+#
+# Why not promote them to typed fields? Because the payload normalization below
+# materializes every declared default into the stored payload, and `verify_chain`
+# recomputes each record's hash from the validated payload. Adding a defaulted
+# field to an existing payload model therefore injects that default when an older
+# record is re-read, changing its hash and breaking the chain of every journal
+# written before the promotion — a session that can no longer even be opened.
+# Promotion is a schema-versioning change of its own; this registry is what makes
+# the write path honest in the meantime. Keys here still read back through
+# `Event.payload` (and `typed_payload.model_extra`), never through attributes.
+EXTENSION_KEYS: dict[str, frozenset[str]] = {
+    "session.resumed": frozenset({"config_overrides"}),
+    # `segment` carries the target segment a turn belongs to; the empathize exit
+    # gate reads it to prove every declared segment was heard or logged as debt.
+    # `grounding` records whether a persona answer came from the corpus or the
+    # profile. `participant`/`question` come from real remote interviews, `url`
+    # from web-research findings.
+    "evidence.captured": frozenset({"segment", "grounding", "participant", "question", "url"}),
+    "evidence.abstained": frozenset({"segment"}),
+    # Ulwick opportunity bookkeeping: per-outcome scores, bands and job steps.
+    "interpretation.derived": frozenset(
+        {"job_step", "importance", "satisfaction", "persona_id", "score", "band", "per_persona"}
+    ),
+    # A private thought attached to an idea, kept out of the shared pool.
+    "option.created": frozenset({"private_thought", "visibility"}),
+    "decision.recorded": frozenset({"confidence", "pivoted_by_timebox"}),
+    # `requested_model` is fallback provenance: what was asked for versus served.
+    "model.called": frozenset({"requested_model", "web_search"}),
+    # Per-kind artifact detail: panel rosters, handoff specs, UI runs.
+    "artifact.generated": frozenset(
+        {
+            "panel_kind",
+            "persona_ids",
+            "seed",
+            "change_id",
+            "capabilities",
+            "feature",
+            "url",
+            "viewport",
+        }
+    ),
+}
+
+# Passed as the Pydantic validation context by `parse_line`: reads of persisted
+# records tolerate undeclared payload keys, writes do not.
+TOLERANT_READ: dict[str, bool] = {"tolerate_undeclared_payload_keys": True}
+
+
+def _tolerates_undeclared(context: Any) -> bool:
+    return isinstance(context, dict) and bool(context.get("tolerate_undeclared_payload_keys"))
+
+
+def _undeclared_keys(payload: Payload, prefix: str = "") -> list[str]:
+    """Dotted paths of keys no payload model declares, nested models included."""
+    found = [f"{prefix}{key}" for key in sorted(payload.model_extra or {})]
+    for name, value in payload:
+        for item in value if isinstance(value, list) else [value]:
+            if isinstance(item, Payload):
+                found.extend(_undeclared_keys(item, f"{prefix}{name}."))
+    return found
+
+
 # Event types that must reference prior events to be meaningful.
 _REFS_REQUIRED = {
     "option.built_on",
@@ -307,6 +388,53 @@ class Event(BaseModel):
     prev_hash: str
     hash: str = ""
 
+    # The taxonomy model parsed during validation, kept so the typed read path
+    # costs nothing extra. Private: never dumped, so it cannot affect the hash.
+    _typed_payload: Payload | None = PrivateAttr(default=None)
+
+    @property
+    def typed_payload(self) -> Payload:
+        """This record's payload as its `TAXONOMY` model: the typed read path.
+
+        Readers get attribute access, static types and rename safety over the one
+        file format the whole system is built on, instead of indexing a dict by
+        string key. Forward compatibility is preserved in both directions: a key
+        this version does not declare is kept verbatim in `model_extra` here and
+        in `Event.payload`, so nothing is dropped by a read-modify-write cycle.
+
+        A caller that genuinely needs the raw mapping — generic tooling, or one of
+        the extension keys in `EXTENSION_KEYS` — keeps reading `Event.payload`,
+        which this accessor never touches.
+        """
+        if self._typed_payload is None:
+            self._typed_payload = TAXONOMY[self.type].model_validate(self.payload)
+        return self._typed_payload
+
+    def payload_as(self, model: type[PayloadT]) -> PayloadT:
+        """`typed_payload` narrowed to `model`, for static typing at the call site.
+
+        Raises `TypeError` when this event type does not map to `model`, so a
+        reader that dispatched on `event.type` and then asked for the wrong
+        payload class fails loudly instead of quietly reading `None`s.
+        """
+        declared = TAXONOMY[self.type]
+        if not issubclass(declared, model):
+            raise TypeError(
+                f"{self.type} carries a {declared.__name__} payload, not {model.__name__}"
+            )
+        return cast(PayloadT, self.typed_payload)
+
+    def extension(self, key: str) -> Any:
+        """Read one declared-but-untyped extension key (see `EXTENSION_KEYS`).
+
+        Extension keys have no attribute to autocomplete, so this is the checked
+        way to read one: an undeclared name raises instead of returning `None`
+        and letting a misspelling become a quietly missing value.
+        """
+        if key not in EXTENSION_KEYS.get(self.type, frozenset()):
+            raise KeyError(f"{key!r} is not a declared extension key of {self.type}")
+        return self.payload.get(key)
+
     @field_validator("ts")
     @classmethod
     def _ts_must_be_utc(cls, v: datetime) -> datetime:
@@ -322,26 +450,42 @@ class Event(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _validate_payload_and_invariants(self) -> Event:
+    def _validate_payload_and_invariants(self, info: ValidationInfo) -> Event:
         model = TAXONOMY[self.type]
         parsed = model.model_validate(self.payload)
+        # Strict on append, tolerant on read. `parse_line` passes TOLERANT_READ so
+        # a persisted record always loads — including one written by a newer
+        # Bokken, and one that already carries a typo made before this check
+        # existed. Every other construction is a write, and a write that carries
+        # a key nobody declared is rejected before the record can be appended:
+        # the Journal is append-only, so the alternative is a permanent typo.
+        if not _tolerates_undeclared(info.context):
+            undeclared = [
+                key
+                for key in _undeclared_keys(parsed)
+                if key not in EXTENSION_KEYS.get(self.type, frozenset())
+            ]
+            if undeclared:
+                raise ValueError(
+                    f"{self.type} payload carries undeclared key(s): {', '.join(undeclared)}. "
+                    "Fix the spelling, add the field to the payload model, or declare it in "
+                    "EXTENSION_KEYS if it is a deliberate untyped extension."
+                )
         # Normalize known fields while preserving unknown (forward-compat) fields.
+        # This materializes declared defaults into the stored payload, which is why
+        # EXTENSION_KEYS exists rather than new model fields: see its comment.
         self.payload = {**self.payload, **parsed.model_dump(exclude_unset=False)}
+        self._typed_payload = parsed
         if self.type in _REFS_REQUIRED and not self.refs:
             raise ValueError(f"{self.type} requires non-empty refs")
-        if self.type == "evidence.captured":
-            if (
-                self.actor.persona_id is not None
-                and self.payload["confidence_class"] != "simulated"
-            ):
+        # The honesty invariants read the typed payload, not the dict: a rename in
+        # the payload model can no longer leave them silently unenforced.
+        if isinstance(parsed, EvidenceCaptured):
+            if self.actor.persona_id is not None and parsed.confidence_class != "simulated":
                 raise ValueError("persona evidence must have confidence_class 'simulated'")
-            if self.actor.kind == "human" and self.payload["confidence_class"] == "simulated":
+            if self.actor.kind == "human" and parsed.confidence_class == "simulated":
                 raise ValueError("human evidence cannot be 'simulated'")
-        if (
-            self.type == "interpretation.derived"
-            and not self.refs
-            and not self.payload["ungrounded"]
-        ):
+        if isinstance(parsed, InterpretationDerived) and not self.refs and not parsed.ungrounded:
             raise ValueError("interpretation without refs must set ungrounded=true")
         return self
 
@@ -392,8 +536,14 @@ def new_event(
 
 
 def parse_line(line: str) -> Event:
-    """Parse one persisted JSONL line back into an Event (tolerant on payload extras)."""
-    return Event.model_validate_json(line)
+    """Parse one persisted JSONL line back into an Event (tolerant on payload extras).
+
+    Every read of a persisted record goes through here, and reads never reject:
+    an already-written record is a fact, whether it came from a newer Bokken that
+    declares more keys or from an older one that misspelled some. Only the write
+    path is strict, so the tolerance can never be used to create a new typo.
+    """
+    return Event.model_validate_json(line, context=TOLERANT_READ)
 
 
 def short_id(material: str) -> str:

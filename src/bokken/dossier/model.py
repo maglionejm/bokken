@@ -2,6 +2,10 @@
 
 Both renderers consume this model, so markdown and JSON never diverge, and
 honesty labels are carried on the nodes — not added (or removable) by templates.
+
+Every payload is read through `Event.payload_as`, never by string key: this is
+where confidence classes and synthetic labels are decided, so a misspelled key
+here would produce a dishonest dossier rather than an error.
 """
 
 from __future__ import annotations
@@ -12,6 +16,19 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from bokken.journal import read_events, replay
+from bokken.journal.schema import (
+    ArtifactGenerated,
+    DecisionRecorded,
+    EvidenceAbstained,
+    EvidenceCaptured,
+    InterpretationDerived,
+    ModelCalled,
+    MoveExecuted,
+    MoveSuppressed,
+    SessionGateResolved,
+    TokenUsage,
+    TransitionFired,
+)
 from bokken.orchestrator import is_loopback
 
 DOSSIER_SCHEMA_VERSION = "1"
@@ -199,93 +216,121 @@ def build_model(session_dir: Path) -> DossierModel:
     gates_rejected: list[str] = []
 
     for event in events:
-        p = event.payload
         if event.type == "evidence.captured":
+            captured = event.payload_as(EvidenceCaptured)
             evidence[event.id] = EvidenceNode(
                 id=event.id,
                 stage=event.stage,
-                source=p["source"],
-                agent=None if p.get("speaker") else event.actor.name,
-                confidence_class=p["confidence_class"],
-                synthetic=p["confidence_class"] == "simulated",
-                speaker=p.get("speaker"),
-                segment=p.get("segment"),
-                content=p["content"],
-                citations=p.get("citations", []),
+                source=captured.source,
+                agent=None if captured.speaker else event.actor.name,
+                confidence_class=captured.confidence_class,
+                synthetic=captured.confidence_class == "simulated",
+                speaker=captured.speaker,
+                # `segment` is a declared extension key, not a typed field
+                # (see EXTENSION_KEYS); `extension` still checks the spelling.
+                segment=event.extension("segment"),
+                content=captured.content,
+                citations=captured.citations,
             )
         elif event.type == "evidence.abstained":
+            abstained = event.payload_as(EvidenceAbstained)
             abstentions.append(
-                AbstentionNode(id=event.id, stage=event.stage, question=p["question"], gap=p["gap"])
+                AbstentionNode(
+                    id=event.id,
+                    stage=event.stage,
+                    question=abstained.question,
+                    gap=abstained.gap,
+                )
             )
         elif event.type == "interpretation.derived":
+            derived = event.payload_as(InterpretationDerived)
             grounded = [r for r in event.refs if r in evidence]
             synthetic = bool(grounded) and all(
                 evidence[r].confidence_class in ("simulated", "assumed") for r in grounded
             )
             insights[event.id] = InsightNode(
                 id=event.id,
-                kind=p["kind"],
-                statement=p["statement"],
+                kind=derived.kind,
+                statement=derived.statement,
                 evidence_ids=list(event.refs),
-                ungrounded=p["ungrounded"],
-                synthetic=synthetic or p["ungrounded"],
+                ungrounded=derived.ungrounded,
+                synthetic=synthetic or derived.ungrounded,
             )
         elif event.type == "decision.recorded":
+            recorded = event.payload_as(DecisionRecorded)
             decisions[event.id] = DecisionNode(
                 id=event.id,
                 stage=event.stage,
-                question=p["question"],
-                options=list(p["options"]),
-                criteria=list(p["criteria"]),
-                positions=list(p.get("positions", [])),
-                resolution=p["resolution"],
-                dissent=list(p["dissent"]),
-                requires_real_validation=bool(p.get("requires_real_validation", False)),
+                question=recorded.question,
+                options=list(recorded.options),
+                criteria=list(recorded.criteria),
+                positions=[position.model_dump() for position in recorded.positions],
+                resolution=recorded.resolution,
+                dissent=[reservation.model_dump() for reservation in recorded.dissent],
+                requires_real_validation=recorded.requires_real_validation,
                 actor=event.actor.name,
             )
-        elif event.type in ("facilitation.move_executed", "facilitation.move_suppressed"):
-            executed = event.type.endswith("executed")
+        elif event.type == "facilitation.move_executed":
+            executed = event.payload_as(MoveExecuted)
             moves.append(
                 MoveNode(
                     id=event.id,
                     stage=event.stage,
-                    move_id=p["move_id"],
-                    executed=executed,
-                    trigger=p["trigger"],
-                    outcome=p.get("outcome") if executed else None,
-                    reason=None if executed else p["reason"],
+                    move_id=executed.move_id,
+                    executed=True,
+                    trigger=executed.trigger,
+                    outcome=executed.outcome,
+                )
+            )
+        elif event.type == "facilitation.move_suppressed":
+            suppressed = event.payload_as(MoveSuppressed)
+            moves.append(
+                MoveNode(
+                    id=event.id,
+                    stage=event.stage,
+                    move_id=suppressed.move_id,
+                    executed=False,
+                    trigger=suppressed.trigger,
+                    reason=suppressed.reason,
                 )
             )
         elif event.type == "model.called":
+            called = event.payload_as(ModelCalled)
             model_traces.append(
                 ModelTrace(
                     id=event.id,
                     stage=event.stage,
-                    routing_class=p["routing_class"],
-                    model=p["model"],
-                    prompt_id=p["prompt_id"],
-                    prompt_version=p["prompt_version"],
-                    request_id=p.get("request_id"),
-                    usage=p.get("usage", {}),
-                    status=p["status"],
+                    routing_class=called.routing_class,
+                    model=called.model,
+                    prompt_id=called.prompt_id,
+                    prompt_version=called.prompt_version,
+                    request_id=called.request_id,
+                    # Declared buckets only: an untyped extra on `usage` must not
+                    # leak a non-int into this dict[str, int].
+                    usage=called.usage.model_dump(include=set(TokenUsage.model_fields)),
+                    status=called.status,
                 )
             )
         elif event.type == "transition.fired":
+            fired = event.payload_as(TransitionFired)
             transitions.append(
                 TransitionNode(
                     seq=event.seq,
-                    from_stage=p["from_stage"],
-                    to_stage=p["to_stage"],
-                    condition=p["condition"],
+                    from_stage=fired.from_stage,
+                    to_stage=fired.to_stage,
+                    condition=fired.condition,
                     refs=list(event.refs),
-                    loopback=is_loopback(p["from_stage"], p["to_stage"]),
+                    loopback=is_loopback(fired.from_stage, fired.to_stage),
                 )
             )
-        elif event.type == "session.gate_resolved" and p["resolution"] == "reject":
-            gates_rejected.append(p.get("reason") or p["gate_id"])
-        elif event.type == "artifact.generated" and p.get("kind") == "panel_manifest":
-            manifest_path = session_dir / p["path"]
-            if manifest_path.exists():
+        elif event.type == "session.gate_resolved":
+            gate = event.payload_as(SessionGateResolved)
+            if gate.resolution == "reject":
+                gates_rejected.append(gate.reason or gate.gate_id)
+        elif event.type == "artifact.generated":
+            generated = event.payload_as(ArtifactGenerated)
+            manifest_path = session_dir / generated.path
+            if generated.kind == "panel_manifest" and manifest_path.exists():
                 import json as _json
 
                 manifest = _json.loads(manifest_path.read_text())
