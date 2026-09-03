@@ -37,10 +37,9 @@ def generate_report(session_dir: Path, theme_spec: str | None = None) -> tuple[P
     from bokken.report.theme import load_theme
 
     if theme_spec is None:
-        for event in read_events(session_dir):
-            if event.type == "session.created":
-                theme_spec = event.payload.get("config", {}).get("report_theme")
-                break
+        from bokken.journal.workspace import session_config
+
+        theme_spec = session_config(session_dir).get("report_theme")
     theme = load_theme(theme_spec)
 
     report_dir = session_dir / "report"

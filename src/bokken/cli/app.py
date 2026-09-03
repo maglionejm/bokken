@@ -349,22 +349,15 @@ def _session_receipt(session_dir: Path) -> tuple[float, int]:
 
 
 def _budget_guardrail(session_dir: Path) -> int | None:
-    from bokken.journal.store import read_events
+    from bokken.journal.workspace import session_config
 
-    for event in read_events(session_dir):
-        if event.type == "session.created":
-            budgets = event.payload.get("config", {}).get("budgets", {})
-            return budgets.get("total_tokens")
-    return None
+    return session_config(session_dir).get("budgets", {}).get("total_tokens")
 
 
 def _session_is_demo(session_dir: Path) -> bool:
-    from bokken.journal.store import read_events
+    from bokken.journal.workspace import session_config
 
-    for event in read_events(session_dir):
-        if event.type == "session.created":
-            return bool(event.payload.get("config", {}).get("demo"))
-    return False
+    return bool(session_config(session_dir).get("demo"))
 
 
 @app.command("run")
