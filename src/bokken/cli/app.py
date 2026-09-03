@@ -713,6 +713,46 @@ def library(
                 out.print(f"  [{a['score']}] {a['statement'][:100]}")
 
 
+@app.command("pack")
+@guarded
+def pack(
+    name: str,
+    deliverables_only: Annotated[
+        bool,
+        typer.Option(
+            "--deliverables-only",
+            help="Omit journal, evidence graph, and artifacts (for external sharing).",
+        ),
+    ] = False,
+    out_path: Annotated[
+        Path | None, typer.Option("--out", help="Target zip path (default: <name>.bokken.zip).")
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Pack a finalized session into one portable archive with a manifest."""
+    from bokken.bundle import PackError, pack_session
+
+    session_dir = resolve_session_dir(name)
+    try:
+        bundle = pack_session(session_dir, deliverables_only=deliverables_only, out=out_path)
+    except PackError as exc:
+        _fail(str(exc), 2)
+    size = bundle.stat().st_size
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "bundle": str(bundle),
+                    "bytes": size,
+                    "contents": "deliverables-only" if deliverables_only else "full",
+                }
+            )
+        )
+        return
+    detail = "deliverables only" if deliverables_only else "full: journal + evidence graph included"
+    out.print(f"packed: {bundle} ({size / 1024:.0f} KB, {detail})")
+
+
 @app.command("costs")
 @guarded
 def costs(name: str, as_json: JsonFlag = False) -> None:
