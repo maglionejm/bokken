@@ -19,7 +19,6 @@ from bokken.journal import (
     Stage,
     create_session_dir,
     replay,
-    resolve_session_dir,
 )
 from bokken.orchestrator.machine import (
     FORWARD,
@@ -377,10 +376,6 @@ class Runner:
         self.engines = engines or {}
         self.input_port = input_port or NoInputPort()
         self.kata_factory = kata_factory
-
-    @classmethod
-    def for_session(cls, name: str, base: Path | None = None, **kw: Any) -> Runner:
-        return cls(resolve_session_dir(name, base=base), **kw)
 
     # -- lifecycle ---------------------------------------------------------
 

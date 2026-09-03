@@ -96,3 +96,13 @@ def list_sessions(base: Path | None = None) -> list[SessionInfo]:
             SessionInfo(name=name, slug=session_dir.name, stage=stage, mode=mode, last_ts=last_ts)
         )
     return infos
+
+
+def session_config(session_dir: Path) -> dict:
+    """The immutable config snapshot from session.created ({} before creation)."""
+    from bokken.journal.store import read_events
+
+    for event in read_events(session_dir):
+        if event.type == "session.created":
+            return dict(event.payload.get("config", {}))
+    return {}
