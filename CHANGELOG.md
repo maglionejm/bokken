@@ -6,6 +6,10 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [1.3.0] — 2026-09-04
+
 ### Added
 - `bokken init --from-repo PATH`: drafts the brief from the repo's own corpus
   (two disclosed model calls, scratch journal discarded) (#50).
