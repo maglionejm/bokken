@@ -6,6 +6,10 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [1.3.1] — 2026-09-04
+
 ### Added
 - Claude Desktop one-click bundle: `make mcpb` builds `bokken-<version>.mcpb`
   from a checked-in manifest that wraps `uvx bokken serve`; a drift test pins
