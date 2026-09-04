@@ -138,6 +138,10 @@ Every `bokken run` states the typical cost and the session's token guardrail
 before spending, and prints a receipt (`$ · model calls`) whenever it halts;
 `bokken costs <name>` breaks it down per stage × prompt × class.
 
+**Claude Desktop**: install natively with the one-click bundle —
+[`bokken-<version>.mcpb`](https://github.com/maglionejm/bokken/releases/latest)
+(double-click; prompts for key/workspace/roots; the demo needs no key).
+
 Optional extras: `uvx --from 'bokken[ui]' bokken ...` unlocks the UI
 walkthrough and per-feature tests (plus `uvx playwright install chromium`
 once); `bokken[interview]` unlocks the Twilio interview channel.

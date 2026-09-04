@@ -1,0 +1,77 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/dist/mcpb-manifest.schema.json",
+  "manifest_version": "0.2",
+  "name": "bokken",
+  "display_name": "Bokken — Design Thinking runs",
+  "version": "0.0.0",
+  "description": "Run governed, event-sourced Design Thinking loops against your repo, metrics, and interviews; get an evidence-traced dossier, reports, and a build-ready handoff.",
+  "long_description": "Bokken encodes the Empathize → Define → Ideate → Prototype → Test loop as an executable, governed process. Every model call, decision, and piece of evidence lands in an append-only journal; synthetic contributions are labeled; gates keep autonomous runs under human control. 14 tools over the same core as the CLI. Try it free first: `uvx bokken demo` runs a complete engagement offline for $0.00. Requires uv (https://docs.astral.sh/uv/) — the bundle invokes `uvx bokken serve`, so the server is always the released package.",
+  "author": {
+    "name": "Juan Martin Maglione and Marc Puig",
+    "url": "https://github.com/maglionejm/bokken"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maglionejm/bokken"
+  },
+  "homepage": "https://maglionejm.github.io/bokken/",
+  "documentation": "https://github.com/maglionejm/bokken/blob/main/docs/mcp.md",
+  "support": "https://github.com/maglionejm/bokken/issues",
+  "license": "Apache-2.0",
+  "keywords": ["design-thinking", "discovery", "product", "event-sourced", "agents"],
+  "server": {
+    "type": "binary",
+    "entry_point": "",
+    "mcp_config": {
+      "command": "uvx",
+      "args": ["bokken==0.0.0", "serve"],
+      "env": {
+        "ANTHROPIC_API_KEY": "${user_config.anthropic_api_key}",
+        "BOKKEN_HOME": "${user_config.workspace}",
+        "BOKKEN_INPUT_ROOTS": "${user_config.input_roots}"
+      }
+    }
+  },
+  "user_config": {
+    "anthropic_api_key": {
+      "type": "string",
+      "title": "Anthropic API key",
+      "description": "Used for real runs. Leave empty to explore: the demo session costs $0.00 and needs no key.",
+      "sensitive": true,
+      "required": false
+    },
+    "workspace": {
+      "type": "directory",
+      "title": "Bokken workspace",
+      "description": "Where sessions (journals, reports, handoffs) are stored.",
+      "required": false,
+      "default": "${HOME}/.bokken"
+    },
+    "input_roots": {
+      "type": "directory",
+      "title": "Input roots",
+      "description": "Directories Bokken may read as run inputs (repos, metrics, transcripts). Paths outside these roots are refused.",
+      "multiple": true,
+      "required": false
+    }
+  },
+  "tools": [
+    {"name": "create_session_tool", "description": "Create a session from a brief (inputs confined to the authorized roots)"},
+    {"name": "run_session", "description": "Advance to the next halt: gate, input, stop, or completion"},
+    {"name": "step_session", "description": "Advance by at most one stage"},
+    {"name": "stop_session", "description": "Journaled stop; the session stays resumable"},
+    {"name": "get_status", "description": "Where the session is and what blocks progress"},
+    {"name": "list_sessions_tool", "description": "List sessions in the workspace"},
+    {"name": "resolve_gate", "description": "Approve or reject a pending stage gate (rejection needs a reason)"},
+    {"name": "request_loopback", "description": "Loop back to an earlier stage with a journaled reason"},
+    {"name": "submit_input", "description": "Answer a pending question (attributed to the client identity, journaled as simulated)"},
+    {"name": "query_journal", "description": "Filter the append-only ledger by type, stage, actor, or time"},
+    {"name": "generate_dossier", "description": "Generate the Session Dossier (outcomes, narrative, evidence graph)"},
+    {"name": "generate_handoff", "description": "Generate build-ready OpenSpec specifications for the validated concept"},
+    {"name": "export_report", "description": "Export the PPTX deck and self-contained HTML report"},
+    {"name": "cost_report", "description": "Journal-derived costs with cache hit rate and grounding health"}
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"]
+  }
+}

@@ -1,6 +1,6 @@
 # `make check` is the definition of done (see CONTRIBUTING.md).
 
-.PHONY: install check lint format test validate-specs gallery
+.PHONY: install check lint format test validate-specs gallery mcpb
 
 install:
 	uv sync
@@ -30,3 +30,7 @@ gallery:
 	cp $$H/sessions/gallery/report/report.html docs/gallery/demo-report.html; \
 	cp $$H/sessions/gallery/report/report.pptx docs/gallery/demo-deck.pptx; \
 	echo "gallery refreshed: docs/gallery/demo-report.html + demo-deck.pptx"
+
+# Build the Claude Desktop one-click bundle (dist/bokken-<version>.mcpb).
+mcpb:
+	uv run python scripts/build_mcpb.py

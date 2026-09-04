@@ -24,6 +24,13 @@ Two properties make the surface safe to hand to agents:
 
 ## Install in one line
 
+- **Claude Desktop (native, one-click)**: download `bokken-<version>.mcpb`
+  from the [latest release](https://github.com/maglionejm/bokken/releases/latest)
+  and double-click it (or drag it onto Claude Desktop). The bundle wraps
+  `uvx bokken serve`, so it needs [uv](https://docs.astral.sh/uv/) and always
+  runs the released package; it prompts for an optional API key (the demo
+  needs none), the workspace, and the input roots. Rebuild locally with
+  `make mcpb`; a test pins the manifest's tool list to the server's.
 - **Claude Code**: `claude mcp add bokken -- uvx bokken serve`
 - **Claude Desktop** (`claude_desktop_config.json`):
 
