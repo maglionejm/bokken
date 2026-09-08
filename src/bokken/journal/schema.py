@@ -144,7 +144,14 @@ class EvidenceInputRejected(Payload):
 
 class InterpretationDerived(Payload):
     kind: Literal[
-        "insight", "theme", "pov", "hmw", "desired_outcome", "outcome_score", "opportunity"
+        "insight",
+        "theme",
+        "pov",
+        "hmw",
+        "desired_outcome",
+        "outcome_score",
+        "opportunity",
+        "current_capability",
     ]
     statement: str
     ungrounded: bool = False
@@ -319,7 +326,17 @@ EXTENSION_KEYS: dict[str, frozenset[str]] = {
     "evidence.abstained": frozenset({"segment"}),
     # Ulwick opportunity bookkeeping: per-outcome scores, bands and job steps.
     "interpretation.derived": frozenset(
-        {"job_step", "importance", "satisfaction", "persona_id", "score", "band", "per_persona"}
+        {
+            "job_step",
+            "importance",
+            "satisfaction",
+            "persona_id",
+            "score",
+            "band",
+            "per_persona",
+            # Code exploration: validated corpus spans behind a current_capability.
+            "citations",
+        }
     ),
     # A private thought attached to an idea, kept out of the shared pool.
     "option.created": frozenset({"private_thought", "visibility"}),
@@ -485,8 +502,16 @@ class Event(BaseModel):
                 raise ValueError("persona evidence must have confidence_class 'simulated'")
             if self.actor.kind == "human" and parsed.confidence_class == "simulated":
                 raise ValueError("human evidence cannot be 'simulated'")
-        if isinstance(parsed, InterpretationDerived) and not self.refs and not parsed.ungrounded:
-            raise ValueError("interpretation without refs must set ungrounded=true")
+        # Grounding is refs to journal events OR validated corpus citations
+        # (the citations extension key); an interpretation with neither must
+        # say so at the record level.
+        if (
+            isinstance(parsed, InterpretationDerived)
+            and not parsed.ungrounded
+            and not self.refs
+            and not self.payload.get("citations")
+        ):
+            raise ValueError("interpretation without refs or citations must set ungrounded=true")
         return self
 
 

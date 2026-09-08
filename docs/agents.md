@@ -25,6 +25,7 @@ attributes these agents to the OpenAI model that served them.
 | `skeptic-agent` | `challenge` → `claude-fable-5` | Mandatory on-record challenge before convergence closes | Be skipped; challenge people instead of claims |
 | `validation-interviewer` | `research` → `claude-fable-5` | Moderates real humans over a channel (terminal/Twilio): journaled affirmative consent first, then ask, ladder, conclude; rescoring runs on `challenge` | Interview without a `granted` consent on the record; invent answers; journal a participant as anything but `human`+`reported` |
 | Test panel personas | `challenge` → `claude-fable-5` | Score the assumption register against prototype artifacts | Overlap with interview/ideation panels (contamination firewall) |
+| `code-explorer` | `cognition` → `claude-opus-5` | Map current capabilities (actor + trigger + observable outcome) from the code corpus, each citation-validated; journaled as `current_capability` interpretations before any interview | Write aspirations as capabilities; treat code as desired intent |
 | `facilitator` | `cognition` → `claude-opus-5` (adaptive, effort high) | Stage mechanics: clustering, candidates, selection, register, fidelity, opportunity algebra | Override budgets; silence dissent |
 | Artifact/spec writer | `generation` → `claude-opus-5` (streaming) | Prototype artifacts (Hills + hypotheses), handoff OpenSpec packages with slices and sequencing | Build on contradicted assumptions |
 

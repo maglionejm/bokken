@@ -101,6 +101,16 @@ class Source:
     lines: tuple[str, ...]
 
 
+# What each source kind can and cannot establish (exploration epistemology):
+# cite these limits rather than letting a model treat any text as any evidence.
+EVIDENCE_ROLES: dict[str, str] = {
+    "code": "establishes implemented behavior, not desired intent",
+    "metrics": "establishes measured current behavior, not its causes",
+    "discussion": "reported human intent and experience, as told",
+    "document": "stated intent; may omit policy, failure modes, and operations",
+}
+
+
 def _read_source(file: Path, name: str, kind: SourceKind) -> Source:
     content = file.read_text(encoding="utf-8", errors="replace")
     source_id = short_id(f"{name}\n{content}")
@@ -335,7 +345,10 @@ class Corpus:
             source = self._sources.get(source_id)
             if source:
                 numbered = "\n".join(f"{i + 1}: {line}" for i, line in enumerate(source.lines))
-                blocks.append(f"[source {source_id} ({source.kind}) - {source.name}]\n{numbered}")
+                blocks.append(
+                    f"[source {source_id} ({source.kind}) - {source.name} | "
+                    f"{EVIDENCE_ROLES[source.kind]}]\n{numbered}"
+                )
         return "\n\n".join(blocks)
 
 

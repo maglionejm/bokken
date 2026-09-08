@@ -361,6 +361,34 @@ class DemoProvider:
                     for o in SCORES
                 ]
             )
+        if prompt_id == "explore/capability_map":
+            code_ids = [sid for sid, kind in SOURCE.findall(rendered) if kind == "code"]
+            cite = [Citation(source_id=code_ids[0], start_line=1, end_line=3)] if code_ids else []
+            return s.CapabilityMap(
+                capabilities=[
+                    s.CurrentCapability(
+                        name="promise a pickup window",
+                        actor="the routing engine",
+                        trigger="nightly optimization at 21:00",
+                        outcome="each rider gets a +/-6-minute window for tomorrow",
+                        citations=cite,
+                    ),
+                    s.CurrentCapability(
+                        name="mark on-time compliance",
+                        actor="the app",
+                        trigger="after each ride",
+                        outcome="shows 'ventana cumplida' measured against the dawn re-plan",
+                        citations=cite,
+                    ),
+                    s.CurrentCapability(
+                        name="sell the monthly pass",
+                        actor="the app",
+                        trigger="on every visit",
+                        outcome="an 89-euro unlimited pass banner",
+                        citations=cite,
+                    ),
+                ]
+            )
         if prompt_id == "empathize/feature_inventory":
             return s.FeatureInventory(
                 features=[

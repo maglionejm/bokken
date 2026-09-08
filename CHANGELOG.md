@@ -6,7 +6,16 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
-(nothing yet)
+### Added
+- Code exploration: when the corpus includes code, Empathize opens with a
+  citation-validated map of current capabilities (journaled as
+  `current_capability` interpretations) that targets the UI feature tests;
+  corpus context headers now declare each source kind's evidence role.
+  Adapted from the exploration discipline in build-software-with-style.
+
+### Changed
+- Journal invariant: an interpretation is grounded by refs or validated
+  corpus citations; with neither it must declare `ungrounded: true`.
 
 ## [1.3.1] — 2026-09-04
 

@@ -155,7 +155,9 @@ def _docs_excerpt(ctx) -> str:
     return "\n\n".join(chunks) or "(no documents declared)"
 
 
-def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[dict]:
+def run_feature_tests(
+    ctx, router, *, app_url: str, routes: list[str], capabilities: str = ""
+) -> list[dict]:
     """Exercise each inventoried feature; journal steps, verdicts, artifacts.
 
     Returns the per-feature results for the UI review prompt.
@@ -178,6 +180,7 @@ def run_feature_tests(ctx, router, *, app_url: str, routes: list[str]) -> list[d
             params={
                 "docs": _docs_excerpt(ctx),
                 "routes": ", ".join(routes) or "(none discovered)",
+                "capabilities": capabilities or "(no code corpus mapped)",
                 "home": tester.digest(),
             },
         )
