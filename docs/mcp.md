@@ -120,7 +120,7 @@ refusal (see Error semantics).
 | `model` | string | none | overrides the four frontier lanes only; sidekick/extraction economics are preserved; refused when the model cannot serve those lanes |
 | `reasoning_effort` | `"low" \| "medium" \| "high"` | none | applied to frontier lanes; refused when a frontier model rejects reasoning parameters |
 | `gate_policy` | `"none" \| "stage_boundaries" \|` string[] | mode default | dojo defaults to `stage_boundaries`, founder to `none` |
-| `total_token_budget` | int | none | run-wide token budget. Unlike `bokken new` (which applies a 20M-token default guardrail), an MCP-created session has no default budget — set one |
+| `total_token_budget` | int | 20,000,000 | run-wide token budget; the same default guardrail as `bokken new`, so agent-created sessions stop honestly instead of surprising on cost |
 | `panel_size`, `seed` | int | 6, 7 | synthetic panel casting (deterministic per brief+seed) |
 
 Returns a **StatusResult**: `{kind:"status", name, mode, stage, state,

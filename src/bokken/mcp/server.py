@@ -208,7 +208,9 @@ def create_session_tool(
     (repo path, metrics/discussion/document files). Input paths are resolved on
     the server and confined to the authorized input root(s): traversal,
     escaping symlinks, and outside absolute paths are refused."""
-    budgets = {"total_tokens": total_token_budget} if total_token_budget else None
+    # Same default guardrail as the CLI: a run stops honestly instead of
+    # surprising on cost - agent-created sessions are not exempt.
+    budgets = {"total_tokens": total_token_budget or 20_000_000}
     roots = input_roots()
     validated = Brief.model_validate(brief)
     validated = validated.model_copy(
