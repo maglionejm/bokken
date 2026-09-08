@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bokken.handoff.generate import (
+    HandoffFormatError,
     HandoffGenerationError,
     HandoffRefusedError,
     generate_handoff,
@@ -63,9 +64,9 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
             handoff_generated = True
         except HandoffRefusedError as refusal:
             handoff_skipped = str(refusal)
-        except HandoffGenerationError as error:
-            # generation failure must not block the dossier/report pipeline;
-            # `bokken handoff <name>` retries it on demand
+        except (HandoffGenerationError, HandoffFormatError) as error:
+            # generation/format failure must not block the dossier/report
+            # pipeline; `bokken handoff <name>` retries it on demand
             handoff_skipped = f"generation failed (retry with `bokken handoff`): {error}"
 
     report_generated = False

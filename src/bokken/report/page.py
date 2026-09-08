@@ -213,7 +213,7 @@ def _img_uri(ctx: ReportContext, relative: str) -> str:
 
 
 def _e(text: str) -> str:
-    return escape(str(text), quote=False)
+    return escape(str(text), quote=True)
 
 
 def _apo(c: ReportContext, stage: str, output_line: str) -> str:
@@ -954,5 +954,9 @@ def render_page(ctx: ReportContext, theme=None) -> str:
             "costValues": [round(u.cost_usd, 2) for u in c.usage],
         }
     )
-    add(f"<script>window.__bokken={data_json};</script><script>{_JS}</script></body></html>")
+    # Escape `</` so journal-derived text can never close the inline script tag.
+    add(
+        f"<script>window.__bokken={data_json.replace('</', '<\\/')};"
+        f"</script><script>{_JS}</script></body></html>"
+    )
     return "".join(parts)

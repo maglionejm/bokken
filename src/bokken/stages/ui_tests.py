@@ -107,11 +107,24 @@ class PlaywrightFeatureTester:
         try:
             if action.action == "goto" and action.value:
                 self.goto(action.value)
+            elif action.target_index is None:
+                return "no-op: click/fill without a target_index"
             elif action.target_index is not None:
                 locator = self.page.locator(
                     "button, a[href], input:not([type=hidden]), select, textarea, "
                     "[role=tab], [role=button]"
                 ).nth(action.target_index)
+                if locator.count() == 0:
+                    return "no such element (stale index; take a fresh digest)"
+                # The digest hides destructive controls but the model supplies a
+                # bare index: re-check the resolved element before touching it.
+                label = (
+                    (locator.text_content(timeout=2000) or "")
+                    + " "
+                    + (locator.get_attribute("href", timeout=2000) or "")
+                )
+                if DESTRUCTIVE.search(label):
+                    return f"refused: {label.strip()[:60]!r} is a destructive control"
                 if action.action == "fill":
                     locator.fill(action.value or "", timeout=4000)
                 elif action.action == "press_enter":
@@ -169,6 +182,19 @@ def run_feature_tests(
     try:
         tester.start(app_url)
     except TesterUnavailable:
+        return []
+    except Exception as exc:  # a live app that never settles must not kill the run
+        with contextlib.suppress(Exception):
+            tester.close()
+        ctx.store.append(
+            type="evidence.abstained",
+            stage="empathize",
+            actor=router.actor("ui-tester", "research"),
+            payload={
+                "question": "Per-feature functional tests of the running product",
+                "gap": f"browser could not open the app: {str(exc)[:160]}",
+            },
+        )
         return []
     try:
         inventory = structured(

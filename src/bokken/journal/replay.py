@@ -285,6 +285,9 @@ def _apply(state: SessionState, event: Event) -> None:
     elif event.type == "transition.fired":
         state.stage = p["to_stage"]
         state.approved_gate = None
+        # A fired transition supersedes any gate that guarded a different
+        # edge (e.g. a human loop-back away from a pending boundary).
+        state.pending_gate = None
         state.transitions.append(
             {
                 "from": p["from_stage"],

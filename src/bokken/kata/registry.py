@@ -53,6 +53,9 @@ class Kata:
     ) -> None:
         self._moves = {m.move_id: m for m in moves}
         self._store = store
+        # Replayed state lags within one engine pass: count our own executions
+        # so a budget cannot be bypassed by evaluating twice before re-replay.
+        self._executed_this_pass: dict[str, int] = {}
         self._actor = actor or Actor(kind="agent", name="facilitator")
         # Per-session budgets may tighten but never exceed the registry maximum.
         self._budgets: dict[str, int | None] = {}
@@ -91,9 +94,11 @@ class Kata:
         if stage not in move.stages:
             return self._suppress(move, fire, stage, "out_of_stage")
         budget = self._budgets[move_id]
-        if budget is not None and state.moves_executed.get(move_id, 0) >= budget:
+        spent = state.moves_executed.get(move_id, 0) + self._executed_this_pass.get(move_id, 0)
+        if budget is not None and spent >= budget:
             return self._suppress(move, fire, stage, "budget_exhausted")
         rendered = render_move(move_id, fire, mode)
+        self._executed_this_pass[move_id] = self._executed_this_pass.get(move_id, 0) + 1
         return self._store.append(
             type="facilitation.move_executed",
             stage=stage,
