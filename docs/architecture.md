@@ -10,7 +10,7 @@ state, which is what makes every run crash-safe and resumable by construction.
                           │                     │
              ┌────────────┴─────┐   ┌───────────┴────────────┐
   SURFACES   │  CLI (typer)     │   │  MCP server (stdio)    │   src/bokken/cli
-             │  new run step .. │   │  12 tools, 4 resources │   src/bokken/mcp
+             │  new run step .. │   │  14 tools, 4 resources │   src/bokken/mcp
              └────────┬─────────┘   └───────────┬────────────┘
                       └────────┬────────────────┘
                                │  shared result shapes: src/bokken/contract.py
@@ -35,13 +35,15 @@ state, which is what makes every run crash-safe and resumable by construction.
   MODEL OPS  │  MODEL ROUTER   src/bokken/models              │
              │  routing classes → models (research/challenge →│
              │  claude-fable-5 high, cognition/generation →   │
-             │  claude-opus-5 high, extraction → claude-haiku-  │
-             │  4-5), budget pre-check, structured outputs,   │
-             │  versioned prompts, every call → model.called  │
-             │  └── AnthropicProvider (SDK; swappable seam)   │
+             │  claude-opus-5 high, sidekick → claude-sonnet-5│
+             │  extraction → claude-haiku-4-5), budget        │
+             │  pre-check, structured outputs, versioned      │
+             │  prompts, every call → model.called            │
+             │  └── Anthropic / optional OpenAI providers     │
+             │      (SDK adapters behind one swappable seam)  │
              ├────────────────────────────────────────────────┤
   LEDGER     │  JOURNAL   src/bokken/journal                  │
-             │  event schema v1 (10 families, 22 types),      │
+             │  event schema v1 (11 families, 25 types),      │
              │  append-only JSONL + SHA-256 hash chain,       │
              │  single-writer lock, replay → SessionState,    │
              │  queries + follow                              │

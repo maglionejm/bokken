@@ -65,6 +65,11 @@ brief + inputs ──► intake ► empathize ► define ► ideate ► prototyp
   `requires real validation`; the Dossier states what the run *did not* do; and
   the handoff turns contradicted assumptions into exclusions and validation debt
   into mandatory tasks. None of this is configurable away.
+- **The code is read before anyone is asked**: when the corpus includes code,
+  Empathize opens with a citation-validated map of current capabilities
+  (journaled as `current_capability` interpretations) that targets the UI
+  feature tests; every corpus source carries its evidence role — code
+  establishes implemented behavior, never desired intent.
 - **The product is tested, not assumed**: with `--app-url` the run walks the
   real UI (SPA-aware), functionally exercises every inventoried feature with
   works/broken/unclear verdicts, and `wireframe_html` prototypes are generated
@@ -107,8 +112,9 @@ See a complete run first — no API key, no network, no cost
 ```sh
 uvx bokken demo
 # halt: completed - dossier generated; handoff specs generated; report exported
+# (pptx + html)
 # you were charged $0.00 - 0 network calls, 0 real tokens; the journaled
-# usage is an illustrative live-run profile: ~$10 list price across 62 calls
+# usage is an illustrative live-run profile: ~$10 list price across 63 calls
 ```
 
 With the `[ui]` extra installed, the demo also walks a bundled mock of the
@@ -167,8 +173,8 @@ uv run bokken new retention \
 uv run bokken run retention          # halts at each stage gate
 uv run bokken gate retention approve
 uv run bokken run retention          # ... approve gates until:
-# halt: completed
-# finalization: dossier generated; handoff specs generated
+# halt: completed (stage: complete)
+# finalization: dossier generated; handoff specs generated; report exported (pptx + html)
 
 uv run bokken journal retention --type decision   # every decision, with dissent
 open .bokken/sessions/retention/dossier/dossier.md
@@ -202,7 +208,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 
 | | |
 | --- | --- |
-| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · pack · costs · validate · library · doctor · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
+| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · pack · costs · validate · library · doctor · version · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
 | **MCP** | `bokken serve` (stdio): 14 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation
@@ -234,7 +240,7 @@ bokken/
 │   └── contract.py    # one result contract for both surfaces
 ├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
-├── tests/             # 127 tests; the whole loop runs offline against a fake provider
+├── tests/             # 326 tests; the whole loop runs offline against a fake provider
 └── scripts/           # live smoke run
 ```
 
@@ -260,8 +266,9 @@ lives in [docs/agents.md](docs/agents.md).
 
 Models: `claude-fable-5` (effort high, Opus fallback) for research and challenge
 agents, `claude-opus-5` (adaptive, effort high) for execution and documentation,
-`claude-haiku-4-5` for lightweight signal extraction — every call journaled with
-prompt version, token
+`claude-sonnet-5` for the delegated sidekick lane (verbatim corpus reads,
+mechanical UI stepping), `claude-haiku-4-5` for lightweight signal extraction —
+every call journaled with prompt version, token
 usage, and request id. The entire test suite runs offline.
 
 ## Naming
