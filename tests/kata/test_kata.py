@@ -105,3 +105,16 @@ def test_founder_surface_adds_consent_prompt() -> None:
     dojo = render_move("timebox_pivot", fire, "dojo")
     founder = render_move("timebox_pivot", fire, "founder")
     assert dojo in founder and "go ahead" in founder
+
+
+def test_budget_holds_within_one_engine_pass(store):
+    from bokken.kata import MVP_MOVES, Kata
+
+    kata = Kata(MVP_MOVES, store, budgets={"close_and_commit": 1})
+    state = fresh_state(store)
+    signals = {"run_ending": True}
+    first = kata.evaluate("close_and_commit", state, signals, stage="test")
+    second = kata.evaluate("close_and_commit", state, signals, stage="test")
+    assert first is not None and first.type == "facilitation.move_executed"
+    assert second is not None and second.type == "facilitation.move_suppressed"
+    assert second.payload["reason"] == "budget_exhausted"
