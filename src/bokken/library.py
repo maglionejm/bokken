@@ -64,7 +64,7 @@ def append_learnings(session_dir: Path) -> dict | None:
     }
     path = _library_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    seen = {(r["session"], r["product"]) for r in read_learnings()}
+    seen = {(r.get("session"), r.get("product")) for r in read_learnings()}
     if (record["session"], record["product"]) in seen:
         return None  # finalization is idempotent; so is the library
     with path.open("a", encoding="utf-8") as handle:
@@ -76,23 +76,34 @@ def read_learnings(product: str | None = None) -> list[dict]:
     path = _library_path()
     if not path.exists():
         return []
-    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    records: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue  # one torn or legacy line must not break every future read
+        if isinstance(record, dict):
+            records.append(record)
     if product:
-        records = [r for r in records if r["product"] == product]
+        records = [r for r in records if r.get("product") == product]
     return records
 
 
 def prior_learnings_text(brief: dict, *, exclude_session: str = "") -> str:
     """Prompt-ready digest of what earlier runs on this product established."""
-    records = [r for r in read_learnings(_product_key(brief)) if r["session"] != exclude_session]
+    records = [
+        r for r in read_learnings(_product_key(brief)) if r.get("session") != exclude_session
+    ]
     if not records:
         return "(no prior runs on this product)"
     lines: list[str] = []
     for r in records[-4:]:
-        lines.append(f"Run '{r['session']}' ended {r['verdict'] or 'incomplete'}:")
-        for a in r["assumptions"]:
-            if a["score"] in ("supported", "contradicted"):
-                lines.append(f"  - [{a['score']}] {a['statement']}")
-        for finding in r["ui_broken"][:2]:
+        lines.append(f"Run '{r.get('session')}' ended {r.get('verdict') or 'incomplete'}:")
+        for a in r.get("assumptions", []):
+            if a.get("score") in ("supported", "contradicted"):
+                lines.append(f"  - [{a['score']}] {a.get('statement', '')}")
+        for finding in r.get("ui_broken", [])[:2]:
             lines.append(f"  - [ui broken] {finding}")
     return "\n".join(lines) or "(prior runs recorded no scored learnings)"

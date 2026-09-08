@@ -42,6 +42,7 @@ class RunOutcome(BaseModel):
     stage: str
     detail: str = ""
     pending_question: str | None = None
+    pending_question_id: str | None = None  # set when an input mailbox holds the question
     finalization: str | None = None  # set when a completed run generated dossier/handoff
     cost_usd: float | None = None  # session-to-date list price from journaled calls
     model_calls: int | None = None

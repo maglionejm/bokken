@@ -176,16 +176,14 @@ def _runner(name: str) -> tuple[Runner, MailboxPort]:
 
 
 def _run_outcome(result: Any, port: MailboxPort) -> dict:
-    outcome = contract.RunOutcome(
+    pending = port.pending() if result.halt == "input_pending" else None
+    return contract.RunOutcome(
         halt=result.halt,
         stage=result.stage,
         detail=result.detail,
         pending_question=result.pending_question,
+        pending_question_id=pending["question_id"] if pending is not None else None,
     ).model_dump()
-    pending = port.pending()
-    if pending is not None and result.halt == "input_pending":
-        outcome["pending_question_id"] = pending["question_id"]
-    return outcome
 
 
 # --- tools --------------------------------------------------------------------
@@ -358,12 +356,16 @@ def generate_handoff(name: str) -> dict:
     """Generate OpenSpec MVP specifications for the validated concept, ready to be
     ingested by a coding harness (refused for killed concepts)."""
     from bokken.cli import wiring
-    from bokken.handoff import HandoffRefusedError
+    from bokken.handoff import (
+        HandoffFormatError,
+        HandoffGenerationError,
+        HandoffRefusedError,
+    )
     from bokken.handoff import generate_handoff as _generate
 
     try:
         generated = _generate(resolve_session_dir(name), wiring.router_factory())
-    except HandoffRefusedError as refusal:
+    except (HandoffRefusedError, HandoffGenerationError, HandoffFormatError) as refusal:
         raise ToolError(str(refusal)) from refusal
     return contract.HandoffResult(**generated).model_dump()
 

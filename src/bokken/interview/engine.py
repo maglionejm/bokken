@@ -36,6 +36,15 @@ def _participant_actor(participant: str) -> Actor:
     return Actor(kind="human", name=participant)
 
 
+def _guide_topic(guide: Guide) -> str:
+    """The open question an aborted interview leaves unanswered."""
+    if guide.debt_questions:
+        return guide.debt_questions[0]
+    if guide.probes:
+        return guide.probes[0][1]
+    return "validation interview"
+
+
 # The consent contact is a harness act, not a model call: no model stamp.
 _CONSENT_ACTOR = Actor(kind="agent", name="validation-interviewer")
 
@@ -98,6 +107,21 @@ def run_validation_interview(
             schema=InterviewerTurn,
         )
         if not turn.ok or turn.data is None:
+            # A consented human is never left hanging silently: close the
+            # channel politely and put the aborted interview on the record.
+            channel.close("We have to stop here - thank you for your time.")
+            store.append(
+                type="evidence.abstained",
+                stage=None,
+                actor=turn.attribution.actor("validation-interviewer"),
+                payload={
+                    "question": _guide_topic(guide),
+                    "gap": (
+                        f"validation interview with {participant} aborted mid-run: "
+                        f"interviewer call {turn.status} ({turn.detail or 'no detail'})"
+                    ),
+                },
+            )
             break
         decision: InterviewerTurn = turn.data
         if decision.action == "conclude":

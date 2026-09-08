@@ -43,6 +43,17 @@ def test_append_assigns_contiguous_seq_and_reads_back(store: JournalStore) -> No
     assert lines[1] == e2.model_dump_json()
 
 
+def test_append_refuses_to_extend_a_torn_journal(store: JournalStore) -> None:
+    append_evidence(store, "first")
+    torn = '{"seq": 3, "torn": '
+    with store.path.open("a", encoding="utf-8") as f:
+        f.write(torn)  # a partial record with no terminating newline
+    with pytest.raises(ChainBrokenError, match="newline"):
+        append_evidence(store, "second")
+    # nothing was fused onto the torn tail
+    assert store.path.read_text().endswith(torn)
+
+
 def test_chain_verifies_and_detects_tampering(store: JournalStore) -> None:
     append_evidence(store, "first")
     append_evidence(store, "second")

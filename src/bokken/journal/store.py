@@ -114,10 +114,29 @@ class JournalStore:
             ts=ts,
         )
         line = event.model_dump_json() + "\n"
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(line)
-            f.flush()
-            os.fsync(f.fileno())
+        # A prior partial write must never fuse with this record: refuse to
+        # extend a file whose last record has no terminating newline, and undo
+        # our own write if it fails partway.
+        size = self.path.stat().st_size if self.path.exists() else 0
+        if size:
+            with self.path.open("rb") as f:
+                f.seek(size - 1)
+                if f.read(1) != b"\n":
+                    raise ChainBrokenError(
+                        self._last_seq,
+                        "journal file does not end with a newline (truncated partial "
+                        "write); refusing to append and fuse records",
+                    )
+        try:
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(line)
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
+            if self.path.exists():
+                with self.path.open("rb+") as f:
+                    f.truncate(size)
+            raise
         self._last_seq = event.seq
         self._last_hash = event.hash
         return event

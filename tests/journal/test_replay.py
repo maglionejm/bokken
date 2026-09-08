@@ -199,6 +199,31 @@ def test_replay_is_deterministic() -> None:
     assert replay(b.events) == replay(b.events)
 
 
+def test_option_split_marks_parents_split() -> None:
+    b = EventBuilder()
+    b.add("session.created", created_payload(mode="dojo"), stage="intake")
+    parent = b.add("option.created", {"summary": "everything app"}, stage="ideate", actor=persona())
+    b.add(
+        "option.split",
+        {"summary": "just the scheduler"},
+        stage="ideate",
+        actor=AGENT,
+        refs=[parent.id],
+    )
+    b.add(
+        "option.split",
+        {"summary": "just the notifier"},
+        stage="ideate",
+        actor=AGENT,
+        refs=[parent.id],
+    )
+    state = replay(b.events)
+    statuses = {o.summary: o.status for o in state.options.values()}
+    assert statuses["everything app"] == "split"
+    assert statuses["just the scheduler"] == "alive"
+    assert statuses["just the notifier"] == "alive"
+
+
 def test_meter_counts_cached_prompt_tokens_at_face_value() -> None:
     """A cached corpus prefix is the largest number on the call; the budget
     meter must see it. Providers report it disjointly from ``input_tokens``, so

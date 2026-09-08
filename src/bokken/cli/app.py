@@ -74,6 +74,8 @@ def guarded(fn: Callable[..., Any]) -> Callable[..., Any]:
             return fn(*args, **kwargs)
         except typer.Exit:
             raise
+        except typer.BadParameter:  # a clean usage error, not an unexpected one
+            raise
         except KeyboardInterrupt:
             print("interrupted; the session is resumable with `bokken run`", file=sys.stderr)
             raise typer.Exit(0) from None
@@ -194,8 +196,13 @@ def init(
     else:
         names = sorted(TEMPLATES)
         out.print("Templates: " + ", ".join(f"{i + 1}) {n}" for i, n in enumerate(names)))
-        pick = typer.prompt("Template", default="1")
-        chosen = names[int(pick) - 1] if pick.strip().isdigit() else pick.strip()
+        pick = typer.prompt("Template", default="1").strip()
+        if pick.isdigit():
+            if not 1 <= int(pick) <= len(names):
+                raise typer.BadParameter(f"template number must be between 1 and {len(names)}")
+            chosen = names[int(pick) - 1]
+        else:
+            chosen = pick
         if chosen not in TEMPLATES:
             raise typer.BadParameter(f"unknown template; pick one of {names}")
         product = typer.prompt("Product name")
@@ -286,7 +293,10 @@ def new(
 ) -> None:
     """Create a session: validate the brief, journal it, enter intake."""
     if brief is not None:
-        brief_data = json.loads(brief.read_text(encoding="utf-8"))
+        try:
+            brief_data = json.loads(brief.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            _fail(f"--brief file {brief} is not valid JSON: {exc}", 2)
     else:
         out.print("Brief intake. Answer plainly; you can loop back later.")
         brief_data = {
@@ -839,13 +849,18 @@ def handoff(
     as_json: JsonFlag = False,
 ) -> None:
     """Generate OpenSpec MVP specifications for the validated concept (the handoff)."""
-    from bokken.handoff import HandoffRefusedError, generate_handoff
+    from bokken.handoff import (
+        HandoffFormatError,
+        HandoffGenerationError,
+        HandoffRefusedError,
+        generate_handoff,
+    )
     from bokken.handoff.emit import EmitError, emit_adapters
 
     session_dir = resolve_session_dir(name)
     try:
         generated = generate_handoff(session_dir, wiring.router_factory())
-    except HandoffRefusedError as refusal:
+    except (HandoffRefusedError, HandoffGenerationError, HandoffFormatError) as refusal:
         _fail(str(refusal), 2)
         return
     adapter_paths: list[str] = []

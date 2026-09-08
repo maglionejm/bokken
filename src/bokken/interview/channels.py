@@ -167,14 +167,20 @@ class TwilioChannel:
         self.to_number = to_number
         self._last_poll = None
 
-    def _send(self, body: str) -> None:
-        self.client.messages.create(to=self.to_number, from_=self.from_number, body=body)
+    def _send(self, body: str):
+        return self.client.messages.create(to=self.to_number, from_=self.from_number, body=body)
 
     def open(self, participant: str) -> Consent:
         from datetime import UTC, datetime
 
         self._last_poll = datetime.now(UTC)
-        self._send(self.CONSENT)
+        sent = self._send(self.CONSENT)
+        # Anchor freshness to Twilio's clock when it reports one: a skewed
+        # local clock must not misread the consent reply as stale (or old
+        # inbound traffic as fresh).
+        sent_at = getattr(sent, "date_sent", None)
+        if sent_at is not None:
+            self._last_poll = sent_at.replace(tzinfo=UTC)
         outcome = classify_reply(self.receive())
         basis = self.CONSENT_BASIS[outcome]
         if outcome == "no_response":
@@ -197,9 +203,12 @@ class TwilioChannel:
                 if m.date_sent and m.date_sent.replace(tzinfo=UTC) > self._last_poll
             ]
             if fresh:
-                newest = max(fresh, key=lambda m: m.date_sent)
-                self._last_poll = newest.date_sent.replace(tzinfo=UTC)
-                return (newest.body or "").strip()
+                # A participant may answer in several messages: keep them all,
+                # oldest first, as one reply.
+                fresh.sort(key=lambda m: m.date_sent)
+                self._last_poll = fresh[-1].date_sent.replace(tzinfo=UTC)
+                bodies = [(m.body or "").strip() for m in fresh]
+                return "\n".join(body for body in bodies if body)
             time.sleep(self.POLL_SECONDS)
         return ""  # timeout -> engine closes gracefully
 
