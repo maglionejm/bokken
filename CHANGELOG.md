@@ -6,6 +6,10 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [1.4.0] — 2026-09-09
+
 ### Added
 - Code exploration: when the corpus includes code, Empathize opens with a
   citation-validated map of current capabilities (journaled as
