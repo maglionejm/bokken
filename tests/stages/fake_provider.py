@@ -54,6 +54,27 @@ class ScriptedProvider:
 
     def _dispatch(self, prompt_id: str, rendered: str):
         n = self.calls[prompt_id]
+        if prompt_id == "explore/capability_map":
+            sources = SOURCE.findall(rendered)
+            cite = [Citation(source_id=sources[0], start_line=1, end_line=2)] if sources else []
+            return s.CapabilityMap(
+                capabilities=[
+                    s.CurrentCapability(
+                        name="record a note",
+                        actor="field technician",
+                        trigger="taps new-note",
+                        outcome="a note persists locally",
+                        citations=cite,
+                    ),
+                    s.CurrentCapability(
+                        name="sync notes",
+                        actor="the app",
+                        trigger="on connectivity",
+                        outcome="notes upload; failures are counted",
+                        citations=cite,
+                    ),
+                ]
+            )
         if prompt_id == "intake/product_facts":
             return s.ProductFacts(
                 product_name="Acme Notes",

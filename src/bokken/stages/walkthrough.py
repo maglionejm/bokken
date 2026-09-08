@@ -255,7 +255,7 @@ def build_walker() -> Walker:
     return PlaywrightWalker()
 
 
-def run_walkthrough(ctx, router) -> None:
+def run_walkthrough(ctx, router, capabilities: str = "") -> None:
     """Observe the running app (if any), journal facts + screenshots + review."""
     for event in ctx.store.events():
         if event.type == "artifact.generated" and event.payload.get("kind") == "ui_review":
@@ -330,7 +330,9 @@ def run_walkthrough(ctx, router) -> None:
 
     from bokken.stages.ui_tests import run_feature_tests
 
-    feature_results = run_feature_tests(ctx, router, app_url=app_url, routes=seed_paths)
+    feature_results = run_feature_tests(
+        ctx, router, app_url=app_url, routes=seed_paths, capabilities=capabilities
+    )
     feature_lines = (
         "\n".join(
             f"- {r['feature']}: {r['verdict']}"

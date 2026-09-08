@@ -33,6 +33,14 @@ bokken init --from-repo ./myapp --metrics data/kpis.csv
 Give Bokken something tangible to start from: the app repo, the numbers, and
 what humans have said.
 
+When the corpus includes code, Empathize opens with **code exploration**: a
+cited map of what the product does today (actor + trigger + observable
+outcome, journaled as `current_capability` interpretations). Every corpus
+source also carries its evidence role in the context header — code
+establishes implemented behavior, never desired intent — so no downstream
+prompt can launder one into the other. The map targets the UI feature tests
+and frames desired outcomes against implemented reality.
+
 ```sh
 bokken new retention \
   --mode dojo \

@@ -43,6 +43,18 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "possible), constraints (real ones visible in the corpus). One-line "
         "rationale for your framing choice.",
     ),
+    "explore/capability_map": (
+        "v1",
+        "Corpus (code sources carry their evidence role in the header):\n{context}\n"
+        + CACHE_SPLIT
+        + QUALITY_CONTRACT
+        + "Map what this product observably does today. For each capability: the "
+        "acting user, the trigger, the observable outcome, and citations into the "
+        "code corpus (source id + line span) that prove the behavior is "
+        "implemented. Code establishes implemented behavior, never desired "
+        "intent - do not write aspirations. 4-10 capabilities, most central "
+        "first.",
+    ),
     "empathize/interview_program": (
         "v4",
         QUALITY_CONTRACT
@@ -125,12 +137,14 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "reason whenever you score Importance >= 8 or Satisfaction <= 3.\n",
     ),
     "empathize/feature_inventory": (
-        "v1",
+        "v2",
         QUALITY_CONTRACT
         + "Enumerate the distinct user-facing functionalities of this product so each "
         "can be functionally tested in a browser.\n"
         "Product documentation excerpt:\n{docs}\n"
         "Routes discovered in the code: {routes}\n"
+        "Current capabilities mapped from the code (cited, implemented behavior):\n"
+        "{capabilities}\n"
         "Home page digest:\n{home}\n"
         "List up to 8 features. For each: a short name, an entry hint (path or the "
         "visible control to reach it), and the expectation - what a working version "

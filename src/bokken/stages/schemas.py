@@ -224,3 +224,17 @@ class BriefDraft(BaseModel):
     success_criteria: list[str] = Field(min_length=1, max_length=4)
     constraints: list[str] = Field(default_factory=list, max_length=4)
     rationale: str = ""
+
+
+class CurrentCapability(BaseModel):
+    """One thing the product observably does today, cited to the code corpus."""
+
+    name: str
+    actor: str
+    trigger: str
+    outcome: str
+    citations: list[Citation] = Field(default_factory=list, max_length=4)
+
+
+class CapabilityMap(BaseModel):
+    capabilities: list[CurrentCapability] = Field(min_length=1, max_length=10)

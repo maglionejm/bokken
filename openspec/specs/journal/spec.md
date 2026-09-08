@@ -203,3 +203,20 @@ The Journal SHALL support read queries filtered by any combination of event type
 
 - **WHEN** a follower is attached and a new event is appended
 - **THEN** the follower receives that event without re-reading the whole file
+
+### Requirement: Interpretation grounding accepts citations
+
+An `interpretation.derived` record SHALL be considered grounded when it
+carries refs to journal events or validated corpus citations (the
+`citations` extension key); a record with neither SHALL be rejected unless
+it declares `ungrounded: true`.
+
+#### Scenario: Citations ground an interpretation
+
+- **WHEN** an interpretation is appended with validated corpus citations and no refs
+- **THEN** the append succeeds with `ungrounded: false`
+
+#### Scenario: Nothing behind it means saying so
+
+- **WHEN** an interpretation is appended with neither refs nor citations and `ungrounded: false`
+- **THEN** the append is rejected

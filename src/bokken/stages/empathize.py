@@ -18,6 +18,7 @@ from bokken.stages.base import (
     open_stage,
     structured,
 )
+from bokken.stages.exploration import run_code_exploration
 from bokken.stages.persona_gen import RouterTurnGenerator
 from bokken.stages.schemas import FollowUp, InterviewProgram, OutcomeList, OutcomeScores
 from bokken.stages.walkthrough import run_walkthrough
@@ -143,6 +144,7 @@ class EmpathizeEngine:
             roots=config.get("input_roots"),
         )
         journal_rejected_inputs(ctx.store, corpus, stage="empathize")
+        capabilities_text = run_code_exploration(corpus, ctx.store, router)
         personas = cast_panel(
             brief=ctx.state.brief,
             size=config.get("size", 6),
@@ -173,7 +175,7 @@ class EmpathizeEngine:
             for persona in targets:
                 interviewer.ask(persona, q.question, stage="empathize", segment=q.segment)
         # Observed facts about the running product feed the outcome derivation.
-        run_walkthrough(ctx, router)
+        run_walkthrough(ctx, router, capabilities=capabilities_text)
         self._outcome_ranking(ctx, router, segment_personas)
 
     def _outcome_ranking(self, ctx: StageContext, router, personas) -> None:
