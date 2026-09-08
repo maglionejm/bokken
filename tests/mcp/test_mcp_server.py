@@ -242,6 +242,19 @@ async def test_stale_input_is_refused(tmp_path: Path) -> None:
         assert outcome["halt"] in ("input_pending", "completed")
 
 
+def test_run_outcome_sets_pending_question_id_via_the_contract(tmp_path: Path) -> None:
+    from bokken.mcp.server import MailboxPort, _run_outcome
+    from bokken.orchestrator import InputRequired, RunResult
+
+    port = MailboxPort(tmp_path)
+    outcome = _run_outcome(RunResult("stepped", "ideate"), port)
+    assert outcome["pending_question_id"] is None  # a model field, not an injected key
+    with pytest.raises(InputRequired):
+        port.ask("Pick one")
+    outcome = _run_outcome(RunResult("input_pending", "ideate", pending_question="Pick one"), port)
+    assert outcome["pending_question_id"] == port.pending()["question_id"]
+
+
 async def test_handoff_tool_and_finalization(tmp_path: Path) -> None:
     async with connected() as client:
         await client.call_tool(

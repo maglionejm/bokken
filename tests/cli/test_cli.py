@@ -97,6 +97,14 @@ def test_unknown_session_exits_2_naming_workspace() -> None:
     assert "ghost" in result.stderr and "sessions" in result.stderr
 
 
+def test_new_with_malformed_brief_file_exits_2(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json")
+    result = runner.invoke(app, ["new", "bad-brief", "--brief", str(bad)])
+    assert result.exit_code == 2
+    assert "not valid JSON" in result.stderr
+
+
 def test_duplicate_name_exits_2(brief_file: Path) -> None:
     assert new_session(brief_file).exit_code == 0
     result = new_session(brief_file)

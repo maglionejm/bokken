@@ -16,6 +16,10 @@ def _type_matches(event_type: str, spec: str) -> bool:
     spec = spec.removesuffix(".*").rstrip(".")
     if spec in TAXONOMY:
         return event_type == spec
+    if "." in spec:
+        # A dotted spec is an exact-type filter; a typo must fail loudly
+        # instead of matching nothing.
+        raise ValueError(f"unknown event type {spec!r}; not in the journal taxonomy")
     return event_type.split(".", 1)[0] == spec
 
 

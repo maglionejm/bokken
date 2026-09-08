@@ -1,6 +1,8 @@
 import itertools
 import threading
 
+import pytest
+
 from bokken.journal import JournalStore, follow, query
 from tests.journal.conftest import AGENT, HUMAN
 
@@ -38,6 +40,12 @@ def test_exact_type_actor_and_limit_filters(store: JournalStore) -> None:
     ]
     assert all(e.actor.kind == "agent" for e in query(store.session_dir, actor="agent"))
     assert len(list(query(store.session_dir, type="option.*", limit=1))) == 1
+
+
+def test_typoed_exact_type_filter_raises(store: JournalStore) -> None:
+    seed(store)
+    with pytest.raises(ValueError, match=r"evidence\.catpured"):
+        list(query(store.session_dir, type="evidence.catpured"))
 
 
 def test_since_seq_filter(store: JournalStore) -> None:

@@ -237,11 +237,12 @@ def _apply(state: SessionState, event: Event) -> None:
             origin=origin,
             parents=list(event.refs),
         )
-        if event.type == "option.merged":
+        if event.type in ("option.merged", "option.split"):
+            status = "merged" if event.type == "option.merged" else "split"
             for ref in event.refs:
                 node = state.options.get(ref)
                 if node and node.status == "alive":
-                    node.status = "merged"
+                    node.status = status
     elif event.type in ("option.parked", "option.killed"):
         status = "parked" if event.type == "option.parked" else "killed"
         for ref in event.refs:

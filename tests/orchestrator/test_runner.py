@@ -250,6 +250,33 @@ def test_missing_engine_and_stalled_engine_raise() -> None:
     session_dir2 = create_session("s2", brief=BRIEF, mode="founder")
     with pytest.raises(StalledStageError):
         Runner(session_dir2, engines={"empathize": NoopFake()}).run()
+    # The stopping reason is a Journal event, not only a raised exception.
+    for stalled_dir in (session_dir, session_dir2):
+        stopped = [e for e in read_events(stalled_dir) if e.type == "session.stopped"]
+        assert len(stopped) == 1
+        assert stopped[0].payload["reason"] == "error"
+        assert "empathize" in stopped[0].payload["detail"]
+
+
+def test_completed_session_reruns_do_not_grow_the_journal() -> None:
+    session_dir = founder_session()
+    runner = Runner(session_dir, engines=full_engine_suite())
+    assert runner.run().halt == "completed"
+    before = len(list(read_events(session_dir)))
+    assert runner.run().halt == "completed"
+    assert len(list(read_events(session_dir))) == before  # no resumed/stopped pair
+
+
+def test_non_human_resume_does_not_clear_a_human_stop() -> None:
+    session_dir = founder_session()
+    runner = Runner(session_dir, engines=full_engine_suite())
+    runner.step()
+    runner.stop(actor=HUMAN, detail="lunch")
+    before = len(list(read_events(session_dir)))
+    result = runner.run(actor=AGENT)
+    assert result.halt == "stopped" and result.detail == "human_stop"
+    assert len(list(read_events(session_dir))) == before  # the stop stands, unjournaled resume
+    assert runner.run(actor=HUMAN).halt == "completed"  # a human may still resume
 
 
 def test_mode_parity_same_event_families() -> None:

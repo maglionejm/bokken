@@ -15,6 +15,7 @@ from bokken.panel.corpus import Corpus
 from bokken.stages.base import (
     FACILITATOR,
     RouterFactory,
+    StageError,
     dumps,
     open_stage,
     opportunities_text,
@@ -24,6 +25,16 @@ from bokken.stages.schemas import IdeaBatch, NoveltyVerdict, SkepticChallenge, V
 
 NOVELTY_WINDOW = 6  # default; override via config ideation.novelty_window
 DEFAULT_CRITERIA = ["desirability", "feasibility", "viability"]
+FOUNDER_PICK_ATTEMPTS = 3
+
+
+def novelty_floor(config: dict, budgets: dict) -> float:
+    """A configured floor of 0 is a real floor (novelty pivots disabled), so
+    only absence — never falsiness — falls through to the default."""
+    floor = config.get("novelty_floor")
+    if floor is None:
+        floor = budgets.get("novelty_floor")
+    return 0.2 if floor is None else floor
 
 
 class IdeateEngine:
@@ -36,9 +47,7 @@ class IdeateEngine:
         config = state.config.get("ideation", {})
         quota = config.get("quota", 3)
         window = config.get("novelty_window", NOVELTY_WINDOW)
-        floor = config.get("novelty_floor") or state.config.get("budgets", {}).get(
-            "novelty_floor", 0.2
-        )
+        floor = novelty_floor(config, state.config.get("budgets", {}))
         open_stage(
             ctx,
             goal="generate genuinely different options, then converge deliberately",
@@ -102,7 +111,9 @@ class IdeateEngine:
                     stage="ideate",
                     params={"clusters": "\n".join(clusters) or "(none)", "option": idea.summary},
                 )
-                is_novel = verdict is not None and verdict.data.classification == "novel_cluster"
+                if verdict is None:
+                    continue  # unclassified is not "not novel": keep it out of the rate
+                is_novel = verdict.data.classification == "novel_cluster"
                 if is_novel:
                     clusters.append(idea.summary)
                 novelty.append(is_novel)
@@ -165,16 +176,40 @@ class IdeateEngine:
         # lens votes below, not any one call's output, so it claims no model.
         decider = FACILITATOR
         if state.mode == "founder":
-            choice = ctx.input_port.ask(
-                "Pick the option to advance (number):\n" + self._options_text(options)
-            )
-            try:
-                winner = options[int(choice.text.strip()) - 1]
-            except (ValueError, IndexError):
+            question = "Pick the option to advance (number):\n" + self._options_text(options)
+            picked = None
+            answer = ""
+            for attempt in range(FOUNDER_PICK_ATTEMPTS):
+                prompt = (
+                    question
+                    if attempt == 0
+                    # Distinct per attempt, so a mailbox port keys each re-ask
+                    # separately instead of colliding on one question id.
+                    else f"{answer!r} is not a number between 1 and {len(options)} "
+                    f"(attempt {attempt + 1} of {FOUNDER_PICK_ATTEMPTS}). {question}"
+                )
+                choice = ctx.input_port.ask(prompt)
+                answer = choice.text.strip()
+                if answer.isdigit() and 1 <= int(answer) <= len(options):
+                    picked = options[int(answer) - 1]
+                    break
+            if picked is None:
+                # Explicit, journaled fallback: nobody made a valid pick, so
+                # the harness defaults — the founder is never quietly credited.
                 winner = options[0]
-            # Whoever actually picked owns the decision, human or agent client.
-            decider = choice.actor
-            positions = [{"actor": decider.name, "position": winner.payload["summary"]}]
+                positions = [
+                    {
+                        "actor": decider.name,
+                        "position": f"defaulted to option 1 after "
+                        f"{FOUNDER_PICK_ATTEMPTS} invalid selections "
+                        f"(last answer: {answer!r})",
+                    }
+                ]
+            else:
+                winner = picked
+                # Whoever actually picked owns the decision, human or agent client.
+                decider = choice.actor
+                positions = [{"actor": decider.name, "position": winner.payload["summary"]}]
             dissent: list[dict[str, str]] = []
         else:
             code_context = self._code_context(ctx)
@@ -226,9 +261,8 @@ class IdeateEngine:
                 if votes is None:
                     return None
                 for vote in votes.data.votes:
-                    totals[vote.option_id] = totals.get(vote.option_id, 0) + sum(
-                        vote.scores.values()
-                    )
+                    option_id = self._resolve_option_id(vote.option_id, options)
+                    totals[option_id] = totals.get(option_id, 0) + sum(vote.scores.values())
                     position = vote.position
                     if lens_name == "feasibility" and vote.verdict:
                         position = (
@@ -238,13 +272,18 @@ class IdeateEngine:
                             + f" - {position}"
                         )
                         if vote.verdict == "red":
-                            vetoes[vote.option_id] = position
+                            vetoes[option_id] = position
                     positions.append({"actor": lens_name, "position": position})
             by_id = {o.id: o for o in options}
             ranked_ids = sorted(totals, key=lambda k: totals[k], reverse=True) or [options[0].id]
             # A red feasibility verdict is a veto: prefer the best non-red option.
             winner_id = next((i for i in ranked_ids if i not in vetoes), ranked_ids[0])
-            winner = by_id.get(winner_id, options[0])
+            winner = by_id.get(winner_id)
+            if winner is None:
+                raise StageError(
+                    f"convergence winner {winner_id!r} matches no presented option; "
+                    "refusing to crown a default"
+                )
             dissent = [
                 {"actor": "feasibility", "reservation": f"red verdict on {oid}: {why}"}
                 for oid, why in vetoes.items()
@@ -313,6 +352,17 @@ class IdeateEngine:
             ctx.store, personas=personas, panel_kind="ideation", seed=seed, stage="ideate"
         )
         return personas
+
+    @staticmethod
+    def _resolve_option_id(option_id: str, options: list[Event]) -> str:
+        """Options reach the lenses as a numbered list, so a vote may name the
+        list position instead of the event id; map it back when unambiguous."""
+        raw = option_id.strip()
+        if raw in {o.id for o in options}:
+            return raw
+        if raw.isdigit() and 1 <= int(raw) <= len(options):
+            return options[int(raw) - 1].id
+        return raw
 
     @staticmethod
     def _options_text(options: list[Event]) -> str:

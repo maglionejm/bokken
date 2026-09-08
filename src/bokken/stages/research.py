@@ -57,6 +57,11 @@ def run_concept_research(ctx, router, *, concept: str, problem_statement: str) -
         max_tokens=32000,
         web_search=True,
     )
+    if deep.status == "budget_exhausted":
+        # A budget pause is not permanent research debt: the guard at the top
+        # treats a journaled abstention as terminal, and a resumed run with
+        # budget must still get its research.
+        return
     if not deep.ok or not deep.text:
         ctx.store.append(
             type="evidence.abstained",

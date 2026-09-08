@@ -123,6 +123,31 @@ def test_guide_interview_and_rescoring(tmp_path):
     assert rescored and real[0].id in rescored[0].refs
 
 
+class FailingRouter:
+    """Every interviewer turn fails: the model is down mid-interview."""
+
+    def invoke(self, *args, **kwargs):
+        from bokken.models.router import ModelOutcome
+
+        return ModelOutcome(status="error", detail="provider capacity")
+
+
+def test_mid_interview_failure_closes_the_channel_and_journals_debt(bare_store):
+    channel = FakeChannel()
+    guide = Guide(debt_questions=["Que hiciste la ultima vez que fallo el pago?"])
+    exchanges = run_validation_interview(
+        bare_store, FailingRouter(), guide, channel, participant="Ana (piloto real)"
+    )
+    assert exchanges == 0
+    assert channel.farewell  # the consented human was not left hanging
+    assert not channel.sent  # no question ever went out
+    abstained = [e for e in bare_store.events() if e.type == "evidence.abstained"]
+    assert len(abstained) == 1
+    assert abstained[0].payload["question"] == guide.debt_questions[0]
+    assert "aborted mid-run" in abstained[0].payload["gap"]
+    assert "error" in abstained[0].payload["gap"]
+
+
 def _fake_twilio(monkeypatch, inbound: list[str]) -> list[str]:
     """Install a fake twilio SDK. `inbound` is what the number replies, in order
     (empty = the number never replies). Returns the list of outbound bodies."""
@@ -201,6 +226,24 @@ def test_twilio_consent_is_affirmative_or_nothing(monkeypatch, inbound, outcome)
     assert consent.outcome == outcome and not consent.granted
     assert consent.basis  # the ledger always gets a reason in words
     assert len(sent) == 1  # only the consent request; no question, no reminder
+
+
+def test_twilio_receive_joins_all_fresh_messages_oldest_first(monkeypatch):
+    import types
+    from datetime import UTC, datetime, timedelta
+
+    _fake_twilio(monkeypatch, [])
+    channel = _twilio_channel()
+    now = datetime.now(UTC)
+    channel._last_poll = now - timedelta(minutes=5)
+    older = types.SimpleNamespace(body="primera parte", date_sent=now - timedelta(seconds=60))
+    newer = types.SimpleNamespace(body="segunda parte", date_sent=now - timedelta(seconds=30))
+    channel.client = types.SimpleNamespace(
+        # Twilio lists newest first; the reply must still read oldest first.
+        messages=types.SimpleNamespace(list=lambda from_, to, limit: [newer, older])
+    )
+    assert channel.receive() == "primera parte\nsegunda parte"
+    assert channel._last_poll == newer.date_sent
 
 
 @pytest.mark.parametrize(

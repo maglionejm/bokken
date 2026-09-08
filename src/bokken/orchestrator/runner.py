@@ -250,18 +250,26 @@ def create_session(
     # Reproducibility: every journal knows which Bokken created it.
     config["bokken_version"] = bokken.__version__
     session_dir = create_session_dir(name, base=base)
-    with JournalStore.open(session_dir) as store:
-        store.append(
-            type="session.created",
-            stage="intake",
-            actor=SYSTEM_ACTOR,
-            payload={
-                "name": name,
-                "mode": mode,
-                "brief": validated.model_dump(),
-                "config": config,
-            },
-        )
+    try:
+        with JournalStore.open(session_dir) as store:
+            store.append(
+                type="session.created",
+                stage="intake",
+                actor=SYSTEM_ACTOR,
+                payload={
+                    "name": name,
+                    "mode": mode,
+                    "brief": validated.model_dump(),
+                    "config": config,
+                },
+            )
+    except Exception:
+        # A failed creation append must not strand a dir that "exists" by name
+        # but holds no replayable session.
+        import shutil
+
+        shutil.rmtree(session_dir, ignore_errors=True)
+        raise
     return session_dir
 
 
@@ -394,6 +402,9 @@ class Runner:
             policy = resolve_gate_policy(state)
             if store.last_seq > 1:
                 overrides = self._vet_overrides(store, state, config_overrides, actor)
+                halted = self._halt_without_resuming(state, overrides, actor)
+                if halted is not None:
+                    return halted
                 payload: dict[str, Any] = {}
                 if overrides:
                     payload["config_overrides"] = overrides
@@ -481,6 +492,22 @@ class Runner:
             )
         return overrides
 
+    def _halt_without_resuming(
+        self, state: SessionState, overrides: dict[str, Any] | None, actor: Actor
+    ) -> RunResult | None:
+        """A resume that would halt on the spot is not journaled: a terminal
+        session must not grow a resumed/stopped pair per ``run``, and a
+        non-human resume never clears a human stop."""
+        if state.stage == "complete":
+            return RunResult("completed", state.stage)
+        if state.stopped == "human_stop" and actor.kind != "human":
+            return RunResult("stopped", state.stage, detail=state.stopped)
+        budgets = {**state.config.get("budgets", {}), **(overrides or {}).get("budgets", {})}
+        total = budgets.get("total_tokens")
+        if total is not None and state.tokens_spent() >= total:
+            return RunResult("stopped", state.stage, detail="budget_exhausted")
+        return None
+
     # An engine may legitimately need a few passes over a stage, but a stage whose
     # exit criteria never become satisfiable (e.g. no evidence exists to ground an
     # insight) must fail loudly instead of looping forever.
@@ -491,11 +518,19 @@ class Runner:
     ) -> RunResult:
         transitions = 0
         engine_attempts: dict[Stage, int] = {}
+        transitions_seen: int | None = None
         while True:
             # One journal read per iteration: every decision below folds or
             # filters this same snapshot.
             events = list(store.events())
             state = replay(events)
+
+            # Any fired transition (forward, gate, or engine loop-back) grants
+            # the entered stage its full retry budget again, so a revisited
+            # stage is not charged for attempts made before the run moved on.
+            if len(state.transitions) != transitions_seen:
+                engine_attempts.clear()
+                transitions_seen = len(state.transitions)
 
             halt = halt_result(state)
             if halt is not None:
@@ -522,9 +557,11 @@ class Runner:
 
             engine_attempts[state.stage] = engine_attempts.get(state.stage, 0) + 1
             if engine_attempts[state.stage] > self.MAX_ENGINE_ATTEMPTS_PER_STAGE:
-                raise StalledStageError(
-                    stall_detail(state.stage, engine_attempts[state.stage] - 1, verdict, rework)
+                detail = stall_detail(
+                    state.stage, engine_attempts[state.stage] - 1, verdict, rework
                 )
+                self._stop_on_error(store, state, detail)
+                raise StalledStageError(detail)
             result = self._run_engine(store, state, verdict)
             if result is not None:
                 return result
@@ -541,6 +578,16 @@ class Runner:
             payload={"reason": "budget_exhausted", "detail": "token budget spent"},
         )
         return RunResult("stopped", state.stage, detail="budget_exhausted")
+
+    def _stop_on_error(self, store: JournalStore, state: SessionState, detail: str) -> None:
+        """Stopping rules terminate runs, and the stopping reason is a Journal
+        event — even when the rule surfaces as a raised exception."""
+        store.append(
+            type="session.stopped",
+            stage=state.stage,
+            actor=SYSTEM_ACTOR,
+            payload={"reason": "error", "detail": detail},
+        )
 
     def _maybe_request_gate(
         self, store: JournalStore, state: SessionState, policy: GatePolicy
@@ -582,9 +629,9 @@ class Runner:
     ) -> RunResult | None:
         engine = self.engines.get(state.stage)
         if engine is None:
-            raise MissingEngineError(
-                f"stage {state.stage} has unmet criteria and no engine: {verdict.unmet}"
-            )
+            detail = f"stage {state.stage} has unmet criteria and no engine: {verdict.unmet}"
+            self._stop_on_error(store, state, detail)
+            raise MissingEngineError(detail)
         kata = self.kata_factory(store) if self.kata_factory else None
         ctx = StageContext(state=state, store=store, input_port=self.input_port, kata=kata)
         seq_before = store.last_seq
@@ -606,7 +653,7 @@ class Runner:
         # Nothing appended means nothing to replay: the state this pass was
         # given is still current, so the criteria can be re-read from it.
         if store.last_seq == seq_before and not can_exit(state.stage, state).ok:
-            raise StalledStageError(
-                f"engine for {state.stage} made no progress; unmet: {verdict.unmet}"
-            )
+            detail = f"engine for {state.stage} made no progress; unmet: {verdict.unmet}"
+            self._stop_on_error(store, state, detail)
+            raise StalledStageError(detail)
         return None

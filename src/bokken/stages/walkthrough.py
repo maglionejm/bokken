@@ -260,6 +260,10 @@ def run_walkthrough(ctx, router, capabilities: str = "") -> None:
     for event in ctx.store.events():
         if event.type == "artifact.generated" and event.payload.get("kind") == "ui_review":
             return  # already walked; loop-backs re-interview, not re-crawl
+        if event.type == "evidence.captured" and event.payload.get("source") == "ui_walkthrough":
+            # Observations are already journaled: a failed review call must
+            # not trigger a second crawl that duplicates observed evidence.
+            return
         if event.type == "evidence.abstained" and str(event.payload.get("question", "")).startswith(
             "Functional UI walkthrough"
         ):
@@ -346,7 +350,7 @@ def run_walkthrough(ctx, router, capabilities: str = "") -> None:
     coverage = (
         f"Visited {len(observations)} screen(s) out of a discovered candidate set of "
         f"{len(seed_paths) or 'unknown (no repo routes)'} code routes plus live links "
-        f"(page budget {MAX_PAGES})."
+        f"(page budget {max_pages})."
     )
     review = structured(
         router,

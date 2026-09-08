@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from bokken.cli.app import app
@@ -34,6 +35,15 @@ def test_unknown_template_is_rejected(tmp_path):
     result = runner.invoke(app, ["init", "--template", "nope", "--out", str(tmp_path / "b.json")])
     assert result.exit_code != 0
     assert not (tmp_path / "b.json").exists()
+
+
+@pytest.mark.parametrize("pick", ["0", "9"])
+def test_interactive_pick_out_of_range_is_rejected(tmp_path, pick):
+    out = tmp_path / "b.json"
+    result = runner.invoke(app, ["init", "--out", str(out)], input=pick + "\n")
+    assert result.exit_code == 2
+    assert "between 1 and" in result.stderr
+    assert not out.exists()
 
 
 def test_interactive_path_prefills_from_template(tmp_path):
