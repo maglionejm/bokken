@@ -8,9 +8,10 @@ is the account of what was learned; the handoff is the steel drawing.
 ## When it happens
 
 - **Automatically**: when a run reaches `complete`, the surfaces finalize the
-  session — Dossier first, then handoff — skipping whatever already exists
-  (idempotent). The run result reports it:
-  `finalization: dossier generated; handoff specs generated`.
+  session — Dossier first, then handoff, then the report exports — skipping
+  whatever already exists (idempotent). The run result reports it:
+  `finalization: dossier generated; handoff specs generated; report exported
+  (pptx + html)`.
 - **On demand**: `bokken handoff <name>` or the `generate_handoff` MCP tool.
 - **Refused** (nothing written): when the session has no convergence decision,
   or when the test recommendation is `kill` — a killed concept has no build

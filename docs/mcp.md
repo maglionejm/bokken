@@ -92,14 +92,14 @@ create_session_tool ──► run_session ──► halt?
                             └─────────────┴─ completed  ◄────────────────────────────┘
                                               │
                                               ▼  (automatic finalization)
-                              Dossier  +  OpenSpec handoff package
+                       Dossier + OpenSpec handoff package + report exports
 ```
 
 A `completed` run is **finalized automatically** — Dossier first, then the
-handoff — and the result reports it:
-`"finalization": "dossier generated; handoff specs generated"`. Finalization is
-idempotent, and the handoff is skipped (with the reason in the string) when the
-test recommendation is `kill`.
+handoff, then the report exports — and the result reports it:
+`"finalization": "dossier generated; handoff specs generated; report exported
+(pptx + html)"`. Finalization is idempotent, and the handoff is skipped (with
+the reason in the string) when the test recommendation is `kill`.
 
 ## Tool reference
 
@@ -116,8 +116,11 @@ refusal (see Error semantics).
 | `name` | string | — | becomes the session slug; duplicates are refused |
 | `brief` | object | — | `problem_space`, `target_segments[]`, `success_criteria[]`, `risk_tolerance`, optional `constraints[]` and `inputs{repo, metrics[], discussions[], documents[]}` (paths as seen by the *server* and **confined to its authorized input root** — see Input paths) |
 | `mode` | `"founder" \| "dojo"` | `"dojo"` | who supplies participation |
+| `provider` | `"anthropic" \| "openai"` | `"anthropic"` | which provider serves the session's routing table |
+| `model` | string | none | overrides the four frontier lanes only; sidekick/extraction economics are preserved; refused when the model cannot serve those lanes |
+| `reasoning_effort` | `"low" \| "medium" \| "high"` | none | applied to frontier lanes; refused when a frontier model rejects reasoning parameters |
 | `gate_policy` | `"none" \| "stage_boundaries" \|` string[] | mode default | dojo defaults to `stage_boundaries`, founder to `none` |
-| `total_token_budget` | int | none | run-wide token budget |
+| `total_token_budget` | int | 20,000,000 | run-wide token budget; the same default guardrail as `bokken new`, so agent-created sessions stop honestly instead of surprising on cost |
 | `panel_size`, `seed` | int | 6, 7 | synthetic panel casting (deterministic per brief+seed) |
 
 Returns a **StatusResult**: `{kind:"status", name, mode, stage, state,
@@ -142,7 +145,8 @@ server (`docs/operating.md`); it replaces the default roots.
 
 **`run_session`** — advance to the next halt. Returns a **RunOutcome**:
 `{kind:"run", halt, stage, detail, pending_question?, pending_question_id?,
-finalization?}`.
+finalization?, cost_usd?, model_calls?}` (the last two are populated by the
+CLI's receipt and stay null over MCP — use `cost_report`).
 
 **`step_session`** — advance at most one stage; same shape as `run_session`.
 
@@ -252,7 +256,7 @@ If your run needs human-grade evidence, get it from a human surface.
 
 → run_session {name:"retention"}          # … repeat approve/run per boundary …
 ← {kind:"run", halt:"completed", stage:"complete",
-   finalization:"dossier generated; handoff specs generated"}
+   finalization:"dossier generated; handoff specs generated; report exported (pptx + html)"}
 
 → query_journal {name:"retention", type:"decision"}
 ← [ …every decision, with criteria, positions, and dissent… ]

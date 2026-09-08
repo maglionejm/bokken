@@ -34,7 +34,7 @@ attributes these agents to the OpenAI model that served them.
 | Agent | Routing class → model | Does | Never does |
 | --- | --- | --- | --- |
 | Context retriever | `sidekick` → `claude-sonnet-5`, corpus as cached prefix | Return verbatim source-marked spans for each interview question; truncated output is still used as spans | Paraphrase; answer the question itself; fall back to shipping the full corpus |
-| `ui-tester` stepping | `sidekick` → `claude-sonnet-5` | Choose the next browser action (click / fill demo values / navigate) from the interactive-element digest | Activate destructive controls (filtered from the digest); journal a final verdict without frontier confirmation |
+| `ui-tester` stepping | `sidekick` → `claude-sonnet-5` | Choose the next browser action (click / fill demo values / navigate) from the interactive-element digest | Activate destructive controls (filtered from the digest *and* refused again at `act()`, which re-resolves the element and rejects destructive labels and stale indexes); journal a final verdict without frontier confirmation |
 
 The lane pays for mechanical reading, so it runs on the cheapest model the
 charter allows for non-extraction work — not on the frontier model whose price

@@ -469,7 +469,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <span class="o">report (deck): …/demo/report/report.pptx</span>
 <span class="o">you were charged $0.00 - 0 network calls, 0 real tokens;</span>
 <span class="o">the journaled usage is an illustrative live-run profile:</span>
-<span class="o">~$10 list price across 62 calls</span></pre>
+<span class="o">~$10 list price across 63 calls</span></pre>
       </div>
       <div class="demo-cta">
         <a class="btn" href="gallery/demo-report.html">Open the demo report</a>
@@ -618,49 +618,51 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 
 <span class="p">$</span> bokken new mars-lander --mode dojo --brief bokken-brief.json \
     --repo ./app --metrics data/kpis.csv --discussion research/interviews.md
-<span class="o">created session mars-lander  ·  gates: stage_boundaries</span>
+<span class="o">created session 'mars-lander' at .bokken/sessions/mars-lander</span>
 
 <span class="p">$</span> bokken run mars-lander
 <span class="o">cost framing: a full run typically lands at $20-35 list price;</span>
 <span class="o">stops at 20,000,000 tokens</span>
-<span class="o">halt: gate_pending  (empathize → define)</span>
+<span class="o">halt: gate_pending (stage: intake) - gate g-4f2a91c0 guards intake -> empathize</span>
 <span class="o">receipt: $0.00 across 0 model calls so far</span>
 
 <span class="p">$</span> bokken gate mars-lander approve
 <span class="p">$</span> bokken run mars-lander
 <span class="o">...</span>
-<span class="o">halt: completed</span>
+<span class="o">halt: completed (stage: complete)</span>
 <span class="o">finalization: dossier generated; handoff specs generated; report exported (pptx + html)</span>
 
 <span class="p">$</span> bokken dossier mars-lander
-<span class="o">dossier/dossier.md    <span class="c"># outcomes · process narrative · honesty section</span></span>
-<span class="o">dossier/dossier.json  <span class="c"># the machine-readable evidence graph</span></span>
+<span class="o">dossier (complete):</span>
+<span class="o">  dossier/dossier.md    <span class="c"># outcomes · process narrative · honesty section</span></span>
+<span class="o">  dossier/dossier.json  <span class="c"># the machine-readable evidence graph</span></span>
 
 <span class="p">$</span> bokken handoff mars-lander
 <span class="o">handoff (schedule-publication):</span>
-<span class="o">handoff/openspec/changes/build-mvp-mars-lander/  <span class="c"># OpenSpec specs for the</span></span>
-<span class="o">                                                 <span class="c"># validated MVP, evidence-traced,</span></span>
-<span class="o">                                                 <span class="c"># ready for a coding agent</span></span>
+<span class="o">  handoff/openspec/changes/build-mvp-mars-lander/  <span class="c"># OpenSpec specs for the</span></span>
+<span class="o">                                                   <span class="c"># validated MVP, evidence-traced,</span></span>
+<span class="o">                                                   <span class="c"># ready for a coding agent</span></span>
 
 <span class="p">$</span> bokken export mars-lander
-<span class="o">report/report.pptx    <span class="c"># the whole run as a deck: process, intermediate</span></span>
-<span class="o">report/report.html    <span class="c"># + final outputs, spec appendix — journal-derived</span></span>
+<span class="o">report:</span>
+<span class="o">  report/report.pptx  <span class="c"># the whole run as a deck: process, intermediate</span></span>
+<span class="o">  report/report.html  <span class="c"># + final outputs, spec appendix — journal-derived</span></span>
 
 <span class="p">$</span> bokken costs mars-lander
-<span class="o">total ~$24.80 · cache hit rate 91%  <span class="c"># spend per stage × prompt × class</span></span>
+<span class="o">total ~$24.8 (list prices) · cache hit rate 91%  <span class="c"># per stage × prompt × class</span></span>
 
 <span class="p">$</span> bokken validate mars-lander --channel twilio --to +34…
 <span class="o">guide: artifacts/validation/validation_guide.md  <span class="c"># research debt → real interview</span></span>
 <span class="o">journaled 9 exchange(s)              <span class="c"># reported human evidence; register rescored</span></span>
 
 <span class="p">$</span> bokken library
-<span class="o">mars-lander · verdict iterate        <span class="c"># learnings compound into the next run</span></span>
+<span class="o">mars-lander · ./app · verdict iterate  <span class="c"># learnings compound into the next run</span></span>
 
 <span class="p">$</span> bokken handoff mars-lander --emit claude-code
 <span class="o">adapter: handoff/adapters/claude-code/HANDOFF.md  <span class="c"># your coding agent executes it</span></span>
 
 <span class="p">$</span> bokken pack mars-lander --deliverables-only
-<span class="o">packed: mars-lander.bokken.zip       <span class="c"># manifest + report + deck + dossier + specs</span></span></pre>
+<span class="o">packed: mars-lander.bokken.zip (214 KB, deliverables only)  <span class="c"># manifest + report + deck + dossier + specs</span></span></pre>
   </div>
   <p class="term-note"><b>Get started in one command</b> — <code>uvx bokken demo</code> shows a whole run for $0.00; <code>bokken doctor</code> checks your environment with a fix per gap; <code>bokken init --from-repo .</code> drafts the brief from your own repo. On Claude Desktop, install natively with the one-click <a href="https://github.com/maglionejm/bokken/releases/latest">.mcpb bundle</a>. Extras: <code>bokken[ui]</code> for browser tests, <code>bokken[interview]</code> for Twilio interviews, <code>bokken[openai]</code> for the OpenAI provider. Found something? <a href="https://github.com/maglionejm/bokken/issues/new/choose">Open a run-feedback issue</a> or join the <a href="https://github.com/maglionejm/bokken/discussions">discussions</a>.</p>
   <p class="term-note">Everything is resumable: Ctrl-C at any point and <code>bokken run</code> continues from the Journal. Watch it live with <code>bokken journal mars-lander --follow</code>; loop back explicitly with <code>bokken back mars-lander define --reason "test contradicted insight-3"</code>. Every read verb speaks <code>--json</code> for scripts.</p>
@@ -771,7 +773,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
 <section id="mcp" class="wrap">
   <div class="mark"><span class="kj" aria-hidden="true">接続</span><span class="rm">setsuzoku — the connection / 08 mcp</span></div>
   <h2>Your agent can drive the same loop.</h2>
-  <p class="lede"><code>bokken serve</code> exposes the harness over MCP (stdio): 12 tools and 4 resources
+  <p class="lede"><code>bokken serve</code> exposes the harness over MCP (stdio): 14 tools and 4 resources
   on the same core the CLI uses, returning the same JSON shapes from one shared contract.
   No call is open-ended — <code>run_session</code> always returns at the next halt, so driving
   a run is a plain loop an agent can program against.</p>
@@ -802,8 +804,8 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
     </div>
     <div class="tg alt2">
       <b>Outputs</b>
-      <code>generate_dossier</code><code>generate_handoff</code>
-      <p>The deliverables on demand; the handoff refuses killed concepts.</p>
+      <code>generate_dossier</code><code>generate_handoff</code><code>export_report</code><code>cost_report</code>
+      <p>The deliverables and cost report on demand; the handoff refuses killed concepts.</p>
     </div>
   </div>
 
@@ -859,7 +861,7 @@ footer p{font-size:.88rem;color:var(--ink-soft)}
   <div class="wrap foot">
     <div>
       <span class="status">terminal-first · MCP-consumable · no GUI</span>
-      <p style="max-width:52ch">Bokken is open source and on PyPI (<code>uvx bokken demo</code> to see it run). Actively maintained; run feedback shapes the roadmap.</p>
+      <p style="max-width:52ch">Bokken is open source and on PyPI (<code>uvx bokken demo</code> to see it run). Issues are triaged, PRs are welcome; run feedback shapes the roadmap.</p>
       <p class="foot-meta">Python ≥ 3.12 · uv · Apache-2.0 · created by <a href="https://github.com/maglionejm">Juan Martín Maglione</a> &amp; <a href="https://github.com/mpuig">Marc Puig</a></p>
     </div>
     <div class="foot-links">

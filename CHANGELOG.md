@@ -17,6 +17,26 @@ main may be ahead of the latest PyPI release.
 - Journal invariant: an interpretation is grounded by refs or validated
   corpus citations; with neither it must declare `ungrounded: true`.
 
+### Fixed
+- Honesty-core hardening from the full code review (#63): the UI tester's
+  destructive-control guard is enforced at `act()` (re-resolved element,
+  refused destructive labels and stale indexes), a browser startup failure
+  journals an abstention instead of killing the run, report HTML escaping is
+  attribute- and script-safe, finalization survives a malformed handoff
+  package, a fired transition clears a stale pending gate, and kata budgets
+  count executions within the current engine pass.
+- Reliability and UX hardening, review batch 2/2 (#64): torn-journal appends
+  are refused and partial appends truncated; stalled stages and missing
+  engines journal `session.stopped` (reason `error`) before raising; a
+  revisited stage regains its full retry budget; founder picks validate 1..n
+  with up to 3 re-asks and an explicitly journaled fallback; Twilio `receive`
+  returns all fresh inbound messages oldest-first; numeric-string votes map to
+  the presented order and an unresolvable winner raises instead of crowning
+  option 1; `novelty_floor: 0` is honored; unknown journal type filters raise;
+  the library reader skips torn lines; `RunOutcome` carries
+  `pending_question_id` as a contract field; interactive `init` and malformed
+  `--brief` fail as clean usage errors.
+
 ## [1.3.1] — 2026-09-04
 
 ### Added

@@ -32,7 +32,9 @@ fsync-durable and line-atomic; a single-writer `flock` prevents interleaving.
 **Confidence classes** (`observed | reported | assumed | simulated`) mark the
 epistemic status of evidence and propagate to everything derived from it.
 Invariants enforced at the append boundary: persona evidence must be
-`simulated`; human evidence can never be `simulated`.
+`simulated`; human evidence can never be `simulated`; an interpretation is
+grounded by `refs` or validated corpus `citations` — with neither it must
+declare `ungrounded: true`.
 
 ## Taxonomy
 
@@ -50,7 +52,7 @@ Invariants enforced at the append boundary: persona evidence must be
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `evidence.captured` | `content, source, confidence_class, speaker?, segment?, grounding?, citations[]` | citations carry `source_id`, line span, and `source_kind` (`code · metrics · discussion · document`) |
+| `evidence.captured` | `content, source, confidence_class, speaker?, segment?, grounding?, citations[]` (+ `participant`/`question` from real validation interviews, `url` from web-research findings) | citations carry `source_id`, line span, and `source_kind` (`code · metrics · discussion · document`) |
 | `evidence.abstained` | `question, gap, segment?` | research debt: an unanswerable question, never papered over |
 | `evidence.input_rejected` | `path, reason` | a declared corpus input the ingestion refused (outside the authorized input root, missing, unsupported suffix, over the size cap) — a grounding gap on the record, not a silent skip |
 
@@ -58,7 +60,7 @@ Invariants enforced at the append boundary: persona evidence must be
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw\|desired_outcome\|outcome_score\|opportunity), statement, ungrounded; outcome scores carry importance/satisfaction/persona_id, opportunity records carry score/band/per_persona` | `refs` point at supporting evidence or outcome events; empty refs force `ungrounded: true` |
+| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw\|desired_outcome\|outcome_score\|opportunity\|current_capability), statement, ungrounded; outcome scores carry importance/satisfaction/persona_id, opportunity records carry score/band/per_persona, code-exploration capabilities carry validated corpus citations` | `refs` point at supporting evidence or outcome events; an interpretation with neither refs nor validated `citations` must set `ungrounded: true` |
 
 ### `option.*` — the idea lineage graph
 
@@ -106,11 +108,13 @@ firewall verification (`question: "contamination firewall check"`).
 
 | Type | Payload |
 | --- | --- |
-| `model.called` | `routing_class (research\|challenge\|cognition\|extraction\|generation), model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated), duration_ms, web_search` |
+| `model.called` | `routing_class (research\|challenge\|cognition\|extraction\|generation\|sidekick), model, requested_model, prompt_id, prompt_version, prompt_hash, request_id?, usage {input/output/cache tokens}, status (ok\|refused\|error\|truncated\|budget_exhausted), duration_ms, web_search` |
 
 Prompt *content* never enters the ledger — the id, version, and content hash
 do, so any output is traceable to the exact prompt that produced it, and token
-budgets are enforceable from replay.
+budgets are enforceable from replay. `model` is the model that actually served
+the call; `requested_model` records what routing asked for, so a server-side
+fallback is visible provenance rather than a silent swap.
 
 ### `interview.*` — reaching a real human
 
@@ -128,7 +132,7 @@ consent exchange is never journaled as evidence.
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`, `wireframe_html`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`, `market_research`, `validation_guide`, `wireframe_html`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
+| `artifact.generated` | `path, kind, content_hash` (+ kind-specific extras) | kinds include prototype artifacts (`concept_one_pager`, `landing_copy`, `storyboard`, `demo_script`, `wireframe_html`), `panel_manifest` (with `persona_ids` for the firewall), `opportunity_ranking`, `ui_screenshot`/`ui_review`/`ui_feature_tests`, `market_research`, `validation_guide`, `dossier_markdown`/`dossier_json`, `handoff_spec`/`handoff_package`, and `report_deck`/`report_page` |
 
 ## Reading the ledger
 

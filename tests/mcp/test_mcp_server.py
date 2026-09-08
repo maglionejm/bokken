@@ -407,3 +407,16 @@ async def test_agent_supplied_evidence_is_labeled_synthetic_in_the_dossier(tmp_p
     # No interview evidence in an agent-driven run escapes the synthetic label.
     interview = [e for e in model.evidence.values() if e.stage == "empathize"]
     assert interview and all(e.synthetic for e in interview)
+
+
+async def test_created_sessions_get_the_default_budget_guardrail(tmp_path: Path) -> None:
+    from bokken.journal import resolve_session_dir
+    from bokken.journal.workspace import session_config
+
+    async with connected() as client:
+        await client.call_tool(
+            "create_session_tool",
+            {"name": "mcp-budget", "brief": brief_with_inputs(tmp_path), "mode": "dojo"},
+        )
+    config = session_config(resolve_session_dir("mcp-budget"))
+    assert config["budgets"]["total_tokens"] == 20_000_000

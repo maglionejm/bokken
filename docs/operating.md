@@ -67,7 +67,10 @@ bokken new retention \
 Without `--brief`, `bokken new <name>` runs an interactive intake. Modes:
 
 - `--mode founder` — you are the counterpart: Bokken interviews you, you pick
-  the winning option, you score assumptions. Gates default to `none`.
+  the winning option, you score assumptions. Gates default to `none`. An
+  out-of-range pick is re-asked (up to 3 attempts) before the harness defaults
+  to option 1 — the fallback is journaled in the decision's positions and the
+  decision is flagged `requires_real_validation`.
 - `--mode dojo` — fully autonomous against the synthetic panel. Gates default
   to `stage_boundaries`: the run halts before every stage transition until you
   approve.
@@ -197,7 +200,7 @@ which point finalization produces the Dossier, the OpenSpec handoff, and the
 report exports automatically. Founder-mode questions surface as `input_pending` with a
 `pending_question_id`; answer with `submit_input` and run again. Agent actions
 are journaled with the client's handshake identity — the ledger always shows
-who (human or agent) approved what. Full reference — 12 tools, 4 resources,
+who (human or agent) approved what. Full reference — 14 tools, 4 resources,
 result shapes, error semantics, a worked agent transcript: `docs/mcp.md`.
 
 ## Scripting (`--json` contract)
@@ -252,7 +255,7 @@ policy, and success criteria are immutable (no-silent-self-escalation).
 | --- | --- | --- |
 | Mode | `--mode` | `founder` (interactive) / `dojo` (autonomous). |
 | Gate policy | `--gates` | `none` (founder default) · `stage_boundaries` (dojo default) · CSV of stages, e.g. `define,test` |
-| Token budget | `--budget` (default 20M total) | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`) available at the core level |
+| Token budget | `--budget` (default 20M total) | total tokens for the run; per-class sub-budgets (`research_tokens`, `challenge_tokens`, `cognition_tokens`, `extraction_tokens`, `generation_tokens`, `sidekick_tokens`) available at the core level |
 | Panel | `--panel-size`, `--seed` | defaults 6 and 7; casting is deterministic per (brief, seed) |
 | Inputs | `--repo`, `--app-url`, `--allow-web-research`, `--metrics`, `--discussion`, `--doc` | typed corpus sources; all repeatable except `--repo`/`--app-url`. `--app-url` points at a running instance (works in both modes; the Ulwick outcome ranking remains dojo-only — founder mode relies on the human interviews): the dojo walks its UI and journals a documented functional review (point `--repo` at the repository root so route discovery sees the code; SPA tabs are activated automatically, and each inventoried feature is functionally exercised with a per-feature verdict) |
 | Tuning knobs | core `config` | `ideation.novelty_window` (6), `empathize.opportunity_bands` / `segment_spike` (15/12/10 · 17), `walkthrough.max_pages` (12), `ui_tests.max_features` / `max_steps` (8/4) |
@@ -332,7 +335,9 @@ Behavior changes go through OpenSpec: `/opsx:propose` → spec deltas →
   stop it. Reads (`status`, `journal`, `dossier`) never need the lock.
 - `engine for <stage> ran N times without meeting the exit criteria` — the
   stage cannot legitimately finish (e.g. Define with zero evidence because all
-  interviews abstained). Add inputs (`--repo/--metrics/--discussion`), answer
-  the research debt, or loop back.
+  interviews abstained). The stall is journaled as `session.stopped`
+  (reason `error`, detail naming the stage) before the error surfaces, so the
+  ledger shows why the run ended. Add inputs
+  (`--repo/--metrics/--discussion`), answer the research debt, or loop back.
 - Verify ledger integrity any time: chain verification runs on open; tampering
   is reported with the first broken sequence number.
