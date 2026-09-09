@@ -7,6 +7,24 @@ main may be ahead of the latest PyPI release.
 ## [Unreleased]
 
 ### Fixed
+- Team review cycle (23 verified findings across three parallel reviewers):
+  demo sessions stay offline across CLI and MCP resumes so the $0.00 claim
+  stays true; theme errors fall back to the default theme instead of killing
+  finalization; handoff adapter paths resolve from the adapter's location;
+  publish pipeline gains a tag-vs-version guard (#74). Exploration budget
+  exhaustion stops the run; founder mode gets the corpus and capability map
+  (mode parity); corpus contexts capped; sidekick prompt v2 matches the real
+  marker format; blank interviewer questions abort cleanly (#73). step()
+  bounds on replayed transitions incl. loop-backs; one torn journal no longer
+  crashes the whole listing; journal --follow survives the append rollback;
+  typo'd budget keys are refused instead of yielding unlimited runs; pack
+  manifests hash the exact archived bytes (#75).
+
+### Changed
+- Full redocumentation pass: 6 corrections incl. a removed-API reference in
+  operating.md; gallery rebuilt (#72).
+
+### Also fixed (earlier this cycle)
 - Ideate's exit criterion requires the concept-selection decision; the
   criteria freeze alone no longer opens the exit, and the founder pick
   prompt is stable across resumes so MCP founder mode can complete (#69).
