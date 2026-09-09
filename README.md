@@ -114,12 +114,13 @@ uvx bokken demo
 # halt: completed - dossier generated; handoff specs generated; report exported
 # (pptx + html)
 # you were charged $0.00 - 0 network calls, 0 real tokens; the journaled
-# usage is an illustrative live-run profile: ~$10 list price across 63 calls
+# usage is an illustrative live-run profile: ~$8 list price across 48 calls
 ```
 
 With the `[ui]` extra installed, the demo also walks a bundled mock of the
 product in a real browser: per-feature functional tests, screenshots, and an
-honest `broken` finding land in the journal and both reports.
+honest `broken` finding land in the journal and both reports (the receipt
+then reads ~$10 across 63 calls — the profile the published gallery shows).
 
 Then point it at something real. Requires [uv](https://docs.astral.sh/uv/)
 and a provider API key — Anthropic is the default, OpenAI via the extra:
@@ -240,7 +241,7 @@ bokken/
 │   └── contract.py    # one result contract for both surfaces
 ├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
-├── tests/             # 326 tests; the whole loop runs offline against a fake provider
+├── tests/             # 334 tests; the whole loop runs offline against a fake provider
 └── scripts/           # live smoke run
 ```
 
