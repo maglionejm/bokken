@@ -66,6 +66,20 @@ _GROUNDED_QUESTIONS = (
 )
 
 
+def _drive_answer(question: str | None, filler: str) -> str:
+    """Answer a founder prompt the way a competent driver would: an empty
+    answer ends ideate's open-ended contribution loop and a numeric answer
+    makes the concept pick — since issue #65 the stage no longer exits on
+    the criteria freeze alone. Everything else takes the filler."""
+    if question is None:
+        return filler
+    if question.startswith("Add your own option"):
+        return ""
+    if question.startswith("Pick the option to advance"):
+        return "1"
+    return filler
+
+
 def brief_with_inputs(tmp_path: Path) -> dict:
     """Inputs live inside the workspace root: over MCP, client-supplied paths
     are confined to it (see `test_input_path_outside_root_is_refused`)."""
@@ -349,7 +363,9 @@ async def test_submitted_input_is_attributed_to_the_client_not_the_founder(tmp_p
                     {
                         "name": "attr-input",
                         "question_id": outcome["pending_question_id"],
-                        "answer": "supported: agent-supplied filler",
+                        "answer": _drive_answer(
+                            outcome["pending_question"], "supported: agent-supplied filler"
+                        ),
                     },
                 )
             )
@@ -394,7 +410,9 @@ async def test_agent_supplied_evidence_is_labeled_synthetic_in_the_dossier(tmp_p
                     {
                         "name": "synth-label",
                         "question_id": outcome["pending_question_id"],
-                        "answer": "untested: agent-supplied filler",
+                        "answer": _drive_answer(
+                            outcome["pending_question"], "untested: agent-supplied filler"
+                        ),
                     },
                 )
             )

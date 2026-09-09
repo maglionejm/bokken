@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bokken.journal import Actor
-from bokken.orchestrator import StageContext, StageOutcome
+from bokken.orchestrator import CONCEPT_SELECTION_QUESTION, StageContext, StageOutcome
 
 HUMAN = Actor(kind="human", name="founder")
 AGENT = Actor(kind="agent", name="facilitator", model="fake")
@@ -95,7 +95,7 @@ class IdeateFake:
             stage="ideate",
             actor=AGENT,
             payload={
-                "question": "which concept advances",
+                "question": CONCEPT_SELECTION_QUESTION,
                 "options": [option.id],
                 "criteria": ["dfv"],
                 "resolution": option.id,

@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 
 from bokken.journal import SessionState, Stage
 
+# The ideate convergence decision; other ideate-stamped decisions (e.g. the
+# criteria freeze) must not satisfy the stage's exit criterion (issue #65).
+CONCEPT_SELECTION_QUESTION = "which concept advances to prototype"
+
 FORWARD: dict[Stage, Stage] = {
     "intake": "empathize",
     "empathize": "define",
@@ -88,8 +92,11 @@ def can_exit(stage: Stage, state: SessionState) -> CriteriaVerdict:
     elif stage == "ideate":
         if not any(o.status == "alive" for o in state.options.values()):
             unmet.append("ideate: no surviving option")
-        if not any(d.stage == "ideate" for d in state.decisions.values()):
-            unmet.append("ideate: no convergence decision recorded")
+        if not any(
+            d.stage == "ideate" and d.question == CONCEPT_SELECTION_QUESTION
+            for d in state.decisions.values()
+        ):
+            unmet.append("ideate: no concept-selection decision recorded")
     elif stage == "prototype":
         if not state.assumptions:
             unmet.append("prototype: assumption register is empty")
