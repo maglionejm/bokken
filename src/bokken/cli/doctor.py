@@ -52,7 +52,12 @@ def run_checks(*, network: bool = False) -> list[Check]:
     checks: list[Check] = [Check("bokken", True, f"v{bokken.__version__}")]
 
     root = workspace_root()
-    writable = os.access(root.parent if not root.exists() else root, os.W_OK)
+    # A fresh BOKKEN_HOME may be several missing directories deep; probe the
+    # nearest existing ancestor, which is what mkdir(parents=True) will need.
+    probe = root
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    writable = os.access(probe, os.W_OK)
     checks.append(
         Check(
             "workspace",

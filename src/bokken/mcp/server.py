@@ -168,7 +168,7 @@ def _runner(name: str) -> tuple[Runner, MailboxPort]:
     port = MailboxPort(session_dir)
     runner = Runner(
         session_dir,
-        engines=engine_suite(wiring.router_factory()),
+        engines=engine_suite(wiring.session_router_factory(session_dir)),
         input_port=port,
         kata_factory=lambda store: Kata(MVP_MOVES, store),
     )
@@ -251,7 +251,9 @@ def run_session(name: str, ctx: Context) -> dict:
         from bokken.cli import wiring
         from bokken.handoff import finalize_session
 
-        finalization = finalize_session(runner.session_dir, wiring.router_factory())
+        finalization = finalize_session(
+            runner.session_dir, wiring.session_router_factory(runner.session_dir)
+        )
         outcome["finalization"] = finalization.summary()
     return outcome
 
@@ -365,8 +367,9 @@ def generate_handoff(name: str) -> dict:
     )
     from bokken.handoff import generate_handoff as _generate
 
+    session_dir = resolve_session_dir(name)
     try:
-        generated = _generate(resolve_session_dir(name), wiring.router_factory())
+        generated = _generate(session_dir, wiring.session_router_factory(session_dir))
     except (HandoffRefusedError, HandoffGenerationError, HandoffFormatError) as refusal:
         raise ToolError(str(refusal)) from refusal
     return contract.HandoffResult(**generated).model_dump()

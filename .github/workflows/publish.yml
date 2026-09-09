@@ -40,6 +40,17 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
+      - name: Assert the tag matches the package and server.json versions
+        run: |
+          version="$(uv run python -c 'import bokken; print(bokken.__version__)')"
+          if [ "${GITHUB_REF_NAME#v}" != "${version}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match bokken.__version__ ${version}" >&2
+            exit 1
+          fi
+          if ! grep -q "\"version\": \"${version}\"" server.json; then
+            echo "server.json does not carry version ${version}" >&2
+            exit 1
+          fi
       - name: Build sdist and wheel
         run: uv build
       - name: Cold smoke from the wheel

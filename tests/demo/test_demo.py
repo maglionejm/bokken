@@ -122,6 +122,66 @@ def test_demo_is_deterministic_apart_from_name_and_time(demo_runs):
     assert normalize(first) == normalize(second)
 
 
+def test_interrupted_demo_resumes_offline(tmp_path):
+    """A demo stopped mid-run and resumed via `bokken run` must wire the
+    DemoProvider again - no key, no network - so the $0.00 receipt stays true.
+    No ScriptedProvider patch here: this exercises the real wiring, where a
+    real-provider selection would refuse for lack of keys (exit 2)."""
+    from typer.testing import CliRunner
+
+    from bokken.cli import wiring
+    from bokken.cli.app import app
+    from bokken.demo import DEMO_BRIEF
+    from bokken.demo.provider import DemoProvider
+    from bokken.journal.store import JournalStore
+    from bokken.orchestrator import create_session
+
+    mp = pytest.MonkeyPatch()
+    mp.setenv("BOKKEN_HOME", str(tmp_path))
+    mp.delenv("ANTHROPIC_API_KEY", raising=False)
+    mp.delenv("OPENAI_API_KEY", raising=False)
+    try:
+        session_dir = create_session(
+            "demo-resume",
+            brief=DEMO_BRIEF,
+            mode="dojo",
+            gate_policy="none",
+            config_extra={"panel": {"size": 6, "seed": 11}, "demo": True},
+        )
+        runner = CliRunner()
+        stopped = runner.invoke(app, ["stop", "demo-resume", "--reason", "interrupted"])
+        assert stopped.exit_code == 0, stopped.output
+
+        with JournalStore.open(session_dir) as store:
+            router = wiring.session_router_factory(session_dir)(store)
+        assert isinstance(router.provider, DemoProvider)  # no real-provider wiring
+
+        resumed = runner.invoke(app, ["run", "demo-resume", "--json"])
+        assert resumed.exit_code == 0, resumed.output
+        outcome = json.loads(resumed.stdout)
+        assert outcome["halt"] == "completed"
+        assert outcome.get("finalization")
+
+        costs = runner.invoke(app, ["costs", "demo-resume"])
+        assert "charged $0.00" in costs.output.replace("\n", "")
+    finally:
+        mp.undo()
+
+
+def test_non_demo_sessions_keep_the_real_wiring(tmp_path, monkeypatch):
+    """The demo shortcut must not leak: sessions without config.demo go through
+    the module-level router_factory (the seam tests and providers patch)."""
+    from bokken.cli import wiring
+    from bokken.orchestrator import create_session
+    from tests.stages.test_engines_e2e import BRIEF
+
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path))
+    session_dir = create_session("real-run", brief=BRIEF, mode="dojo")
+    sentinel = object()
+    monkeypatch.setattr(wiring, "router_factory", lambda: sentinel)
+    assert wiring.session_router_factory(session_dir) is sentinel
+
+
 def test_fixtures_ship_with_the_package():
     assert (FIXTURES / "repo" / "README.md").exists()
     assert (FIXTURES / "kpis.csv").exists()

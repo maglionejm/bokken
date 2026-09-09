@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from bokken.demo import run_demo
@@ -31,6 +33,22 @@ def test_claude_code_adapter_is_executable_prose(finalized):
     assert "## Task plan" in handoff_md
     command = next(p for p in written if p.name == "build-mvp.md")
     assert ".claude/commands" in str(command)
+
+
+def test_adapter_references_resolve_in_place(finalized):
+    """Spec links and evidence links share one reference frame: the adapter
+    file's own location. Every relative path in HANDOFF.md must resolve."""
+    written = emit_adapters(finalized["session_dir"], ["claude-code"])
+    adapter = next(p for p in written if p.name == "HANDOFF.md")
+    text = adapter.read_text()
+    assert "- `../../openspec/changes/" in text  # spec links, adapter-relative
+    refs = re.findall(r"`(\.\./[^`]+)`", text)
+    assert len(refs) >= 4  # copy step, specs, traceability, dossier, journal
+    for ref in refs:
+        assert (adapter.parent / ref).resolve().exists(), f"dead reference: {ref}"
+    # One sentence states what the paths mean once the adapter is copied out.
+    assert "originating session directory" in text
+    assert finalized["session_dir"].name in text
 
 
 def test_all_targets_emit_and_unknown_refuses(finalized):
