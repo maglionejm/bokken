@@ -352,6 +352,29 @@ def test_cache_split_keeps_shared_material_ahead_of_per_call_material() -> None:
         assert prefix + suffix == rendered.replace(CACHE_SPLIT, "\n")
 
 
+def test_single_call_prompts_declare_no_cache_split() -> None:
+    """explore/capability_map runs once per session: a cached corpus prefix
+    would be written at the cache premium and never read back."""
+    from bokken.models.prompts import CACHE_SPLIT, PROMPTS
+
+    version, template = PROMPTS["explore/capability_map"]
+    assert version == "v2"
+    assert CACHE_SPLIT not in template
+
+
+def test_sidekick_prompt_teaches_the_marker_it_demands() -> None:
+    """The corpus renders '[source <id> (<kind>) - <name> | <role>]' headers over
+    'N:' numbered lines - no L-range markers exist in it, so the prompt must say
+    how to build them instead of pretending they appear verbatim."""
+    from bokken.models.prompts import PROMPTS
+
+    version, template = PROMPTS["sidekick/context_query"]
+    assert version == "v2"
+    assert "[source <id> (<kind>) - <name> | <role>]" in template  # what the corpus shows
+    assert "[source <id> (<kind>) L<start>-L<end>]" in template  # what to build from it
+    assert "verbatim" in template
+
+
 def test_reordered_persona_prompts_keep_their_instructions() -> None:
     """A reorder must not quietly drop the framing these prompts carry."""
     from bokken.models.prompts import render_prompt

@@ -27,9 +27,11 @@ def _handoff_md(session: str, change_id: str, change_dir: Path, trace: dict) -> 
     tasks = (change_dir / "tasks.md").read_text(encoding="utf-8")
     proposal = (change_dir / "proposal.md").read_text(encoding="utf-8")
     why = proposal.split("## Why", 1)[-1].split("##", 1)[0].strip()
+    # All paths below are relative to this adapter file's own location
+    # (handoff/adapters/<target>/HANDOFF.md), so they resolve in-place.
     specs = sorted((change_dir / "specs").glob("*/spec.md"))
     spec_lines = "\n".join(
-        f"- `openspec/changes/{change_id}/specs/{s.parent.name}/spec.md`" for s in specs
+        f"- `../../openspec/changes/{change_id}/specs/{s.parent.name}/spec.md`" for s in specs
     )
     exclusions = trace.get("exclusions", [])
     exclusion_block = (
@@ -48,7 +50,7 @@ source of truth.
 
 ## How to execute
 
-1. Copy `openspec/changes/{change_id}/` into the target repository's
+1. Copy `../../openspec/changes/{change_id}/` into the target repository's
    `openspec/changes/` (run `openspec init` there first if needed).
 2. Run `openspec validate --strict` and fix nothing by hand - if validation
    fails, the package is damaged; regenerate it.
@@ -68,10 +70,13 @@ source of truth.
 
 ## Evidence lookups
 
-Requirement -> assumption ids: `traceability.json` (next to this file's
-parent package). Assumption ids -> evidence: `../../../dossier/dossier.json`.
-The append-only ledger is `../../../journal.jsonl`. If a requirement seems
-wrong, check its evidence before overriding it - and record why.
+Requirement -> assumption ids: `../../traceability.json`. Assumption ids ->
+evidence: `../../../dossier/dossier.json`. The append-only ledger is
+`../../../journal.jsonl`. These paths resolve from this file's location in
+the Bokken session; after you copy this adapter into a target repository
+they keep referring back to the originating session directory
+(`{session}`), not to the target repo. If a requirement seems wrong, check
+its evidence before overriding it - and record why.
 
 ## Task plan (verbatim from the package)
 

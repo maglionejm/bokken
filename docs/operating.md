@@ -67,10 +67,13 @@ bokken new retention \
 Without `--brief`, `bokken new <name>` runs an interactive intake. Modes:
 
 - `--mode founder` — you are the counterpart: Bokken interviews you, you pick
-  the winning option, you score assumptions. Gates default to `none`. An
-  out-of-range pick is re-asked (up to 3 attempts) before the harness defaults
-  to option 1 — the fallback is journaled in the decision's positions and the
-  decision is flagged `requires_real_validation`.
+  the winning option, you score assumptions. Gates default to `none`. The pick
+  prompt lists the surviving options as stable numbered summaries (no per-run
+  event ids), so it reads the same across resumes and an MCP mailbox answer
+  keyed by question text stays valid. An out-of-range pick is re-asked (up to
+  3 attempts) before the harness defaults to option 1 — the fallback is
+  journaled in the decision's positions and the decision is flagged
+  `requires_real_validation`.
 - `--mode dojo` — fully autonomous against the synthetic panel. Gates default
   to `stage_boundaries`: the run halts before every stage transition until you
   approve.
@@ -115,7 +118,8 @@ and it is journaled:
 ```sh
 # budgets are raised on resume via the core; from the CLI simply re-run after
 # creating with a higher budget, or drive it over MCP / Python:
-# Runner.for_session("retention").run(config_overrides={"budgets": {"total_tokens": 1_000_000}}, actor=human)
+# Runner(session_dir, engines=..., input_port=..., kata_factory=...) \
+#   .run(config_overrides={"budgets": {"total_tokens": 1_000_000}}, actor=human)
 ```
 
 ## Watching and auditing

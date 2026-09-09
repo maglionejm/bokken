@@ -31,6 +31,15 @@ def test_non_interactive_template_writes_brief_and_next_commands(tmp_path):
     assert "bokken run brief" in flat
 
 
+def test_json_without_template_or_from_repo_refuses(tmp_path):
+    """--json is a machine surface: it must refuse cleanly, never prompt."""
+    out = tmp_path / "b.json"
+    result = runner.invoke(app, ["init", "--json", "--out", str(out)])
+    assert result.exit_code == 2
+    assert "--template" in result.stderr and "--from-repo" in result.stderr
+    assert not out.exists()
+
+
 def test_unknown_template_is_rejected(tmp_path):
     result = runner.invoke(app, ["init", "--template", "nope", "--out", str(tmp_path / "b.json")])
     assert result.exit_code != 0

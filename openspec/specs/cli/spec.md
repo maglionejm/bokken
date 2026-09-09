@@ -178,7 +178,12 @@ emit the raw records.
 no API key, no network calls — against a bundled scripted provider and
 corpus whose citations resolve, finishing with finalization (dossier, PPTX,
 HTML) and printing the report paths plus a receipt that states the user was
-charged $0.00. The scripted calls SHALL journal a deterministic,
+charged $0.00. The demo marker SHALL be journaled in the session config, and
+every later wiring of the session — resume via the run/step verbs,
+finalization, and handoff regeneration, over CLI or MCP — SHALL select the
+same offline scripted provider and never a real provider, so an interrupted
+demo stays offline across resumes and the $0.00 receipt stays true. The
+scripted calls SHALL journal a deterministic,
 deliberately lean illustrative usage profile (single-digit-dollars list
 price, drawn per routing class from a fixed table) so the cost surfaces in
 both report formats and `bokken costs` show a realistic live-run shape;
@@ -199,6 +204,11 @@ requires-real-validation).
 
 - **WHEN** `bokken demo` runs on a machine with no ANTHROPIC_API_KEY
 - **THEN** it completes with a full journal, resolvable citations, both report files on disk, and a receipt stating the user was charged $0.00
+
+#### Scenario: Interrupted demo resumes offline
+
+- **WHEN** a demo session is stopped mid-run and resumed with `bokken run` on a machine with no provider keys
+- **THEN** the resumed run completes on the offline scripted provider, finalization included, and `bokken costs` still reports illustrative usage with $0.00 charged
 
 #### Scenario: Costs are illustrated small and labeled
 

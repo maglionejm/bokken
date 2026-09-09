@@ -21,6 +21,7 @@ from bokken.stages.base import (
     opportunities_text,
     structured,
 )
+from bokken.stages.exploration import CODE_CONTEXT_CAP_CHARS
 from bokken.stages.schemas import IdeaBatch, NoveltyVerdict, SkepticChallenge, Votes
 
 NOVELTY_WINDOW = 6  # default; override via config ideation.novelty_window
@@ -348,7 +349,12 @@ class IdeateEngine:
             roots=config.get("input_roots"),
         )
         scope = corpus.ids_of_kind("code", "document") or corpus.source_ids
-        return corpus.context_for(scope) or "(no repository on file)"
+        # The corpus rides in the feasibility lens's suffix, never in the
+        # converge prompt's shared cached prefix: the viability lens is
+        # firewalled from the codebase, so the prefix all three lenses share
+        # can never carry it. One uncached read per convergence - cap it like
+        # exploration does so a large repo cannot balloon the call.
+        return corpus.context_for(scope)[:CODE_CONTEXT_CAP_CHARS] or "(no repository on file)"
 
     def _dojo_panel(self, ctx: StageContext):
         config = ctx.state.config.get("panel", {})

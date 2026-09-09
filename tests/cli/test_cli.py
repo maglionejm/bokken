@@ -91,6 +91,26 @@ def test_terminal_port_answers_are_human_attributed(brief_file: Path, monkeypatc
     assert answer.source("founder interview") == "founder interview"
 
 
+def test_new_journals_theme_file_as_absolute_path(brief_file: Path, tmp_path: Path, monkeypatch):
+    """Export must not depend on the cwd `bokken new` happened to run from."""
+    from bokken.journal import resolve_session_dir
+    from bokken.journal.workspace import session_config
+
+    theme = tmp_path / "acme.json"
+    theme.write_text(json.dumps({"brand": "#0f766e", "brand_label": "Acme"}))
+    monkeypatch.chdir(tmp_path)
+    created = new_session(brief_file, "themed-rel", "--theme", "acme.json")
+    assert created.exit_code == 0, created.output
+    journaled = session_config(resolve_session_dir("themed-rel"))["report_theme"]
+    assert Path(journaled).is_absolute()
+    assert Path(journaled) == theme.resolve()
+
+    created = new_session(brief_file, "themed-builtin", "--theme", "plain")
+    assert created.exit_code == 0, created.output
+    journaled = session_config(resolve_session_dir("themed-builtin"))["report_theme"]
+    assert journaled == "plain"  # builtin names are journaled untouched
+
+
 def test_unknown_session_exits_2_naming_workspace() -> None:
     result = runner.invoke(app, ["status", "ghost"])
     assert result.exit_code == 2

@@ -41,7 +41,11 @@ def test_full_pack_carries_journal_and_manifest(finalized):
 
 def test_deliverables_only_omits_and_says_so(finalized):
     from bokken.bundle import pack_session
+    from bokken.handoff.emit import emit_adapters
 
+    # Adapters point back at the journal and dossier.json; a pack that omits
+    # those must omit the adapters too and say so.
+    emit_adapters(finalized["session_dir"], ["claude-code"])
     bundle = pack_session(finalized["session_dir"], deliverables_only=True)
     with zipfile.ZipFile(bundle) as zf:
         names = set(zf.namelist())
@@ -49,9 +53,11 @@ def test_deliverables_only_omits_and_says_so(finalized):
     assert "journal.jsonl" not in names
     assert "dossier/dossier.json" not in names
     assert not any(n.startswith("artifacts/") for n in names)
+    assert not any(n.startswith("handoff/adapters/") for n in names)
+    assert any(n.startswith("handoff/") for n in names)  # the package itself ships
     assert "report/report.html" in names
     assert manifest["contents"] == "deliverables-only"
-    assert "omitted" in manifest
+    assert "handoff" in manifest["omitted"] and "adapters" in manifest["omitted"]
 
 
 def test_pack_refuses_unfinalized_session(tmp_path):

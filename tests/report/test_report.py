@@ -196,6 +196,31 @@ def test_appendix_surfaces_refusal_for_kill(dojo_session: Path) -> None:
     assert "Handoff refused" in render_page(ctx) or "kill" in render_page(ctx)
 
 
+def test_finalize_falls_back_to_default_theme_when_journaled_theme_is_bad(tmp_path: Path) -> None:
+    """A corrupt journaled theme must not kill finalization: the report still
+    generates, on the default theme, and the summary says so."""
+    from bokken.handoff import finalize_session
+    from bokken.orchestrator import create_session
+    from bokken.report.theme import BUILTIN, css_override
+
+    bad = tmp_path / "corrupt-theme.json"
+    bad.write_text("{not json")
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "bad-theme",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}, "report_theme": str(bad)},
+    )
+    assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
+    result = finalize_session(session_dir, wiring_router)
+    assert result.report_generated
+    assert "default theme" in result.summary() and "not valid JSON" in result.summary()
+    html = (session_dir / "report" / "report.html").read_text()
+    assert css_override(BUILTIN["bokken"]) in html
+
+
 def test_finalization_is_idempotent_for_report(dojo_session: Path) -> None:
     from bokken.handoff import finalize_session
 

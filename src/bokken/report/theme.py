@@ -49,7 +49,12 @@ def load_theme(spec: str | None) -> Theme:
     path = Path(spec)
     if not path.exists():
         raise ThemeError(f"unknown theme {spec!r}: not a builtin {sorted(BUILTIN)} nor a file")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ThemeError(f"theme file {spec!r} is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ThemeError(f"theme file {spec!r} must be a JSON object, got {type(data).__name__}")
     theme = Theme(
         name=data.get("name", path.stem),
         brand=data.get("brand", BUILTIN["bokken"].brand),

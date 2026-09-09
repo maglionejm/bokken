@@ -113,7 +113,10 @@ EVIDENCE_ROLES: dict[str, str] = {
 
 def _read_source(file: Path, name: str, kind: SourceKind) -> Source:
     content = file.read_text(encoding="utf-8", errors="replace")
-    source_id = short_id(f"{name}\n{content}")
+    # The kind is part of the identity: one file walked as code and also
+    # declared as a document must yield two sources, not collide on one id
+    # and silently reclassify whichever ingested first.
+    source_id = short_id(f"{kind}\n{name}\n{content}")
     return Source(source_id=source_id, name=name, kind=kind, lines=tuple(content.splitlines()))
 
 
