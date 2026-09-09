@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bokken.dossier.model import DecisionNode, DossierModel
+from bokken.dossier.model import EXCLUDED_ARTIFACT_KINDS, DecisionNode, DossierModel
 
 DOJO_BANNER = (
     "> SIMULATED RUN. This dossier was produced by an autonomous run against a "
@@ -10,6 +10,12 @@ DOJO_BANNER = (
     "evidence-bounded. Decisions flagged below require validation with real users "
     "before they are acted on."
 )
+
+
+def _flat(s: str | None) -> str:
+    """Collapse journal free text onto one line so it cannot inject markdown
+    structure (an embedded "\\n## " would otherwise become a real heading)."""
+    return " ".join((s or "").split())
 
 
 def _label(synthetic: bool, flagged: bool = False) -> str:
@@ -24,11 +30,12 @@ def _label(synthetic: bool, flagged: bool = False) -> str:
 def _decision_line(node: DecisionNode | None, fallback: str) -> str:
     if node is None:
         return f"_{fallback}_"
-    return f"{node.resolution}{_label(False, node.requires_real_validation)} (decision `{node.id}`)"
+    label = _label(False, node.requires_real_validation)
+    return f"{_flat(node.resolution)}{label} (decision `{node.id}`)"
 
 
 def render_markdown(model: DossierModel, generated_at: str) -> str:
-    lines: list[str] = [f"# Session Dossier - {model.name}", ""]
+    lines: list[str] = [f"# Session Dossier - {_flat(model.name)}", ""]
     if model.dojo_banner:
         lines += [DOJO_BANNER, ""]
     lines += [
@@ -42,21 +49,23 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
         f"**Concept advanced.** {_decision_line(model.concept, 'not yet selected')}",
         "",
     ]
-    if model.artifacts:
+    prototype_artifacts = [a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS]
+    if prototype_artifacts:
         lines.append("**Prototype artifacts.**")
-        for artifact in model.artifacts:
-            lines.append(
-                f"- `{artifact.path}` ({artifact.kind}, sha256 `{artifact.content_hash[:12]}`), "
-                f"tests assumptions: {', '.join(f'`{a}`' for a in artifact.assumption_ids)}"
-            )
+        for artifact in prototype_artifacts:
+            line = f"- `{artifact.path}` ({artifact.kind}, sha256 `{artifact.content_hash[:12]}`)"
+            if artifact.assumption_ids:
+                ids = ", ".join(f"`{a}`" for a in artifact.assumption_ids)
+                line += f", tests assumptions: {ids}"
+            lines.append(line)
         lines.append("")
     if model.assumptions:
         lines.append("**Assumption register.**")
         for a in model.assumptions.values():
             score = a.score or "untested"
             lines.append(
-                f"- [{score}] {a.statement} (impact {a.impact}, uncertainty {a.uncertainty}, "
-                f"`{a.id}`)"
+                f"- [{score}] {_flat(a.statement)} (impact {a.impact}, "
+                f"uncertainty {a.uncertainty}, `{a.id}`)"
             )
         lines.append("")
     lines.append(
@@ -69,33 +78,35 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
     for t in model.transitions:
         kind = "loop-back" if t.loopback else "forward"
         refs = f" (refs: {', '.join(f'`{r}`' for r in t.refs)})" if t.refs else ""
-        lines.append(f"- {t.from_stage} -> {t.to_stage} ({kind}): {t.condition}{refs}")
+        lines.append(f"- {t.from_stage} -> {t.to_stage} ({kind}): {_flat(t.condition)}{refs}")
     lines.append("")
     if model.pivotal_moments:
         lines.append("**Pivotal moments.**")
         for moment in model.pivotal_moments:
             refs = f" (refs: {', '.join(f'`{r}`' for r in moment.refs)})" if moment.refs else ""
-            lines.append(f"- {moment.description}{refs}")
+            lines.append(f"- {_flat(moment.description)}{refs}")
         lines.append("")
     lines.append("**Options seriously considered and why the losers lost.**")
     for decision in model.decisions.values():
         if decision.question in ("convergence criteria", "contamination firewall check"):
             continue
-        lines.append(f"- {decision.question} (decision `{decision.id}`, by {decision.actor}):")
+        lines.append(
+            f"- {_flat(decision.question)} (decision `{decision.id}`, by {decision.actor}):"
+        )
         for option in decision.options:
-            lines.append(f"  - {option}")
-        lines.append(f"  - resolved: {decision.resolution}")
+            lines.append(f"  - {_flat(option)}")
+        lines.append(f"  - resolved: {_flat(decision.resolution)}")
         for dissent in decision.dissent:
             lines.append(
-                f"  - dissent on record ({dissent.get('actor', 'unknown')}): "
-                f"{dissent.get('reservation', '')}"
+                f"  - dissent on record ({_flat(dissent.get('actor', 'unknown'))}): "
+                f"{_flat(dissent.get('reservation', ''))}"
             )
     lines.append("")
     executed = [m for m in model.moves if m.executed]
     if executed:
         lines.append("**Where the facilitation intervened.**")
         for move in executed:
-            lines.append(f"- {move.move_id} in {move.stage}: {move.trigger} (`{move.id}`)")
+            lines.append(f"- {move.move_id} in {move.stage}: {_flat(move.trigger)} (`{move.id}`)")
         lines.append("")
 
     lines += ["## Honesty", ""]
@@ -108,18 +119,20 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
     if flagged:
         lines.append("Decisions requiring real-user validation:")
         for decision in flagged:
-            lines.append(f"- {decision.question} -> {decision.resolution} (`{decision.id}`)")
+            lines.append(
+                f"- {_flat(decision.question)} -> {_flat(decision.resolution)} (`{decision.id}`)"
+            )
     lines.append("")
     lines.append("**What this run did not do (negative space).**")
     ns = model.negative_space
     if ns.stages_not_reached:
         lines.append(f"- stages not reached: {', '.join(ns.stages_not_reached)}")
     for debt in ns.research_debt:
-        lines.append(f"- open research debt: {debt.question} ({debt.gap})")
+        lines.append(f"- open research debt: {_flat(debt.question)} ({_flat(debt.gap)})")
     for move in ns.suppressed_moves:
-        lines.append(f"- suppressed move: {move.move_id} ({move.reason})")
+        lines.append(f"- suppressed move: {move.move_id} ({_flat(move.reason)})")
     for reason in ns.gates_rejected:
-        lines.append(f"- gate rejected: {reason}")
+        lines.append(f"- gate rejected: {_flat(reason)}")
     if not any((ns.stages_not_reached, ns.research_debt, ns.suppressed_moves, ns.gates_rejected)):
         lines.append("- nothing skipped: all stages ran, no open research debt on record")
     lines.append("")

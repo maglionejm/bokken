@@ -33,6 +33,24 @@ from bokken.orchestrator import is_loopback
 
 DOSSIER_SCHEMA_VERSION = "1"
 
+# Bookkeeping artifacts (rosters, exports) are never shown as prototype output.
+# Lives here (not in report code) so the dossier and report renderers share one
+# list without importing each other.
+EXCLUDED_ARTIFACT_KINDS = {
+    "panel_manifest",
+    "opportunity_ranking",
+    "ui_review",
+    "ui_screenshot",
+    "market_research",
+    "ui_feature_tests",
+    "dossier_markdown",
+    "dossier_json",
+    "handoff_spec",
+    "handoff_package",
+    "report_deck",
+    "report_page",
+}
+
 
 class EvidenceNode(BaseModel):
     id: str
@@ -53,7 +71,11 @@ class InsightNode(BaseModel):
     statement: str
     evidence_ids: list[str]
     ungrounded: bool
-    synthetic: bool  # grounded only in simulated/assumed evidence
+    synthetic: bool  # grounded only in simulated/assumed material
+    # Ulwick bookkeeping, journaled as extension keys on opportunity
+    # interpretations; None on other kinds and on legacy journals.
+    score: float | None = None
+    band: str | None = None
 
 
 class OptionNodeModel(BaseModel):
@@ -244,10 +266,21 @@ def build_model(session_dir: Path) -> DossierModel:
             )
         elif event.type == "interpretation.derived":
             derived = event.payload_as(InterpretationDerived)
-            grounded = [r for r in event.refs if r in evidence]
-            synthetic = bool(grounded) and all(
-                evidence[r].confidence_class in ("simulated", "assumed") for r in grounded
+            # Refs may point at evidence or at earlier interpretations (an
+            # outcome_score refs its desired_outcome; an opportunity refs the
+            # scores). Honesty propagates through the chain: an interpretation
+            # grounded only in synthetic material is itself synthetic.
+            grounded_evidence = [r for r in event.refs if r in evidence]
+            grounded_insights = [r for r in event.refs if r in insights]
+            synthetic = (
+                bool(grounded_evidence or grounded_insights)
+                and all(
+                    evidence[r].confidence_class in ("simulated", "assumed")
+                    for r in grounded_evidence
+                )
+                and all(insights[r].synthetic for r in grounded_insights)
             )
+            score = event.extension("score")
             insights[event.id] = InsightNode(
                 id=event.id,
                 kind=derived.kind,
@@ -255,6 +288,8 @@ def build_model(session_dir: Path) -> DossierModel:
                 evidence_ids=list(event.refs),
                 ungrounded=derived.ungrounded,
                 synthetic=synthetic or derived.ungrounded,
+                score=float(score) if score is not None else None,
+                band=event.extension("band"),
             )
         elif event.type == "decision.recorded":
             recorded = event.payload_as(DecisionRecorded)
@@ -333,18 +368,25 @@ def build_model(session_dir: Path) -> DossierModel:
             if generated.kind == "panel_manifest" and manifest_path.exists():
                 import json as _json
 
-                manifest = _json.loads(manifest_path.read_text())
-                personas.extend(
-                    PersonaCard(
-                        persona_id=persona["persona_id"],
-                        name=persona["name"],
-                        role=persona["role"],
-                        segment=persona.get("segment"),
-                        panel_kind=manifest["panel_kind"],
-                        profile=persona.get("profile", {}),
-                    )
-                    for persona in manifest["personas"]
-                )
+                try:
+                    manifest = _json.loads(manifest_path.read_text())
+                    cards = [
+                        PersonaCard(
+                            persona_id=persona["persona_id"],
+                            name=persona["name"],
+                            role=persona["role"],
+                            segment=persona.get("segment"),
+                            panel_kind=manifest["panel_kind"],
+                            profile=persona.get("profile", {}),
+                        )
+                        for persona in manifest["personas"]
+                    ]
+                except (OSError, KeyError, _json.JSONDecodeError):
+                    # A truncated or unreadable manifest is replayed on every
+                    # future dossier/report build; degrade to a persona list
+                    # missing this panel instead of failing them all forever.
+                    continue
+                personas.extend(cards)
 
     options = {
         o.id: OptionNodeModel(

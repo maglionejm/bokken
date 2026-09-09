@@ -263,7 +263,11 @@ class Deck:
             )
         if c.opportunities:
             rows.append(
-                ["Top opportunity", c.opportunities[0][:120], "Ulwick score drives the focus"]
+                [
+                    "Top opportunity",
+                    c.opportunities[0].statement[:120],
+                    "Ulwick score drives the focus",
+                ]
             )
         if m.concept:
             rows.append(
@@ -409,19 +413,25 @@ class Deck:
         s = self.slide()
         self.header(s, "empathize · output", "Where the underserved demand is (Ulwick-scored)")
         rows = [["#", "Outcome", "Opp", "Band"]]
-        for i, statement in enumerate(c.opportunities[:8], 1):
-            score = re.search(r"opportunity (\d+(?:\.\d+)?)", statement)
-            tail = statement[statement.find("opportunity") :] if "opportunity" in statement else ""
-            band = re.search(r"\(([^)]+)\)", tail)
-            clean = re.sub(r"^O\d+: ", "", statement.split(" - opportunity")[0])
-            rows.append(
-                [
-                    str(i),
-                    clean[:105],
-                    score.group(1) if score else "-",
-                    (band.group(1) if band else "-")[:22],
-                ]
-            )
+        for i, node in enumerate(c.opportunities[:8], 1):
+            statement = node.statement
+            if node.score is not None:
+                # Structured Ulwick keys from the journal; the deterministic
+                # " - opportunity <score> (<band>)" suffix is stripped from the
+                # right so an outcome mentioning "opportunity" stays intact.
+                score_text = str(node.score)
+                band_text = node.band or "-"
+                clean = re.sub(r"^O\d+: ", "", statement.rsplit(" - opportunity ", 1)[0])
+            else:  # legacy journal without score/band keys: parse the prose
+                score = re.search(r"opportunity (\d+(?:\.\d+)?)", statement)
+                tail = (
+                    statement[statement.find("opportunity") :] if "opportunity" in statement else ""
+                )
+                band = re.search(r"\(([^)]+)\)", tail)
+                clean = re.sub(r"^O\d+: ", "", statement.split(" - opportunity")[0])
+                score_text = score.group(1) if score else "-"
+                band_text = band.group(1) if band else "-"
+            rows.append([str(i), clean[:105], score_text, band_text[:22]])
         colors = {}
         for ri, row in enumerate(rows):
             if ri > 0 and "underserved" in str(row[3]):

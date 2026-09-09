@@ -8,25 +8,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bokken.dossier.model import ArtifactNode, DossierModel
+from bokken.dossier.model import (
+    EXCLUDED_ARTIFACT_KINDS,
+    ArtifactNode,
+    DossierModel,
+    InsightNode,
+)
 from bokken.journal.schema import SessionCreated, parse_line
 from bokken.models.router import MODELS
-
-# Bookkeeping artifacts (rosters, exports) are never shown as prototype output.
-EXCLUDED_ARTIFACT_KINDS = {
-    "panel_manifest",
-    "opportunity_ranking",
-    "ui_review",
-    "ui_screenshot",
-    "market_research",
-    "ui_feature_tests",
-    "dossier_markdown",
-    "dossier_json",
-    "handoff_spec",
-    "handoff_package",
-    "report_deck",
-    "report_page",
-}
 
 # List prices per million tokens (input, output); estimates only, labeled as such.
 # Derived from the model registry so every allowlisted model has a price.
@@ -96,7 +85,7 @@ class ReportContext:
     register_counts: dict[str, int]  # supported / contradicted / untested
     loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
-    opportunities: list[str] = field(default_factory=list)
+    opportunities: list[InsightNode] = field(default_factory=list)
     demo: bool = False  # demo sessions: usage is illustrative, $0.00 charged
     ui_review: str | None = None
     ui_screenshots: list[str] = field(default_factory=list)
@@ -210,14 +199,19 @@ def _spec_entries(session_dir: Path) -> list[SpecEntry]:
 _OPP_SCORE = re.compile(r"opportunity (\d+(?:\.\d+)?)")
 
 
-def _ranked_opportunities(model: DossierModel) -> list[str]:
-    records = [i.statement for i in model.insights.values() if i.kind == "opportunity"]
+def opportunity_score(node: InsightNode) -> float:
+    """The journaled Ulwick score; prose-parsed only on legacy journals that
+    predate the structured `score` key (where the regex can misread an outcome
+    whose own text contains the word "opportunity")."""
+    if node.score is not None:
+        return node.score
+    match = _OPP_SCORE.search(node.statement)
+    return float(match.group(1)) if match else 0.0
 
-    def score(statement: str) -> float:
-        match = _OPP_SCORE.search(statement)
-        return float(match.group(1)) if match else 0.0
 
-    return sorted(records, key=score, reverse=True)
+def _ranked_opportunities(model: DossierModel) -> list[InsightNode]:
+    records = [i for i in model.insights.values() if i.kind == "opportunity"]
+    return sorted(records, key=opportunity_score, reverse=True)
 
 
 STAGE_PROCESS = {

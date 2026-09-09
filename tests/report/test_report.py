@@ -262,3 +262,80 @@ def test_demo_detection_degrades_on_an_unreadable_journal(tmp_path: Path) -> Non
     assert _is_demo_session(tmp_path) is False  # no journal at all
     (tmp_path / "journal.jsonl").write_text("not json\n", encoding="utf-8")
     assert _is_demo_session(tmp_path) is False
+
+
+def test_opportunity_rank_and_band_come_from_structured_keys() -> None:
+    """An outcome whose own prose says "opportunity 99" or "(per quarter)" must
+    not leak into the ranking or the band column: the journaled score/band keys
+    win; the prose regex remains only for legacy journals without them."""
+    from bokken.journal import Actor, JournalStore
+    from bokken.orchestrator import create_session
+    from bokken.report.deck import AMBER, Deck
+
+    session_dir = create_session("report-ulwick", brief=BRIEF, mode="dojo")
+    facilitator = Actor(kind="agent", name="facilitator")
+    with JournalStore.open(session_dir) as store:
+        ev = store.append(
+            type="evidence.captured",
+            stage="empathize",
+            actor=Actor(kind="agent", name="Marta", persona_id="p-1"),
+            payload={
+                "content": "we keep missing the quarter windows",
+                "source": "panel interview",
+                "confidence_class": "simulated",
+                "speaker": "Marta",
+            },
+        )
+        tricky = store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "opportunity",
+                "statement": (
+                    "O0: recover the missed opportunity 99 (per quarter) - opportunity 8.0 (served)"
+                ),
+                "score": 8.0,
+                "band": "served",
+            },
+            refs=[ev.id],
+        )
+        top = store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "opportunity",
+                "statement": "O1: plan the day around arrivals - opportunity 14.0 (underserved)",
+                "score": 14.0,
+                "band": "underserved",
+            },
+            refs=[ev.id],
+        )
+    ctx = build_context(session_dir, build_model(session_dir))
+    # The prose regex would score the tricky statement at 99 and rank it first.
+    assert [n.id for n in ctx.opportunities] == [top.id, tricky.id]
+
+    deck = Deck(ctx)
+    deck.opportunities()
+    table = next(sh.table for sh in deck.prs.slides[0].shapes if sh.has_table)
+    assert [table.cell(ri, 3).text for ri in (1, 2)] == ["underserved", "served"]
+    assert table.cell(2, 1).text == "recover the missed opportunity 99 (per quarter)"
+    assert [table.cell(ri, 2).text for ri in (1, 2)] == ["14.0", "8.0"]
+    band_run = table.cell(1, 3).text_frame.paragraphs[0].runs[0]
+    assert band_run.font.color.rgb == AMBER  # underserved rows stay highlighted
+
+
+def test_opportunity_score_falls_back_to_prose_for_legacy_journals() -> None:
+    from bokken.dossier.model import InsightNode
+    from bokken.report.context import opportunity_score
+
+    legacy = InsightNode(
+        id="i-1",
+        kind="opportunity",
+        statement="O0: plan around arrivals - opportunity 12.5 (underserved)",
+        evidence_ids=[],
+        ungrounded=False,
+        synthetic=True,
+    )
+    assert opportunity_score(legacy) == 12.5
