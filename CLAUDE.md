@@ -51,3 +51,14 @@ kata code. Optional extras stay optional: `[ui]` (playwright + beautifulsoup4)
 for walkthrough/feature tests, `[interview]` (twilio) for remote validation
 interviews, `[openai]` for the OpenAI provider; core installs and runs
 without them, degrading honestly.
+
+## Agent team
+
+Four repo-defined teammates live in `.claude/agents/` and may run in parallel
+(worktree-isolated) on independent work: `spec-writer` (OpenSpec packages,
+never touches src), `implementer` (code+tests to a green `make check`, never
+pushes or tags), `reviewer` (read-only verified findings), `docs-auditor`
+(docs follow code; reports code smells, never fixes them). Split work along
+the spec -> implement -> review -> document seam; merge points are PRs, and
+releases stay a human decision regardless of who did the work.
+
