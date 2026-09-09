@@ -44,9 +44,10 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "rationale for your framing choice.",
     ),
     "explore/capability_map": (
-        "v1",
+        "v2",
+        # No cache split: this is a single call per session, so a cached corpus
+        # prefix would be written at the cache premium and never read back.
         "Corpus (code sources carry their evidence role in the header):\n{context}\n"
-        + CACHE_SPLIT
         + QUALITY_CONTRACT
         + "Map what this product observably does today. For each capability: the "
         "acting user, the trigger, the observable outcome, and citations into the "
@@ -82,14 +83,18 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "about the last time...'). If not, produce no follow-up.\n",
     ),
     "sidekick/context_query": (
-        "v1",
+        "v2",
         "You are a retrieval sidekick. The corpus below is the only source of truth.\n"
         "Corpus:\n{context}" + CACHE_SPLIT + "Question an interviewee must answer: {question}\n"
-        "Return the verbatim corpus spans that could ground a factual answer, each "
-        "prefixed by its source marker exactly as it appears (e.g. '[source abc123 "
-        "(code) L10-L14]'), max ~2500 words total. Do not paraphrase, do not answer "
-        "the question, do not add commentary. If nothing in the corpus grounds it, "
-        "reply exactly NO_COVERAGE.\n",
+        "Return the verbatim corpus spans that could ground a factual answer. Each "
+        "corpus source opens with a '[source <id> (<kind>) - <name> | <role>]' header "
+        "and numbers its lines 'N: '. For every span, first write a marker line you "
+        "build from that header and the span's line numbers, in the exact form "
+        "'[source <id> (<kind>) L<start>-L<end>]', then quote the span's lines "
+        "verbatim (their 'N: ' numbering included) beneath it. Max ~2500 words "
+        "total. Do not paraphrase, do not answer the question, do not add "
+        "commentary. If nothing in the corpus grounds it, reply exactly "
+        "NO_COVERAGE.\n",
     ),
     "empathize/persona_turn": (
         "v4",

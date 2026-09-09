@@ -78,10 +78,28 @@ class EmpathizeEngine:
         if ctx.state.mode == "dojo":
             self._dojo_interviews(ctx, router, program.data)
         else:
+            # Mode parity: declared inputs ground a founder run too - the code
+            # map and the functional walkthrough do not depend on a panel.
+            capabilities_text = ""
+            if ctx.state.brief.get("inputs"):
+                corpus = self._corpus(ctx)
+                journal_rejected_inputs(ctx.store, corpus, stage="empathize")
+                capabilities = run_code_exploration(corpus, ctx.store, router)
+                if capabilities is None:
+                    return None
+                capabilities_text = capabilities
             self._founder_interviews(ctx, router, program.data)
-            # Mode parity: a running app deserves its functional test either way.
-            run_walkthrough(ctx, router)
+            run_walkthrough(ctx, router, capabilities=capabilities_text)
         return None
+
+    @staticmethod
+    def _corpus(ctx: StageContext) -> Corpus:
+        config = ctx.state.config.get("panel", {})
+        return Corpus.ingest_inputs(
+            ctx.state.brief.get("inputs", {}),
+            base=Path(config.get("input_base", ".")),
+            roots=config.get("input_roots"),
+        )
 
     def _founder_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         for q in program.questions:
@@ -138,13 +156,11 @@ class EmpathizeEngine:
 
     def _dojo_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         config = ctx.state.config.get("panel", {})
-        corpus = Corpus.ingest_inputs(
-            ctx.state.brief.get("inputs", {}),
-            base=Path(config.get("input_base", ".")),
-            roots=config.get("input_roots"),
-        )
+        corpus = self._corpus(ctx)
         journal_rejected_inputs(ctx.store, corpus, stage="empathize")
         capabilities_text = run_code_exploration(corpus, ctx.store, router)
+        if capabilities_text is None:
+            return  # budget exhausted: return early so the orchestrator stops the run
         personas = cast_panel(
             brief=ctx.state.brief,
             size=config.get("size", 6),

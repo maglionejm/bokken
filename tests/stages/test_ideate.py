@@ -39,6 +39,21 @@ def _option(seq: int, prev_hash: str, summary: str):
     )
 
 
+def test_feasibility_code_context_is_capped(tmp_path: Path) -> None:
+    """The corpus rides uncached in the feasibility lens: it must stay bounded."""
+    from types import SimpleNamespace
+
+    from bokken.stages.exploration import CODE_CONTEXT_CAP_CHARS
+
+    repo = tmp_path / "app"
+    (repo / "src").mkdir(parents=True)
+    (repo / "src" / "big.py").write_text("x = 1  # padding line\n" * 8000)
+    ctx = SimpleNamespace(state=SimpleNamespace(config={}, brief={"inputs": {"repo": str(repo)}}))
+    text = IdeateEngine._code_context(ctx)
+    assert "[source " in text
+    assert len(text) <= CODE_CONTEXT_CAP_CHARS
+
+
 def test_votes_by_list_position_resolve_to_presented_options() -> None:
     first = _option(1, GENESIS_HASH, "option a")
     second = _option(2, first.hash, "option b")
