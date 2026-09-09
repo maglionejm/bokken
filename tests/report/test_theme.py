@@ -31,6 +31,17 @@ def test_bad_theme_refuses(tmp_path):
         load_theme(str(f))
 
 
+def test_malformed_theme_file_refuses_as_theme_error(tmp_path):
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{not json")
+    with pytest.raises(ThemeError, match="not valid JSON"):
+        load_theme(str(malformed))
+    listy = tmp_path / "listy.json"
+    listy.write_text(json.dumps(["#0f766e"]))
+    with pytest.raises(ThemeError, match="JSON object"):
+        load_theme(str(listy))
+
+
 def test_theme_reaches_both_surfaces(tmp_path, monkeypatch):
     monkeypatch.setenv("BOKKEN_HOME", str(tmp_path))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -46,3 +57,14 @@ def test_theme_reaches_both_surfaces(tmp_path, monkeypatch):
     page = html.read_text()
     assert "--accent:#0f766e" in page and "Acme</b> · run report" in page
     assert Theme(name="x").brand not in page.split("</style>")[0].split(":root{--accent:")[-1][:8]
+
+    # A malformed theme file refuses cleanly on export instead of stack-tracing.
+    from typer.testing import CliRunner
+
+    from bokken.cli.app import app
+
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{not json")
+    refused = CliRunner().invoke(app, ["export", "themed", "--theme", str(malformed)])
+    assert refused.exit_code == 2
+    assert "not valid JSON" in refused.stderr

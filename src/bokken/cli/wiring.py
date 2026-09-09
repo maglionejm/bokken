@@ -18,6 +18,21 @@ def router_factory() -> RouterFactory:
     return provider_router_factory()
 
 
+def session_router_factory(session_dir: Path) -> RouterFactory:
+    """Session-aware wiring: demo sessions journal ``config.demo`` and must
+    stay on the offline scripted provider across resumes and finalization,
+    or the journaled $0.00 receipt becomes a lie."""
+    from bokken.journal.workspace import session_config
+
+    if session_config(session_dir).get("demo"):
+        from bokken.demo.provider import DemoProvider
+        from bokken.models.router import ModelRouter
+
+        provider = DemoProvider()
+        return lambda store: ModelRouter(store, provider)
+    return router_factory()
+
+
 class TerminalInputPort:
     """Interactive port: plain prompts that always show the session's stage."""
 
@@ -37,7 +52,7 @@ def build_runner(session_dir: Path, *, interactive: bool = True) -> Runner:
     port: InputPort = TerminalInputPort(session_dir) if interactive else NoInputPort()
     return Runner(
         session_dir,
-        engines=engine_suite(router_factory()),
+        engines=engine_suite(session_router_factory(session_dir)),
         input_port=port,
         kata_factory=lambda store: Kata(MVP_MOVES, store),
     )

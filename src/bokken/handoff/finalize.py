@@ -22,6 +22,7 @@ class FinalizeResult:
     handoff_generated: bool = False
     handoff_skipped: str | None = None
     report_generated: bool = False
+    report_theme_fallback: str | None = None
 
     def summary(self) -> str:
         parts = []
@@ -32,7 +33,13 @@ class FinalizeResult:
         if self.handoff_skipped:
             parts.append(f"handoff skipped: {self.handoff_skipped}")
         if self.report_generated:
-            parts.append("report exported (pptx + html)")
+            note = "report exported (pptx + html)"
+            if self.report_theme_fallback:
+                note += (
+                    " with the default theme; the journaled theme was unusable "
+                    f"({self.report_theme_fallback})"
+                )
+            parts.append(note)
         return "; ".join(parts) or "already finalized"
 
 
@@ -70,10 +77,19 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
             handoff_skipped = f"generation failed (retry with `bokken handoff`): {error}"
 
     report_generated = False
+    report_theme_fallback: str | None = None
     from bokken.report.generate import generate_report, report_exists
+    from bokken.report.theme import ThemeError
 
     if not report_exists(session_dir):
-        generate_report(session_dir)
+        try:
+            generate_report(session_dir)
+        except ThemeError as error:
+            # A broken journaled theme must not kill finalization: the report
+            # is the deliverable, the chrome is not. Regenerate with the
+            # default theme and say so in the summary.
+            generate_report(session_dir, theme_spec="bokken")
+            report_theme_fallback = str(error)
         report_generated = True
 
     from bokken.library import append_learnings
@@ -85,4 +101,5 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
         handoff_generated=handoff_generated,
         handoff_skipped=handoff_skipped,
         report_generated=report_generated,
+        report_theme_fallback=report_theme_fallback,
     )

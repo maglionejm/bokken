@@ -164,6 +164,8 @@ def init(
     """Write a validated brief file from a template or drafted from your repo."""
     from bokken.cli.templates import TEMPLATES, build_brief
 
+    if as_json and template is None and from_repo is None:
+        _fail("--json needs --template or --from-repo; interactive prompts are disabled", 2)
     drafting_cost: float | None = None
     if from_repo is not None:
         from bokken.cli.autopilot import BriefDraftError, draft_brief_from_repo
@@ -324,6 +326,15 @@ def new(
     if doc:
         inputs.setdefault("documents", []).extend(str(p.resolve()) for p in doc)
 
+    if theme is not None:
+        from bokken.report.theme import BUILTIN
+
+        theme_path = Path(theme).expanduser()
+        if theme not in BUILTIN and theme_path.exists():
+            # Journal file themes as absolute paths: export must not depend
+            # on the cwd `bokken new` happened to run from.
+            theme = str(theme_path.resolve())
+
     gate_policy: Any = None
     if gates is not None:
         gate_policy = (
@@ -385,7 +396,7 @@ def run(name: str, as_json: JsonFlag = False) -> None:
     if result.halt == "completed":
         from bokken.handoff import finalize_session
 
-        finalization = finalize_session(session_dir, wiring.router_factory())
+        finalization = finalize_session(session_dir, wiring.session_router_factory(session_dir))
         result = result.model_copy(update={"finalization": finalization.summary()})
     cost, calls = _session_receipt(session_dir)
     result = result.model_copy(update={"cost_usd": cost, "model_calls": calls})
@@ -859,7 +870,7 @@ def handoff(
 
     session_dir = resolve_session_dir(name)
     try:
-        generated = generate_handoff(session_dir, wiring.router_factory())
+        generated = generate_handoff(session_dir, wiring.session_router_factory(session_dir))
     except (HandoffRefusedError, HandoffGenerationError, HandoffFormatError) as refusal:
         _fail(str(refusal), 2)
         return

@@ -21,9 +21,6 @@ class PackError(RuntimeError):
     pass
 
 
-_FULL_ONLY = ("journal.jsonl", "dossier/dossier.json")
-
-
 def _session_facts(session_dir: Path) -> dict:
     name = session_dir.name
     mode = stage = verdict = None
@@ -72,7 +69,13 @@ def _files_to_pack(session_dir: Path, deliverables_only: bool) -> list[Path]:
         wanted.append(session_dir / "dossier" / "dossier.json")
         wanted.append(session_dir / "journal.jsonl")
         wanted += sorted(p for p in (session_dir / "artifacts").rglob("*") if p.is_file())
-    wanted += sorted(p for p in (session_dir / "handoff").rglob("*") if p.is_file())
+    handoff_files = sorted(p for p in (session_dir / "handoff").rglob("*") if p.is_file())
+    if deliverables_only:
+        # Adapters carry evidence pointers into the journal and dossier.json,
+        # which this pack omits; shipping them would hand out dead references.
+        adapters_dir = session_dir / "handoff" / "adapters"
+        handoff_files = [p for p in handoff_files if not p.is_relative_to(adapters_dir)]
+    wanted += handoff_files
     return [p for p in wanted if p.exists()]
 
 
@@ -107,9 +110,11 @@ def pack_session(
     }
     if deliverables_only:
         manifest["omitted"] = (
-            "journal, evidence graph (dossier.json), and raw artifacts are omitted "
-            "for external sharing; claims in the report remain journal-derived but "
-            "are not independently verifiable from this bundle alone"
+            "journal, evidence graph (dossier.json), raw artifacts, and handoff "
+            "adapters (their evidence pointers reference the omitted files) are "
+            "omitted for external sharing; claims in the report remain "
+            "journal-derived but are not independently verifiable from this "
+            "bundle alone"
         )
     target = out or (session_dir.parent / f"{session_dir.name}.bokken.zip")
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as zf:
