@@ -1,6 +1,7 @@
 """The orchestrator: the executable Design Thinking loop."""
 
 from bokken.orchestrator.machine import (
+    CONCEPT_SELECTION_QUESTION,
     FORWARD,
     LOOPBACKS,
     TRANSITIONS,
@@ -31,6 +32,7 @@ from bokken.orchestrator.runner import (
 )
 
 __all__ = [
+    "CONCEPT_SELECTION_QUESTION",
     "FORWARD",
     "LOOPBACKS",
     "SYSTEM_ACTOR",
