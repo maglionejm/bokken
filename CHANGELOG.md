@@ -6,7 +6,17 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
-(nothing yet)
+### Fixed
+- Ideate's exit criterion requires the concept-selection decision; the
+  criteria freeze alone no longer opens the exit, and the founder pick
+  prompt is stable across resumes so MCP founder mode can complete (#69).
+- Dossier/report hardening from the team review loop (#70): interpretations
+  chained to simulated material inherit the synthetic label (Ulwick
+  opportunities no longer laundered as non-synthetic), dossier.md flattens
+  interpolated text against markdown injection, Ulwick scores render from
+  structured journal keys instead of prose regexes, bookkeeping artifacts
+  are filtered from the prototype list, and a truncated panel manifest
+  degrades instead of crashing every future build.
 
 ## [1.4.0] — 2026-09-09
 
