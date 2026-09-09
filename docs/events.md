@@ -82,7 +82,13 @@ declare `ungrounded: true`.
 Dissent is first-class: reservations are stored verbatim and surface in the
 Dossier. Panel governance also journals its checks as decisions: the frozen
 convergence criteria (`question: "convergence criteria"`) and the contamination
-firewall verification (`question: "contamination firewall check"`).
+firewall verification (`question: "contamination firewall check"`). The
+concept selection that closes Ideate is recorded with the stable question
+`"which concept advances to prototype"` — the ideate exit criterion matches on
+exactly that question, so a criteria-freeze decision alone cannot open the
+exit. Declared extension keys: `confidence` (the test recommendation's stated
+confidence) and `pivoted_by_timebox` (the convergence was forced by a timebox
+pivot).
 
 ### `assumption.*` — the register
 
