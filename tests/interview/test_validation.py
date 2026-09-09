@@ -148,6 +148,38 @@ def test_mid_interview_failure_closes_the_channel_and_journals_debt(bare_store):
     assert "error" in abstained[0].payload["gap"]
 
 
+class BlankQuestionRouter:
+    """The interviewer keeps choosing ask, but produces no question text."""
+
+    def invoke(self, *args, **kwargs):
+        from bokken.models.router import ModelOutcome
+        from bokken.stages.schemas import InterviewerTurn
+
+        return ModelOutcome(
+            status="ok",
+            data=InterviewerTurn(action="ask", question="   "),
+            model="claude-fable-5",
+        )
+
+
+def test_blank_question_aborts_instead_of_sending_nothing(bare_store):
+    """An empty send would crash Twilio with nothing on the record: a blank
+    ask/followup takes the same abort path as a failed interviewer call."""
+    channel = FakeChannel()
+    guide = Guide(debt_questions=["Que hiciste la ultima vez que fallo el pago?"])
+    exchanges = run_validation_interview(
+        bare_store, BlankQuestionRouter(), guide, channel, participant="Ana (piloto real)"
+    )
+    assert exchanges == 0
+    assert not channel.sent  # the blank question never reached the channel
+    assert channel.farewell  # the consented human was not left hanging
+    abstained = [e for e in bare_store.events() if e.type == "evidence.abstained"]
+    assert len(abstained) == 1
+    assert abstained[0].payload["question"] == guide.debt_questions[0]
+    assert "blank ask question" in abstained[0].payload["gap"]
+    assert abstained[0].actor.model == "claude-fable-5"  # the turn that produced it
+
+
 def _fake_twilio(monkeypatch, inbound: list[str]) -> list[str]:
     """Install a fake twilio SDK. `inbound` is what the number replies, in order
     (empty = the number never replies). Returns the list of outbound bodies."""

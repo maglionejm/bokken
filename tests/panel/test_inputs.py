@@ -38,6 +38,18 @@ def test_repo_ingestion_allowlist_exclusions_and_names(tmp_path: Path) -> None:
     assert skipped == []
 
 
+def test_same_file_as_code_and_document_keeps_two_identities(tmp_path: Path) -> None:
+    """Source ids carry the kind: a repo-walked file also declared as a document
+    must not collide into one id and silently reclassify."""
+    repo = tmp_path / "app"
+    repo.mkdir()
+    readme = repo / "README.md"
+    readme.write_text("# The app\nA commuter shuttle app.\n")
+    corpus = Corpus.ingest_inputs({"repo": str(repo), "documents": [str(readme)]})
+    assert len(corpus.source_ids) == 2
+    assert {corpus.kind_of(sid) for sid in corpus.source_ids} == {"code", "document"}
+
+
 def test_mixed_inputs_are_independently_addressable(tmp_path: Path) -> None:
     repo = make_repo(tmp_path)
     metrics = tmp_path / "kpis.csv"

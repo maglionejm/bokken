@@ -255,6 +255,47 @@ def test_founder_full_run_offline(tmp_path: Path) -> None:
     assert scores == {"supported", "contradicted"}
 
 
+def test_founder_run_with_repo_maps_current_capabilities(tmp_path: Path) -> None:
+    """Mode parity: a declared corpus grounds a founder run exactly as a dojo one."""
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session("founder-repo-e2e", brief=brief, mode="founder")
+    result = make_runner(session_dir, ScriptedProvider(), input_port=FounderPort()).run()
+    assert result.halt == "completed"
+
+    events = list(read_events(session_dir))
+    caps = [
+        e
+        for e in events
+        if e.type == "interpretation.derived" and e.payload.get("kind") == "current_capability"
+    ]
+    assert caps, "founder journals carry no current_capability records"
+    assert all(e.payload["ungrounded"] is False and e.payload["citations"] for e in caps)
+
+
+def test_exploration_budget_exhaustion_stops_the_run_before_the_panel(tmp_path: Path) -> None:
+    """A budget-exhausted exploration returns early; before the fix it read as
+    'no code sources' and the run kept casting panels on a spent budget."""
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "budget-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        # The interview-program call spends exactly 70 tokens against the fake
+        # provider, so the exploration call is the first to hit the budget.
+        budgets={"total_tokens": 70},
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    result = make_runner(session_dir, ScriptedProvider()).run()
+    assert result.halt == "stopped" and result.detail == "budget_exhausted"
+
+    events = list(read_events(session_dir))
+    stopped = next(e for e in events if e.type == "session.stopped")
+    assert stopped.payload["reason"] == "budget_exhausted"
+    assert not [e for e in events if e.payload.get("kind") == "current_capability"]
+    assert not [e for e in events if e.payload.get("kind") == "panel_manifest"]
+
+
 def test_resume_mid_run_offline(tmp_path: Path) -> None:
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(

@@ -127,12 +127,31 @@ def run_validation_interview(
         if decision.action == "conclude":
             channel.close(decision.question or "Thank you - this was genuinely useful.")
             break
-        channel.send(decision.question)
+        question = decision.question.strip()
+        if not question:
+            # An ask/followup with no question text would reach the channel as
+            # an empty send - Twilio rejects those - with nothing on the
+            # record: take the same abort path as a failed interviewer call.
+            channel.close("We have to stop here - thank you for your time.")
+            store.append(
+                type="evidence.abstained",
+                stage=None,
+                actor=turn.attribution.actor("validation-interviewer"),
+                payload={
+                    "question": _guide_topic(guide),
+                    "gap": (
+                        f"validation interview with {participant} aborted mid-run: "
+                        f"interviewer produced a blank {decision.action} question"
+                    ),
+                },
+            )
+            break
+        channel.send(question)
         answer = channel.receive()
         if not answer:
             channel.close("Thank you for your time.")
             break
-        transcript.append(f"Q: {decision.question}\nA: {answer}")
+        transcript.append(f"Q: {question}\nA: {answer}")
         store.append(
             type="evidence.captured",
             stage=None,
@@ -141,7 +160,7 @@ def run_validation_interview(
                 "content": answer,
                 "source": f"validation interview ({decision.action})",
                 "confidence_class": "reported",
-                "question": decision.question,
+                "question": question,
                 "participant": participant,
             },
         )
