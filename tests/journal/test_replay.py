@@ -224,6 +224,29 @@ def test_option_split_marks_parents_split() -> None:
     assert statuses["just the notifier"] == "alive"
 
 
+def test_kill_after_merge_preserves_the_terminal_status() -> None:
+    """A parked/killed record referencing an already merged or split option
+    must not overwrite that terminal status."""
+    b = EventBuilder()
+    b.add("session.created", created_payload(mode="dojo"), stage="intake")
+    opt_a = b.add("option.created", {"summary": "a"}, stage="ideate", actor=persona("p-1"))
+    opt_b = b.add("option.created", {"summary": "b"}, stage="ideate", actor=persona("p-2"))
+    b.add(
+        "option.merged",
+        {"summary": "a+b"},
+        stage="ideate",
+        actor=AGENT,
+        refs=[opt_a.id, opt_b.id],
+    )
+    b.add("option.killed", {"reason": "late kill"}, stage="ideate", actor=AGENT, refs=[opt_a.id])
+    b.add("option.parked", {"reason": "late park"}, stage="ideate", actor=AGENT, refs=[opt_b.id])
+    state = replay(b.events)
+    assert state.options[opt_a.id].status == "merged"
+    assert state.options[opt_a.id].status_reason is None
+    assert state.options[opt_b.id].status == "merged"
+    assert state.options[opt_b.id].status_reason is None
+
+
 def test_meter_counts_cached_prompt_tokens_at_face_value() -> None:
     """A cached corpus prefix is the largest number on the call; the budget
     meter must see it. Providers report it disjointly from ``input_tokens``, so

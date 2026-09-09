@@ -12,6 +12,7 @@ from bokken.orchestrator import (
     StageContext,
     StageOutcome,
     StalledStageError,
+    UnknownBudgetKeyError,
     create_session,
 )
 from tests.journal.conftest import BRIEF
@@ -79,6 +80,31 @@ def test_step_advances_at_most_one_stage() -> None:
     result = runner.step()
     assert result.halt == "stepped"
     assert replay(read_events(session_dir)).stage == "empathize"
+
+
+class LoopbackProposingFake:
+    """Define engine that proposes a loop-back instead of doing define work."""
+
+    def run(self, ctx: StageContext) -> StageOutcome | None:
+        return StageOutcome(loopback_to="empathize", condition="insight contradicts evidence")
+
+
+def test_step_returns_after_an_engine_proposed_loopback() -> None:
+    """An engine-proposed loop-back is a fired transition and must count
+    against ``max_transitions``: ``step()`` returns after it instead of
+    running the loop-back target onward."""
+    session_dir = founder_session()
+    engines = full_engine_suite() | {"define": LoopbackProposingFake()}
+    runner = Runner(session_dir, engines=engines)
+    runner.step()  # intake -> empathize
+    runner.step()  # empathize -> define
+    before = len(replay(read_events(session_dir)).transitions)
+    result = runner.step()
+    assert result.halt == "stepped"
+    state = replay(read_events(session_dir))
+    assert len(state.transitions) == before + 1  # the loop-back and nothing after it
+    last = state.transitions[-1]
+    assert (last["from"], last["to"]) == ("define", "empathize")
 
 
 def test_dojo_run_halts_at_every_gate_and_rejection_keeps_stage() -> None:
@@ -196,6 +222,64 @@ def test_agent_cannot_override_config() -> None:
         runner.run(config_overrides={"budgets": {"total_tokens": 10**9}}, actor=AGENT)
     suppressed = [e for e in read_events(session_dir) if e.type == "facilitation.move_suppressed"]
     assert suppressed and suppressed[-1].payload["move_id"] == "config_change_attempt"
+
+
+def test_terminal_session_override_refusals_do_not_grow_the_journal() -> None:
+    """The terminal halt is checked before override vetting: an agent retrying
+    refused overrides against a completed or human-stopped session must not
+    append a suppression record per attempt."""
+    session_dir = founder_session()
+    runner = Runner(session_dir, engines=full_engine_suite())
+    assert runner.run().halt == "completed"
+    before = len(list(read_events(session_dir)))
+    result = runner.run(config_overrides={"budgets": {"total_tokens": 10**9}}, actor=AGENT)
+    assert result.halt == "completed"
+    assert len(list(read_events(session_dir))) == before
+
+    stopped_dir = founder_session("s-stopped")
+    stopped_runner = Runner(stopped_dir, engines=full_engine_suite())
+    stopped_runner.step()
+    stopped_runner.stop(actor=HUMAN, detail="lunch")
+    before = len(list(read_events(stopped_dir)))
+    result = stopped_runner.run(config_overrides={"budgets": {"total_tokens": 10**9}}, actor=AGENT)
+    assert result.halt == "stopped" and result.detail == "human_stop"
+    assert len(list(read_events(stopped_dir))) == before
+
+
+def test_create_session_refuses_unknown_budget_keys() -> None:
+    with pytest.raises(UnknownBudgetKeyError, match=r"\['total_token'\]"):
+        create_session("typo-1", brief=BRIEF, mode="founder", budgets={"total_token": 1})
+    # Refused before anything lands on disk: the session does not exist.
+    from bokken.journal import SessionNotFoundError, resolve_session_dir
+
+    with pytest.raises(SessionNotFoundError):
+        resolve_session_dir("typo-1")
+    # config_extra may clobber the budgets dict wholesale; the merged value
+    # is validated too.
+    with pytest.raises(UnknownBudgetKeyError, match=r"\['token_total'\]"):
+        create_session(
+            "typo-2", brief=BRIEF, mode="founder", config_extra={"budgets": {"token_total": 1}}
+        )
+
+
+def test_create_session_accepts_known_budget_keys() -> None:
+    session_dir = create_session(
+        "budget-keys-ok",
+        brief=BRIEF,
+        mode="founder",
+        budgets={"total_tokens": 1000, "novelty_floor": 0.2, "research_tokens": 500},
+    )
+    assert session_dir.exists()
+
+
+def test_override_vetting_refuses_unknown_budget_keys() -> None:
+    session_dir = founder_session("typo-resume")
+    runner = Runner(session_dir, engines=full_engine_suite())
+    runner.step()
+    with pytest.raises(UnknownBudgetKeyError, match=r"\['total_token'\]"):
+        runner.run(config_overrides={"budgets": {"total_token": 1}}, actor=HUMAN)
+    suppressed = [e for e in read_events(session_dir) if e.type == "facilitation.move_suppressed"]
+    assert suppressed and "total_token" in suppressed[-1].payload["trigger"]
 
 
 def test_brief_and_gate_policy_are_immutable_even_for_humans() -> None:

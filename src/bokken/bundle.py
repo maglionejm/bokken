@@ -87,12 +87,18 @@ def pack_session(
             f"{session_dir.name}` first"
         )
     files = _files_to_pack(session_dir, deliverables_only)
+    # Each file is read exactly once; the same bytes are hashed and archived,
+    # so a live session mutating a file mid-pack can never produce a manifest
+    # whose sha256 disagrees with the archived copy.
+    blobs: list[tuple[str, bytes]] = []
     index = []
     for f in files:
         data = f.read_bytes()
+        arcname = str(f.relative_to(session_dir))
+        blobs.append((arcname, data))
         index.append(
             {
-                "path": str(f.relative_to(session_dir)),
+                "path": arcname,
                 "bytes": len(data),
                 "sha256": hashlib.sha256(data).hexdigest(),
             }
@@ -114,6 +120,6 @@ def pack_session(
     target = out or (session_dir.parent / f"{session_dir.name}.bokken.zip")
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("manifest.json", json.dumps(manifest, indent=2) + "\n")
-        for f in files:
-            zf.write(f, arcname=str(f.relative_to(session_dir)))
+        for arcname, data in blobs:
+            zf.writestr(arcname, data)
     return target

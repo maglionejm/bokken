@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
 from uuid import uuid4
 
 from bokken.journal import (
@@ -15,6 +15,7 @@ from bokken.journal import (
     Event,
     JournalStore,
     Mode,
+    RoutingClass,
     SessionState,
     Stage,
     create_session_dir,
@@ -41,6 +42,15 @@ HaltKind = Literal["completed", "gate_pending", "input_pending", "stopped", "ste
 # success criteria can never change; budgets only by an explicit human action).
 _OVERRIDABLE_CONFIG_KEYS = frozenset({"budgets"})
 
+# The budget keys the meters actually read: the session total, the ideate
+# novelty floor, and one token cap per routing class. Anything else is refused
+# loudly at creation and in override vetting — a typo ("total_token") would
+# otherwise journal fine and yield an unlimited run.
+KNOWN_BUDGET_KEYS: frozenset[str] = frozenset(
+    {"total_tokens", "novelty_floor"}
+    | {f"{routing_class}_tokens" for routing_class in get_args(RoutingClass)}
+)
+
 
 class OrchestratorError(Exception):
     pass
@@ -60,6 +70,15 @@ class NoPendingGateError(OrchestratorError):
 
 class SelfEscalationError(OrchestratorError):
     pass
+
+
+class UnknownBudgetKeyError(OrchestratorError):
+    """A declared budget names a key no meter reads.
+
+    Budgets are stopping rules, so an unreadable key fails closed and loudly:
+    silently accepting ``{"total_token": 1}`` would journal a budget the run
+    never enforces — an unlimited run wearing a budget's clothes.
+    """
 
 
 class GatePolicyError(OrchestratorError):
@@ -215,7 +234,22 @@ def gate_required(policy: GatePolicy, from_stage: Stage) -> bool:
     return from_stage in policy
 
 
+def validate_budget_keys(budgets: object) -> None:
+    """Refuse a budgets mapping that names keys no meter reads."""
+    if budgets is None:
+        return
+    if not isinstance(budgets, dict):
+        raise UnknownBudgetKeyError(f"budgets must be a mapping, got {type(budgets).__name__}")
+    unknown = sorted(set(budgets) - KNOWN_BUDGET_KEYS)
+    if unknown:
+        raise UnknownBudgetKeyError(
+            f"unknown budget keys {unknown}; expected any of "
+            f"({', '.join(sorted(KNOWN_BUDGET_KEYS))})"
+        )
+
+
 def default_config(mode: Mode, gate_policy: GatePolicy | None, budgets: dict | None) -> dict:
+    validate_budget_keys(budgets)
     return {
         "gate_policy": (
             default_gate_policy(mode) if gate_policy is None else normalize_gate_policy(gate_policy)
@@ -240,13 +274,15 @@ def create_session(
 
     config = default_config(mode, gate_policy, budgets) | (config_extra or {})
     # ``config_extra`` merges over the defaults and may carry its own
-    # gate_policy, so the merged value — not just the argument — is what has to
-    # be legal. A bad policy is refused here, before anything is journaled.
+    # gate_policy or budgets, so the merged values — not just the arguments —
+    # are what have to be legal. Both are refused here, before anything is
+    # journaled.
     config["gate_policy"] = (
         default_gate_policy(mode)
         if config.get("gate_policy") is None
         else normalize_gate_policy(config["gate_policy"])
     )
+    validate_budget_keys(config.get("budgets"))
     # Reproducibility: every journal knows which Bokken created it.
     config["bokken_version"] = bokken.__version__
     session_dir = create_session_dir(name, base=base)
@@ -401,8 +437,14 @@ class Runner:
             # life of the session, so resolving it once here holds for the run.
             policy = resolve_gate_policy(state)
             if store.last_seq > 1:
+                # Terminal halts are checked before override vetting: vetting
+                # journals its refusals, and a completed or human-stopped
+                # journal must not grow on retried resumes.
+                halted = self._terminal_halt(state, actor)
+                if halted is not None:
+                    return halted
                 overrides = self._vet_overrides(store, state, config_overrides, actor)
-                halted = self._halt_without_resuming(state, overrides, actor)
+                halted = self._budget_halt(state, overrides)
                 if halted is not None:
                     return halted
                 payload: dict[str, Any] = {}
@@ -490,18 +532,37 @@ class Runner:
                 f"config override refused ({what}); the brief, gate policy, and "
                 "success criteria are immutable, and budgets change only by human action"
             )
+        try:
+            validate_budget_keys(overrides.get("budgets"))
+        except UnknownBudgetKeyError as exc:
+            store.append(
+                type="facilitation.move_suppressed",
+                stage=state.stage,
+                actor=actor,
+                payload={
+                    "move_id": "config_change_attempt",
+                    "trigger": f"config override refused: {exc}",
+                    "reason": "mode_config",
+                },
+            )
+            raise
         return overrides
 
-    def _halt_without_resuming(
-        self, state: SessionState, overrides: dict[str, Any] | None, actor: Actor
-    ) -> RunResult | None:
+    def _terminal_halt(self, state: SessionState, actor: Actor) -> RunResult | None:
         """A resume that would halt on the spot is not journaled: a terminal
-        session must not grow a resumed/stopped pair per ``run``, and a
-        non-human resume never clears a human stop."""
+        session must not grow a resumed/stopped pair — or a vetting-refusal
+        record — per ``run``, and a non-human resume never clears a human stop."""
         if state.stage == "complete":
             return RunResult("completed", state.stage)
         if state.stopped == "human_stop" and actor.kind != "human":
             return RunResult("stopped", state.stage, detail=state.stopped)
+        return None
+
+    def _budget_halt(
+        self, state: SessionState, overrides: dict[str, Any] | None
+    ) -> RunResult | None:
+        """A resume that finds the budget already spent halts before journaling,
+        for the same reason as the terminal halts above."""
         budgets = {**state.config.get("budgets", {}), **(overrides or {}).get("budgets", {})}
         total = budgets.get("total_tokens")
         if total is not None and state.tokens_spent() >= total:
@@ -516,14 +577,20 @@ class Runner:
     def _loop(
         self, store: JournalStore, max_transitions: int | None, policy: GatePolicy
     ) -> RunResult:
-        transitions = 0
         engine_attempts: dict[Stage, int] = {}
+        # The bound counts replayed transitions past the run's baseline, not a
+        # local counter: an engine-proposed loop-back fires inside _run_engine,
+        # where a counter kept here would never see it, and ``step()`` must
+        # return after ANY fired transition — loop-backs included.
+        baseline_transitions: int | None = None
         transitions_seen: int | None = None
         while True:
             # One journal read per iteration: every decision below folds or
             # filters this same snapshot.
             events = list(store.events())
             state = replay(events)
+            if baseline_transitions is None:
+                baseline_transitions = len(state.transitions)
 
             # Any fired transition (forward, gate, or engine loop-back) grants
             # the entered stage its full retry budget again, so a revisited
@@ -537,13 +604,15 @@ class Runner:
                 return halt
             if self._budget_exhausted(state):
                 return self._stop_on_budget(store, state)
-            if max_transitions is not None and transitions >= max_transitions:
+            if (
+                max_transitions is not None
+                and len(state.transitions) - baseline_transitions >= max_transitions
+            ):
                 return RunResult("stepped", state.stage)
 
             approved_to = approved_gate_target(state)
             if approved_to is not None:
                 self._fire(store, state, approved_to, "gate approved")
-                transitions += 1
                 continue
 
             verdict = can_exit(state.stage, state)
@@ -552,7 +621,6 @@ class Runner:
                 if self._maybe_request_gate(store, state, policy):
                     continue  # loop re-reads state and halts on the pending gate
                 self._fire(store, state, FORWARD[state.stage], "exit criteria met")
-                transitions += 1
                 continue
 
             engine_attempts[state.stage] = engine_attempts.get(state.stage, 0) + 1

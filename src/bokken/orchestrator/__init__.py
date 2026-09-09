@@ -28,6 +28,7 @@ from bokken.orchestrator.runner import (
     StageEngine,
     StageOutcome,
     StalledStageError,
+    UnknownBudgetKeyError,
     create_session,
 )
 
@@ -53,6 +54,7 @@ __all__ = [
     "StageEngine",
     "StageOutcome",
     "StalledStageError",
+    "UnknownBudgetKeyError",
     "can_exit",
     "create_session",
     "is_legal",
