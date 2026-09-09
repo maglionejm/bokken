@@ -70,8 +70,16 @@ def follow(
     path = session_dir / JOURNAL_FILENAME
     offset = 0
     buffer = ""
+    max_seq_yielded = since_seq
     while stop is None or not stop.is_set():
         if path.exists():
+            # The store rolls back its own failed append by truncating, so a
+            # follower's offset can sit past EOF; reading on from there would
+            # land mid-record once the store appends again. Re-read from the
+            # start and let the seq guard below drop what was already yielded.
+            if path.stat().st_size < offset:
+                offset = 0
+                buffer = ""
             with path.open("r", encoding="utf-8") as f:
                 f.seek(offset)
                 chunk = f.read()
@@ -81,7 +89,8 @@ def follow(
                 line, buffer = buffer.split("\n", 1)
                 if line.strip():
                     event = parse_line(line)
-                    if event.seq > since_seq:
+                    if event.seq > max_seq_yielded:
+                        max_seq_yielded = event.seq
                         yield event
         if stop is not None and stop.is_set():
             return

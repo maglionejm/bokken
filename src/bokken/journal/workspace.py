@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from bokken.journal.schema import Mode, Stage
 from bokken.journal.store import JOURNAL_FILENAME, read_events
@@ -68,7 +69,10 @@ def resolve_session_dir(name: str, base: Path | None = None) -> Path:
 class SessionInfo:
     name: str
     slug: str
-    stage: Stage
+    # "corrupted" marks a session whose journal cannot be parsed (e.g. a
+    # partial final line after a SIGKILL); it still lists instead of taking
+    # the whole listing down with it.
+    stage: Stage | Literal["corrupted"]
     mode: Mode | None
     last_ts: datetime | None
 
@@ -83,15 +87,20 @@ def list_sessions(base: Path | None = None) -> list[SessionInfo]:
             continue
         name = session_dir.name
         mode: Mode | None = None
-        stage: Stage = "intake"
+        stage: Stage | Literal["corrupted"] = "intake"
         last_ts: datetime | None = None
-        for event in read_events(session_dir):
-            last_ts = event.ts
-            if event.type == "session.created":
-                name = event.payload.get("name", name)
-                mode = event.payload.get("mode")
-            elif event.type == "transition.fired":
-                stage = event.payload["to_stage"]
+        try:
+            for event in read_events(session_dir):
+                last_ts = event.ts
+                if event.type == "session.created":
+                    name = event.payload.get("name", name)
+                    mode = event.payload.get("mode")
+                elif event.type == "transition.fired":
+                    stage = event.payload["to_stage"]
+        except Exception:
+            # One torn journal must not crash the listing of every other
+            # session; whatever parsed before the tear is kept.
+            stage = "corrupted"
         infos.append(
             SessionInfo(name=name, slug=session_dir.name, stage=stage, mode=mode, last_ts=last_ts)
         )

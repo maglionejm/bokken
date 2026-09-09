@@ -247,7 +247,10 @@ def _apply(state: SessionState, event: Event) -> None:
         status = "parked" if event.type == "option.parked" else "killed"
         for ref in event.refs:
             node = state.options.get(ref)
-            if node:
+            # Only a live option can be parked or killed: a node already
+            # merged or split has a terminal status that a later park/kill
+            # record must not overwrite.
+            if node and node.status == "alive":
                 node.status = status
                 node.status_reason = p["reason"]
     elif event.type == "decision.recorded":

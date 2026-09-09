@@ -96,6 +96,37 @@ def test_workspace_create_resolve_and_duplicate(tmp_path: Path, monkeypatch) -> 
     assert infos[0].stage == "intake"
 
 
+def test_list_sessions_survives_a_torn_journal(tmp_path: Path, monkeypatch) -> None:
+    """One torn journal (partial final line from a SIGKILL) lists as
+    'corrupted' instead of crashing the listing of every other session."""
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path / "home"))
+    good = create_session_dir("good")
+    with JournalStore.open(good) as store:
+        store.append(
+            type="session.created",
+            stage="intake",
+            actor=SYSTEM,
+            payload=created_payload(name="good"),
+        )
+    torn = create_session_dir("torn")
+    with JournalStore.open(torn) as store:
+        store.append(
+            type="session.created",
+            stage="intake",
+            actor=SYSTEM,
+            payload=created_payload(name="torn", mode="dojo"),
+        )
+    with (torn / "journal.jsonl").open("a", encoding="utf-8") as f:
+        f.write('{"seq": 2, "torn": ')  # partial final line, no newline
+    infos = {i.slug: i for i in list_sessions()}
+    assert set(infos) == {"good", "torn"}
+    assert infos["good"].stage == "intake"
+    assert infos["torn"].stage == "corrupted"
+    # Whatever parsed before the tear is kept.
+    assert infos["torn"].name == "torn"
+    assert infos["torn"].mode == "dojo"
+
+
 CRASH_SCRIPT = textwrap.dedent(
     """
     import sys

@@ -118,3 +118,18 @@ def test_budget_holds_within_one_engine_pass(store):
     assert first is not None and first.type == "facilitation.move_executed"
     assert second is not None and second.type == "facilitation.move_suppressed"
     assert second.payload["reason"] == "budget_exhausted"
+
+
+def test_fresh_replay_does_not_double_count_in_pass_executions(store: JournalStore) -> None:
+    """A freshly replayed state already folds the pass's own executions; the
+    in-pass guard must not add them again, or a budget of 2 would suppress
+    the second execution."""
+    kata = Kata(MVP_MOVES, store, budgets={"devils_advocate": 2})
+    signals = {"consensus_without_dissent": True, "counter": "segment B was never heard"}
+    first = kata.evaluate("devils_advocate", fresh_state(store), signals, stage="ideate")
+    assert first is not None and first.type == "facilitation.move_executed"
+    second = kata.evaluate("devils_advocate", fresh_state(store), signals, stage="ideate")
+    assert second is not None and second.type == "facilitation.move_executed"
+    third = kata.evaluate("devils_advocate", fresh_state(store), signals, stage="ideate")
+    assert third is not None and third.type == "facilitation.move_suppressed"
+    assert third.payload["reason"] == "budget_exhausted"
