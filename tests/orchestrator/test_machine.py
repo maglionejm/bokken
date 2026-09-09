@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import pytest
 
+from bokken.journal import JournalStore, replay
 from bokken.journal.replay import (
     ArtifactRef,
     Assumption,
@@ -9,12 +12,14 @@ from bokken.journal.replay import (
     SessionState,
 )
 from bokken.orchestrator import (
+    CONCEPT_SELECTION_QUESTION,
     IllegalTransitionError,
     can_exit,
     is_legal,
     is_loopback,
     legal_targets,
 )
+from bokken.panel.governance import PANEL_ACTOR, freeze_criteria
 
 
 def test_forward_edges_are_legal() -> None:
@@ -51,11 +56,11 @@ def _insight(grounded: bool = True) -> Insight:
     )
 
 
-def _decision(stage: str) -> Decision:
+def _decision(stage: str, question: str = "q") -> Decision:
     return Decision(
         id=f"d-{stage}",
         stage=stage,
-        question="q",
+        question=question,
         resolution="r",
         options=[],
         dissent=[],
@@ -107,10 +112,28 @@ def test_ideate_requires_survivor_and_convergence() -> None:
     state.options["o"] = OptionNode(
         id="o", summary="x", contributor="a", origin="created", parents=[], status="killed"
     )
-    state.decisions["d"] = _decision("ideate")
+    state.decisions["d"] = _decision("ideate", question=CONCEPT_SELECTION_QUESTION)
     verdict = can_exit("ideate", state)
     assert not verdict.ok and "surviving" in verdict.unmet[0]
     state.options["o"].status = "alive"
+    assert can_exit("ideate", state).ok
+
+
+def test_ideate_criteria_freeze_alone_does_not_open_exit(tmp_path: Path) -> None:
+    """Regression for #65: the criteria freeze is ideate-stamped, but only the
+    concept-selection decision satisfies ideate's exit criterion."""
+    with JournalStore.open(tmp_path / "issue-65") as store:
+        freeze_criteria(store, criteria=["desirability", "feasibility", "viability"])
+        store.append(
+            type="option.created", stage="ideate", actor=PANEL_ACTOR, payload={"summary": "x"}
+        )
+        state = replay(store.events())
+
+    verdict = can_exit("ideate", state)
+    assert not verdict.ok
+    assert verdict.unmet == ["ideate: no concept-selection decision recorded"]
+
+    state.decisions["d"] = _decision("ideate", question=CONCEPT_SELECTION_QUESTION)
     assert can_exit("ideate", state).ok
 
 

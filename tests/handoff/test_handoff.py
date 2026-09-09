@@ -134,7 +134,7 @@ def test_refusals(tmp_path: Path) -> None:
             stage="ideate",
             actor=AGENT,
             payload={
-                "question": "which concept advances",
+                "question": "which concept advances to prototype",
                 "options": [option.id],
                 "criteria": ["dfv"],
                 "resolution": "x",

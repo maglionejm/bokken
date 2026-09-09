@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bokken.journal import Event, replay
-from bokken.orchestrator import StageContext, StageOutcome
+from bokken.orchestrator import CONCEPT_SELECTION_QUESTION, StageContext, StageOutcome
 from bokken.panel import (
     cast_panel,
     freeze_criteria,
@@ -176,7 +176,13 @@ class IdeateEngine:
         # lens votes below, not any one call's output, so it claims no model.
         decider = FACILITATOR
         if state.mode == "founder":
-            question = "Pick the option to advance (number):\n" + self._options_text(options)
+            # No event ids in this prompt: a resumed run regenerates options
+            # under fresh ids, and a mailbox port keys answers by question
+            # text, so the pick must read the same across resumes to ever be
+            # answerable (surfaced by issue #65 - ideate now really requires it).
+            question = "Pick the option to advance (number):\n" + "\n".join(
+                f"{i + 1}. {o.payload['summary']}" for i, o in enumerate(options)
+            )
             picked = None
             answer = ""
             for attempt in range(FOUNDER_PICK_ATTEMPTS):
@@ -303,7 +309,7 @@ class IdeateEngine:
             stage="ideate",
             actor=decider,
             payload={
-                "question": "which concept advances to prototype",
+                "question": CONCEPT_SELECTION_QUESTION,
                 "options": [o.id for o in options],
                 "criteria": criteria,
                 "positions": positions,

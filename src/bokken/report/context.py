@@ -11,6 +11,7 @@ from pathlib import Path
 from bokken.dossier.model import ArtifactNode, DossierModel
 from bokken.journal.schema import SessionCreated, parse_line
 from bokken.models.router import MODELS
+from bokken.orchestrator.machine import CONCEPT_SELECTION_QUESTION
 
 # Bookkeeping artifacts (rosters, exports) are never shown as prototype output.
 EXCLUDED_ARTIFACT_KINDS = {
@@ -269,11 +270,7 @@ def _stage_digest(model: DossierModel) -> dict[str, dict]:
 def _deliberation(model: DossierModel) -> tuple[list[dict], str | None, list[dict], list[dict]]:
     """(lens votes, skeptic challenge, kata moves, dissent) from the journal."""
     concept = next(
-        (
-            d
-            for d in model.decisions.values()
-            if d.question == "which concept advances to prototype"
-        ),
+        (d for d in model.decisions.values() if d.question == CONCEPT_SELECTION_QUESTION),
         None,
     )
     votes = []
