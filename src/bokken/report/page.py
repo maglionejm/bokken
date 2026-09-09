@@ -570,8 +570,8 @@ def render_page(ctx: ReportContext, theme=None) -> str:
         add(
             "<div class='chartbox'><h4>Opportunity score per outcome (&ge;15 severely underserved, 12&ndash;15 underserved)</h4><canvas id='c-opp' height='210'></canvas></div>"
         )
-        for statement in c.opportunities[:8]:
-            add(f"<div class='debt'>{_e(statement)}</div>")
+        for node in c.opportunities[:8]:
+            add(f"<div class='debt'>{_e(node.statement)}</div>")
     add("</section>")
 
     # ---- UI review ----
@@ -819,8 +819,8 @@ def render_page(ctx: ReportContext, theme=None) -> str:
         m.problem_statement.resolution if m.problem_statement else m.brief.get("problem_space", "")
     )
     add(f"<div class='card'><h4>Desired outcome (problem framed)</h4>{_e(root[:400])}</div>")
-    for statement in c.opportunities[:6]:
-        add(f"<details style='margin-left:24px'><summary>{_e(statement[:180])}</summary>")
+    for node in c.opportunities[:6]:
+        add(f"<details style='margin-left:24px'><summary>{_e(node.statement[:180])}</summary>")
         if m.concept:
             add(
                 f"<div class='why' style='margin-left:16px'><strong>Solution advanced:</strong> {_e(m.concept.resolution[:260])}</div>"
@@ -940,11 +940,15 @@ def render_page(ctx: ReportContext, theme=None) -> str:
     import json as _json
 
     opp_pairs = []
-    for statement in c.opportunities[:10]:
-        match = re.search(r"^(O\d+):", statement)
-        score = re.search(r"opportunity (\d+(?:\.\d+)?)", statement)
-        if score:
-            opp_pairs.append((match.group(1) if match else statement[:14], float(score.group(1))))
+    for node in c.opportunities[:10]:
+        match = re.search(r"^(O\d+):", node.statement)
+        if node.score is not None:
+            score = node.score
+        else:  # legacy journal without the structured score key
+            parsed = re.search(r"opportunity (\d+(?:\.\d+)?)", node.statement)
+            score = float(parsed.group(1)) if parsed else None
+        if score is not None:
+            opp_pairs.append((match.group(1) if match else node.statement[:14], score))
     data_json = _json.dumps(
         {
             "register": [counts["supported"], counts["contradicted"], counts["untested"]],
