@@ -49,6 +49,19 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
         f"**Concept advanced.** {_decision_line(model.concept, 'not yet selected')}",
         "",
     ]
+    capabilities = [i for i in model.insights.values() if i.kind == "current_capability"]
+    if capabilities:
+        lines.append("**What the product does today (code exploration; cited, never proven).**")
+        for cap in capabilities:
+            flags = ""
+            if cap.ungrounded:
+                flags += " (ungrounded)"
+            if cap.ratified is True:
+                flags += " (confirmed by founder)"
+            elif cap.ratified is False:
+                flags += " (disputed by founder)"
+            lines.append(f"- {_flat(cap.statement)}{flags} (`{cap.id}`)")
+        lines.append("")
     prototype_artifacts = [a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS]
     if prototype_artifacts:
         lines.append("**Prototype artifacts.**")

@@ -128,6 +128,27 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
     assert "Schedule upload" in html and "broken" in html  # feature cards with verdicts
 
 
+def test_founder_dispute_reaches_the_feature_inventory_prompt(tmp_path, monkeypatch) -> None:
+    """The feature-inventory prompt frames capabilities as cited, implemented
+    behavior; a founder-disputed one must arrive with the correction attached."""
+    from bokken.stages import ui_tests
+    from tests.stages.fake_provider import PromptCapture
+    from tests.stages.test_engines_e2e import FounderPort
+
+    monkeypatch.setattr(ui_tests, "build_tester", lambda: FakeTester())
+    monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker())
+    inputs = {**make_inputs(tmp_path), "app_url": "http://fake.local"}
+    session_dir = create_session(
+        "founder-dispute-e2e", brief={**BRIEF, "inputs": inputs}, mode="founder"
+    )
+    provider = PromptCapture()
+    port = FounderPort(ratifications=["c", "d sync failures vanish silently"])
+    assert make_runner(session_dir, provider, input_port=port).run().halt == "completed"
+    rendered = provider.rendered["empathize/feature_inventory"]
+    assert "sync notes" in rendered
+    assert "(disputed by founder: sync failures vanish silently)" in rendered
+
+
 def test_missing_app_url_is_honest_research_debt(tmp_path) -> None:
     session_dir = run_session(tmp_path, app_url=None)
     events = list(read_events(session_dir))

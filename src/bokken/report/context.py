@@ -87,6 +87,7 @@ class ReportContext:
     loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
     opportunities: list[InsightNode] = field(default_factory=list)
+    current_capabilities: list[InsightNode] = field(default_factory=list)
     demo: bool = False  # demo sessions: usage is illustrative, $0.00 charged
     ui_review: str | None = None
     ui_screenshots: list[str] = field(default_factory=list)
@@ -138,6 +139,40 @@ def cost_rows(model: DossierModel) -> list[dict]:
         row["cost_usd"] = round(call_cost_usd(row["model"], row_usage(row)), 4)
         out.append(row)
     return sorted(out, key=lambda r: -r["cost_usd"])
+
+
+def functional_bucket(prompt_id: str) -> str:
+    """Which functional lane one prompt's spend belongs to.
+
+    exploration: reading the product itself (code map, UI stepping, retrieval);
+    research: learning from people, simulated or real; synthesis: everything
+    that frames, ideates, prototypes, or decides. Pure prefix dispatch over the
+    prompt registry's naming - no model calls, no new bookkeeping.
+    """
+    if (
+        prompt_id.startswith(("explore/", "sidekick/", "empathize/ui_"))
+        or prompt_id == "empathize/feature_inventory"
+    ):
+        return "exploration"
+    if (
+        prompt_id.startswith(("empathize/persona", "empathize/interview", "empathize/outcome"))
+        or prompt_id.startswith(("research/", "validate/"))
+        or prompt_id == "empathize/followup"
+    ):
+        return "research"
+    return "synthesis"
+
+
+def functional_rollup(rows: list[dict]) -> dict[str, float]:
+    """The cost rows aggregated into the three functional buckets.
+
+    Sums the same per-row estimates the table shows, so the three buckets
+    always add up to the run total.
+    """
+    rollup = {"exploration": 0.0, "research": 0.0, "synthesis": 0.0}
+    for row in rows:
+        rollup[functional_bucket(row["prompt_id"])] += row["cost_usd"]
+    return {bucket: round(value, 4) for bucket, value in rollup.items()}
 
 
 def row_usage(row: Mapping[str, int]) -> dict[str, int]:
@@ -452,6 +487,7 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         ],
         prototype_artifacts=[a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS],
         opportunities=_ranked_opportunities(model),
+        current_capabilities=[i for i in model.insights.values() if i.kind == "current_capability"],
         ui_review=_ui_review(session_dir, model),
         ui_screenshots=[a.path for a in model.artifacts if a.kind == "ui_screenshot"],
         stage_digest=_stage_digest(model),

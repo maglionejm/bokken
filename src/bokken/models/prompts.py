@@ -44,7 +44,7 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "rationale for your framing choice.",
     ),
     "explore/capability_map": (
-        "v2",
+        "v3",
         # No cache split: this is a single call per session, so a cached corpus
         # prefix would be written at the cache premium and never read back.
         "Corpus (code sources carry their evidence role in the header):\n{context}\n"
@@ -54,7 +54,11 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "code corpus (source id + line span) that prove the behavior is "
         "implemented. Code establishes implemented behavior, never desired "
         "intent - do not write aspirations. 4-10 capabilities, most central "
-        "first.",
+        "first. Also collect a glossary: up to 10 terms of the product's OWN "
+        "vocabulary (names it gives its concepts in UI copy, identifiers, and "
+        "docs), each with the meaning the corpus supports and citations into "
+        "the code corpus - never invent or translate a term the corpus does "
+        "not use.",
     ),
     "empathize/interview_program": (
         "v4",
@@ -189,13 +193,15 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "fact; never invent screens or numbers.\n",
     ),
     "define/cluster": (
-        "v2",
+        "v3",
         QUALITY_CONTRACT
         + "Cluster the evidence below into insights for the problem space {problem_space}.\n"
         "Evidence items (id: content):\n{evidence}\n"
         "Opportunity ranking (Ulwick: Opportunity = Importance + max(Importance - "
         "Satisfaction, 0); >=15 severely underserved, 12-15 underserved, <10 served):\n"
         "{opportunities}\n"
+        "Product glossary (the product's own vocabulary, cited from its corpus - "
+        "use these words, not synonyms):\n{glossary}\n"
         "Each insight must list the evidence ids that support it, name the affected "
         "segment, and tie itself to the underserved outcomes with their scores. Do not "
         "invent evidence.\n",
@@ -359,11 +365,13 @@ PROMPTS: dict[str, tuple[str, str]] = {
         "if the evidence does not reach it - do not stretch.\n",
     ),
     "handoff/specify": (
-        "v3",
+        "v4",
         QUALITY_CONTRACT
         + "Turn a validated concept into build-ready OpenSpec specifications for its MVP.\n"
         "Problem statement: {problem_statement}\n"
         "Validated concept: {concept}\n"
+        "Product glossary (the product's own vocabulary, cited from its corpus - "
+        "specs use these words, not synonyms):\n{glossary}\n"
         "Supported assumptions (index. statement):\n{supported}\n"
         "Untested assumptions (index. statement) - these need real-world validation, do "
         "not treat them as facts:\n{untested}\n"

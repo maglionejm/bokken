@@ -524,7 +524,35 @@ def render_page(ctx: ReportContext, theme=None) -> str:
     ):
         for item in brief_inputs.get(key, []) or []:
             add(f"<li>{kind} · <span class='path'>{_e(item)}</span></li>")
-    add("</ul></div></div></section>")
+    add("</ul></div></div>")
+    if c.current_capabilities:
+        add(
+            "<h3>What the product does today</h3>"
+            "<p class='lede'>Mapped from the code corpus before anyone was interviewed "
+            "— every capability is cited to a corpus span, never proven.</p>"
+        )
+        for cap in c.current_capabilities:
+            flags = ""
+            if cap.ungrounded:
+                flags += " (ungrounded)"
+            if cap.ratified is True:
+                flags += " (confirmed by founder)"
+            elif cap.ratified is False:
+                flags += " (disputed by founder)"
+            quotes = "".join(
+                "<div>&ldquo;"
+                + _e(cite["quote"])
+                + f"&rdquo; &mdash; <span class='path'>{_e(cite['source_id'])} "
+                + f"L{int(cite['start_line'])}&ndash;L{int(cite['end_line'])}</span></div>"
+                for cite in cap.citations
+                if cite.get("quote")
+            )
+            add(
+                f"<div class='quote'>{_e(cap.statement)}"
+                + (f"<div class='steps'>{quotes}</div>" if quotes else "")
+                + f"<div class='who'>code exploration{_e(flags)}</div></div>"
+            )
+    add("</section>")
 
     # ---- 04 empathize ----
     add(chapter("empathize"))

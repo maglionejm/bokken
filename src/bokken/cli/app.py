@@ -778,7 +778,7 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
     from bokken.dossier.model import build_model
     from bokken.journal.store import read_events
     from bokken.panel import grounding_health
-    from bokken.report.context import cost_rows
+    from bokken.report.context import cost_rows, functional_rollup
 
     session_dir = resolve_session_dir(name)
     rows = cost_rows(build_model(session_dir))
@@ -788,10 +788,12 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
     # Lane economics are only half the picture: a cheaper sidekick that
     # paraphrases shows up here as backstop-forced abstentions, not as savings.
     grounding = grounding_health(read_events(session_dir))
+    rollup = functional_rollup(rows)
     payload = {
         "rows": rows,
         "total_usd": total,
         "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+        "rollup": rollup,
         "grounding": grounding,
     }
     if as_json:
@@ -806,6 +808,14 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
             f"{r['input']:>12,}{r['cache_read']:>10,}{r['output']:>8,}{r['cost_usd']:>8.2f}"
         )
     out.print(f"total ~${total} (list prices) · cache hit rate {payload['cache_hit_rate']:.0%}")
+    out.print(
+        f"exploration ~${rollup['exploration']:.2f} (reading the product: code map, UI, retrieval)"
+    )
+    out.print(
+        f"research    ~${rollup['research']:.2f} "
+        "(learning from people: interviews, outcomes, validation)"
+    )
+    out.print(f"synthesis   ~${rollup['synthesis']:.2f} (framing, ideating, prototyping, deciding)")
     out.print(
         f"persona turns {grounding['persona_turns']} · abstentions "
         f"{grounding['abstentions']} · citation-invalid "

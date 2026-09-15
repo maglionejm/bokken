@@ -152,6 +152,7 @@ class InterpretationDerived(Payload):
         "outcome_score",
         "opportunity",
         "current_capability",
+        "domain_term",
     ]
     statement: str
     ungrounded: bool = False
@@ -334,8 +335,12 @@ EXTENSION_KEYS: dict[str, frozenset[str]] = {
             "score",
             "band",
             "per_persona",
-            # Code exploration: validated corpus spans behind a current_capability.
+            # Code exploration: validated corpus spans behind a current_capability
+            # (each citation dict may carry a truncated verbatim `quote`), and the
+            # founder's ratification verdict (true = confirmed, false = disputed;
+            # absent = never asked or skipped).
             "citations",
+            "ratified",
         }
     ),
     # A private thought attached to an idea, kept out of the shared pool.

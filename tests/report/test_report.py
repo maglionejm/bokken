@@ -153,6 +153,36 @@ def test_full_process_coverage_in_html(dojo_session: Path) -> None:
     assert "list-price estimate" in html
 
 
+def test_capability_map_block_in_html_with_quotes_and_flags(dojo_session: Path) -> None:
+    from bokken.report.page import render_page
+    from tests.dossier.test_dossier import append_disputed_capability
+
+    append_disputed_capability(dojo_session)
+    model = build_model(dojo_session)
+    ctx = build_context(dojo_session, model)
+    capabilities = ctx.current_capabilities
+    assert len(capabilities) == 3  # two mapped by the run, one appended disputed
+    html = render_page(ctx)
+    assert "What the product does today" in html
+    assert "(ungrounded)" in html
+    assert "(disputed by founder)" in html
+    quote = next(c["quote"] for cap in capabilities for c in cap.citations if c.get("quote"))
+    assert quote.splitlines()[0] in html  # the corpus span is quoted, verbatim
+
+
+def test_no_capabilities_means_no_block(dojo_session: Path) -> None:
+    from bokken.report.page import render_page
+
+    model = build_model(dojo_session)
+    stripped = model.model_copy(
+        update={
+            "insights": {k: v for k, v in model.insights.items() if v.kind != "current_capability"}
+        }
+    )
+    html = render_page(build_context(dojo_session, stripped))
+    assert "What the product does today" not in html
+
+
 def test_honesty_banner_in_both_formats(dojo_session: Path) -> None:
     pptx_path, html_path = generate_report(dojo_session)
     assert "Simulated run." in html_path.read_text()

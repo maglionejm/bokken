@@ -71,6 +71,46 @@ def test_part_a_claims_have_receipts_resolvable_in_part_c(dojo_session: Path) ->
             assert model.resolves(ref)
 
 
+def append_disputed_capability(session_dir: Path) -> None:
+    """One ungrounded capability the founder disputed, appended post-run."""
+    from bokken.journal.schema import Actor
+    from bokken.journal.store import JournalStore
+
+    with JournalStore.open(session_dir) as store:
+        disputed = store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=Actor(kind="agent", name="code-explorer"),
+            payload={
+                "kind": "current_capability",
+                "statement": "exports a CSV: the app on demand -> a file downloads",
+                "ungrounded": True,
+                "ratified": False,
+            },
+        )
+        store.append(
+            type="evidence.captured",
+            stage="empathize",
+            actor=Actor(kind="human", name="founder"),
+            payload={
+                "content": "the CSV export was removed last quarter",
+                "source": "founder ratification of the capability map",
+                "confidence_class": "reported",
+            },
+            refs=[disputed.id],
+        )
+
+
+def test_part_a_lists_current_capabilities_with_flags(dojo_session: Path) -> None:
+    append_disputed_capability(dojo_session)
+    md_path, _, _ = generate(dojo_session)
+    markdown = md_path.read_text()
+    assert "What the product does today" in markdown
+    assert "record a note" in markdown  # a cited capability from the run itself
+    assert "(disputed by founder)" in markdown
+    assert "(ungrounded)" in markdown
+
+
 def test_dojo_banner_and_synthetic_labeling(dojo_session: Path) -> None:
     md_path, json_path, _ = generate(dojo_session)
     markdown = md_path.read_text()

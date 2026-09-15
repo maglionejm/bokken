@@ -6,6 +6,17 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
+### Added
+- Exploration mining v2, adapted from build-software-with-style's
+  legacy-reengineering template: capability citations journal the quoted
+  span they point at; founder mode ratifies the capability map
+  (confirm/dispute/skip, disputes become reported human evidence and reach
+  the feature-inventory prompts); the map and a cited domain glossary render
+  in the report ("What the product does today") and dossier; glossary terms
+  thread into Define and the handoff; `bokken costs` gains an
+  exploration/research/synthesis rollup. Ratification is resume-idempotent
+  over MCP with stable question ids; ungrounded terms never thread as cited.
+
 ### Fixed
 - Team review cycle (23 verified findings across three parallel reviewers):
   demo sessions stay offline across CLI and MCP resumes so the $0.00 claim

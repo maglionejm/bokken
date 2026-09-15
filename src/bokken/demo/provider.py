@@ -387,7 +387,27 @@ class DemoProvider:
                         outcome="an 89-euro unlimited pass banner",
                         citations=cite,
                     ),
-                ]
+                ],
+                glossary=[
+                    s.DomainTerm(
+                        term="ventana",
+                        meaning="the +/-6-minute pickup window promised at 21:00 - "
+                        "the product's core covenant",
+                        citations=cite,
+                    ),
+                    s.DomainTerm(
+                        term="pass mensual",
+                        meaning="the 89-euro unlimited monthly pass the app "
+                        "promotes on every visit",
+                        citations=cite,
+                    ),
+                    s.DomainTerm(
+                        term="ruta optimizada",
+                        meaning="the nightly re-optimized route that can move a "
+                        "pickup point after the promise",
+                        citations=cite,
+                    ),
+                ],
             )
         if prompt_id == "empathize/feature_inventory":
             return s.FeatureInventory(

@@ -76,6 +76,11 @@ class InsightNode(BaseModel):
     # interpretations; None on other kinds and on legacy journals.
     score: float | None = None
     band: str | None = None
+    # Code-exploration bookkeeping (current_capability / domain_term):
+    # validated corpus citations with their quotes, and the founder's
+    # ratification verdict (True confirmed, False disputed, None never asked).
+    citations: list[dict[str, Any]] = Field(default_factory=list)
+    ratified: bool | None = None
 
 
 class OptionNodeModel(BaseModel):
@@ -290,6 +295,8 @@ def build_model(session_dir: Path) -> DossierModel:
                 synthetic=synthetic or derived.ungrounded,
                 score=float(score) if score is not None else None,
                 band=event.extension("band"),
+                citations=event.extension("citations") or [],
+                ratified=event.extension("ratified"),
             )
         elif event.type == "decision.recorded":
             recorded = event.payload_as(DecisionRecorded)

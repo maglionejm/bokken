@@ -123,13 +123,20 @@ visible in the journaled config/brief snapshot.
 replayed `model.called` events: one row per stage x prompt_id x routing
 class with calls, input, output, and cache-read tokens, a list-price
 estimate labeled as such, per-model subtotals with cache hit-rate, and the
-run total. The report SHALL also carry grounding health folded from the same
+run total. The report SHALL also carry a three-line functional rollup
+aggregated from those same rows by prompt-id prefix — exploration
+(understanding the product: `explore/`, `sidekick/`, the feature inventory
+and UI walkthrough calls), research (learning from people: persona,
+interview, follow-up and outcome calls, `research/`, `validate/`), and
+synthesis (everything else) — whose three subtotals sum to the run total.
+The report SHALL also carry grounding health folded from the same
 journal: persona turns, how many of them abstained, and how many of those
 abstentions the grounding backstop forced because a citation did not resolve
 to a corpus span, reported as both a count and a share of persona turns. That
 share SHALL be distinguishable from honest research gaps, so a delegated lane
 made cheaper cannot degrade citation quality invisibly. `--json` SHALL emit the
-same data as one JSON document.
+same data as one JSON document, and the MCP `cost_report` payload SHALL carry
+the same rollup.
 
 #### Scenario: Costs from the terminal
 
@@ -147,6 +154,11 @@ same data as one JSON document.
 - **WHEN** a session containing a cache-heavy call is priced by the cost
   report and by the exported report's model usage lines
 - **THEN** both quote the same total for that session
+
+#### Scenario: The functional rollup sums to the total
+
+- **WHEN** `bokken costs <name> --json` runs on a session with exploration, persona, and synthesis calls
+- **THEN** the payload carries exploration/research/synthesis subtotals that sum to the run total
 
 ### Requirement: Validate verb
 

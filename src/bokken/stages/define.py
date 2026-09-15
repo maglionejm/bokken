@@ -8,6 +8,7 @@ from bokken.panel import requires_real_validation
 from bokken.stages.base import (
     RouterFactory,
     evidence_lines,
+    glossary_text,
     open_stage,
     opportunities_text,
     structured,
@@ -27,6 +28,7 @@ class DefineEngine:
             method="cluster evidence into insights, reframe, select one problem statement",
             exit_bar="an evidence-linked problem statement is selected with rationale",
         )
+        state = replay(ctx.store.events())
         clusters = structured(
             router,
             "cognition",
@@ -36,7 +38,8 @@ class DefineEngine:
             params={
                 "problem_space": ctx.state.brief.get("problem_space", ""),
                 "evidence": evidence_lines(ctx.store),
-                "opportunities": opportunities_text(replay(ctx.store.events())),
+                "opportunities": opportunities_text(state),
+                "glossary": glossary_text(state),
             },
         )
         if clusters is None:

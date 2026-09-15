@@ -73,7 +73,19 @@ class ScriptedProvider:
                         outcome="notes upload; failures are counted",
                         citations=cite,
                     ),
-                ]
+                ],
+                glossary=[
+                    s.DomainTerm(
+                        term="sync window",
+                        meaning="the connectivity moment when queued notes upload",
+                        citations=cite,
+                    ),
+                    s.DomainTerm(
+                        term="field note",
+                        meaning="a technician's on-site record, kept locally first",
+                        citations=cite,
+                    ),
+                ],
             )
         if prompt_id == "intake/product_facts":
             return s.ProductFacts(
@@ -426,6 +438,18 @@ class ScriptedProvider:
                 ],
             )
         raise AssertionError(f"ScriptedProvider has no handler for {prompt_id}")
+
+
+class PromptCapture(ScriptedProvider):
+    """Keeps the last rendered prompt per prompt_id, for threading assertions."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rendered: dict[str, str] = {}
+
+    def complete(self, **kwargs):
+        self.rendered[kwargs["prompt_id"]] = kwargs["rendered"]
+        return super().complete(**kwargs)
 
 
 # What each routed model gets re-served on, same provider. `claude-fable-5` ->

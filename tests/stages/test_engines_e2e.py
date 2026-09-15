@@ -223,8 +223,11 @@ def test_agent_provenance_names_the_model_that_answered(tmp_path: Path) -> None:
 
 
 class FounderPort:
-    def __init__(self) -> None:
+    def __init__(self, ratifications: list[str] | None = None) -> None:
+        # Ratification prompts come first: founder-mode exploration puts each
+        # mapped capability to the founder before the interviews start.
         self.script = [
+            *(ratifications or []),
             "arrivals were unpredictable so I quit",  # empathize answer
             "",  # ideate: no extra founder option
             "1",  # ideate: pick option 1
@@ -259,7 +262,8 @@ def test_founder_run_with_repo_maps_current_capabilities(tmp_path: Path) -> None
     """Mode parity: a declared corpus grounds a founder run exactly as a dojo one."""
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session("founder-repo-e2e", brief=brief, mode="founder")
-    result = make_runner(session_dir, ScriptedProvider(), input_port=FounderPort()).run()
+    port = FounderPort(ratifications=["c", "d sync retries exist but failures are not counted"])
+    result = make_runner(session_dir, ScriptedProvider(), input_port=port).run()
     assert result.halt == "completed"
 
     events = list(read_events(session_dir))
@@ -270,6 +274,82 @@ def test_founder_run_with_repo_maps_current_capabilities(tmp_path: Path) -> None
     ]
     assert caps, "founder journals carry no current_capability records"
     assert all(e.payload["ungrounded"] is False and e.payload["citations"] for e in caps)
+    # The founder's verdicts landed on the record: one confirm, one dispute.
+    assert [e.payload.get("ratified") for e in caps] == [True, False]
+    dispute = next(
+        e for e in events if e.type == "evidence.captured" and e.refs and e.refs[0] == caps[1].id
+    )
+    assert dispute.actor.kind == "human"
+    assert dispute.payload["confidence_class"] == "reported"
+    assert dispute.payload["content"] == "sync retries exist but failures are not counted"
+
+
+def test_glossary_threads_into_cluster_and_specify(tmp_path: Path) -> None:
+    """The product's own vocabulary, mined once, reaches define and handoff."""
+    from bokken.handoff.generate import generate_handoff
+    from tests.stages.fake_provider import PromptCapture
+
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "glossary-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    provider = PromptCapture()
+    assert make_runner(session_dir, provider).run().halt == "completed"
+    assert "sync window" in provider.rendered["define/cluster"]
+    generate_handoff(session_dir, lambda store: ModelRouter(store, provider))
+    assert "sync window" in provider.rendered["handoff/specify"]
+
+
+def test_ungrounded_glossary_terms_stay_out_of_threaded_prompts(tmp_path: Path) -> None:
+    """define/cluster and handoff/specify frame the glossary as cited from the
+    corpus; a term no code span grounds must not ride under that label."""
+    from bokken.handoff.generate import generate_handoff
+    from bokken.stages import schemas as s
+    from tests.stages.fake_provider import PromptCapture
+
+    class UngroundedGlossaryProvider(PromptCapture):
+        def _dispatch(self, prompt_id, rendered):
+            result = super()._dispatch(prompt_id, rendered)
+            if prompt_id == "explore/capability_map":
+                result.glossary.append(
+                    s.DomainTerm(term="phantom quota", meaning="a term no code grounds")
+                )
+            return result
+
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "ungrounded-glossary-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    provider = UngroundedGlossaryProvider()
+    assert make_runner(session_dir, provider).run().halt == "completed"
+    ungrounded = [
+        e
+        for e in read_events(session_dir)
+        if e.payload.get("kind") == "domain_term" and e.payload["ungrounded"]
+    ]
+    assert ungrounded, "the ungrounded term never reached the journal"
+    assert "sync window" in provider.rendered["define/cluster"]
+    assert "phantom quota" not in provider.rendered["define/cluster"]
+    generate_handoff(session_dir, lambda store: ModelRouter(store, provider))
+    assert "sync window" in provider.rendered["handoff/specify"]
+    assert "phantom quota" not in provider.rendered["handoff/specify"]
+
+
+def test_missing_glossary_renders_an_honest_placeholder(tmp_path: Path) -> None:
+    from tests.stages.fake_provider import PromptCapture
+
+    session_dir = create_session("no-glossary-e2e", brief=BRIEF, mode="founder")
+    provider = PromptCapture()
+    assert make_runner(session_dir, provider, input_port=FounderPort()).run().halt == "completed"
+    assert "(no glossary)" in provider.rendered["define/cluster"]
 
 
 def test_exploration_budget_exhaustion_stops_the_run_before_the_panel(tmp_path: Path) -> None:
