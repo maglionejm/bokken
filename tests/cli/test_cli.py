@@ -264,6 +264,20 @@ def test_costs_verb_reports_journaled_spend(tmp_path, monkeypatch):
     assert grounding["persona_turns"] > 0
     assert grounding["citation_invalid_abstentions"] == 0
     assert grounding["citation_invalid_rate"] == 0.0
+    # Functional rollup: where the money went, in three honest buckets.
+    rollup = payload["rollup"]
+    assert set(rollup) == {"exploration", "research", "synthesis"}
+    assert all(v > 0 for v in rollup.values())
+    assert abs(sum(rollup.values()) - total) < 0.01
+    # The MCP cost_report payload carries the same rollup (one pricing path).
+    from bokken.mcp.server import cost_report
+
+    assert cost_report("costs-e2e")["rollup"] == rollup
+    # The terminal rendering prints the three-line rollup.
+    plain = runner.invoke(app, ["costs", "costs-e2e"])
+    assert plain.exit_code == 0
+    for bucket in ("exploration", "research", "synthesis"):
+        assert bucket in plain.stdout
 
 
 def test_run_prints_cost_framing_and_receipt(brief_file: Path) -> None:

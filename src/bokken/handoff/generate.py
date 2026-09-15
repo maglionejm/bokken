@@ -98,9 +98,11 @@ def _prompt_params(model: DossierModel, ctx: HandoffContext) -> dict[str, str]:
         lines = [f"{i}. {a.statement}" for i, a in enumerate(assumptions) if a.score in scores]
         return "\n".join(lines) or "(none)"
 
+    terms = [i for i in model.insights.values() if i.kind == "domain_term"]
     return {
         "problem_statement": ctx.problem_statement or "(not recorded)",
         "concept": ctx.concept,
+        "glossary": "\n".join(f"- {t.statement}" for t in terms) or "(no glossary)",
         "supported": listed(("supported",)),
         "untested": listed((None, "untested")),
         "contradicted": listed(("contradicted",)),

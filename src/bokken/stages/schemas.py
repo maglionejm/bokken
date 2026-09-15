@@ -236,5 +236,14 @@ class CurrentCapability(BaseModel):
     citations: list[Citation] = Field(default_factory=list, max_length=4)
 
 
+class DomainTerm(BaseModel):
+    """One term of the product's own vocabulary, cited to the corpus."""
+
+    term: str
+    meaning: str
+    citations: list[Citation] = Field(default_factory=list, max_length=4)
+
+
 class CapabilityMap(BaseModel):
     capabilities: list[CurrentCapability] = Field(min_length=1, max_length=10)
+    glossary: list[DomainTerm] = Field(default_factory=list, max_length=10)

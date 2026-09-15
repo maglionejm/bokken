@@ -84,7 +84,11 @@ class EmpathizeEngine:
             if ctx.state.brief.get("inputs"):
                 corpus = self._corpus(ctx)
                 journal_rejected_inputs(ctx.store, corpus, stage="empathize")
-                capabilities = run_code_exploration(corpus, ctx.store, router)
+                # The founder ratifies the machine's reading of their own code:
+                # confirm / dispute / skip, per capability, on the record.
+                capabilities = run_code_exploration(
+                    corpus, ctx.store, router, input_port=ctx.input_port
+                )
                 if capabilities is None:
                     return None
                 capabilities_text = capabilities

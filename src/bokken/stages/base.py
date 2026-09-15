@@ -91,6 +91,14 @@ def opportunities_text(state) -> str:
     return "\n".join(f"- {r.statement}" for r in records)
 
 
+def glossary_text(state) -> str:
+    """The cited domain terms journaled by exploration, as prompt-ready lines."""
+    terms = [i for i in state.insights.values() if i.kind == "domain_term"]
+    if not terms:
+        return "(no glossary)"
+    return "\n".join(f"- {t.statement}" for t in terms)
+
+
 def evidence_lines(store: JournalStore) -> str:
     """Render captured evidence as '- id: content' lines for clustering prompts."""
     lines = []

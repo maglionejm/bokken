@@ -358,7 +358,7 @@ def test_single_call_prompts_declare_no_cache_split() -> None:
     from bokken.models.prompts import CACHE_SPLIT, PROMPTS
 
     version, template = PROMPTS["explore/capability_map"]
-    assert version == "v2"
+    assert version == "v3"
     assert CACHE_SPLIT not in template
 
 
