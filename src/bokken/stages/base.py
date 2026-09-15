@@ -92,8 +92,12 @@ def opportunities_text(state) -> str:
 
 
 def glossary_text(state) -> str:
-    """The cited domain terms journaled by exploration, as prompt-ready lines."""
-    terms = [i for i in state.insights.values() if i.kind == "domain_term"]
+    """The cited domain terms journaled by exploration, as prompt-ready lines.
+
+    Ungrounded terms stay out: prompts frame this glossary as cited from the
+    product's own corpus, and a term no code span grounds must not ride under
+    that label."""
+    terms = [i for i in state.insights.values() if i.kind == "domain_term" and not i.ungrounded]
     if not terms:
         return "(no glossary)"
     return "\n".join(f"- {t.statement}" for t in terms)

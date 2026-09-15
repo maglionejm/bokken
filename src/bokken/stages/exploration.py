@@ -8,8 +8,15 @@ behavior is registered as typed, cited findings before anyone is interviewed
 
 from __future__ import annotations
 
+from click.exceptions import Abort
+
 from bokken.stages.base import structured
 from bokken.stages.schemas import CapabilityMap
+
+# A founder closing the terminal (Ctrl-D) mid-ratification means "skip the
+# rest", never a dead run: typer surfaces EOF as click's Abort, a plain
+# input()-backed port as EOFError.
+WALKAWAY_ERRORS = (EOFError, Abort)
 
 # The capability map is a single uncached call per session (no loop ever reads
 # its prefix back), so the whole corpus rides as fresh input at full price: cap
@@ -58,11 +65,53 @@ def _ask_ratification(input_port, statement: str):
     if token in ("d", "dispute"):
         correction = rest.strip().lstrip(":,-").strip()
         if not correction:
-            answer = input_port.ask("What does the product actually do instead?")
+            # The statement rides in the follow-up so a mailbox port keys the
+            # ask to its capability: one shared text would give every dispute
+            # the same question id, and a stale answer could be consumed by
+            # the wrong capability as its founder correction.
+            answer = input_port.ask(
+                f"Disputed: {statement}\nWhat does the product actually do instead?"
+            )
             correction = answer.text.strip()
         if correction:
             return "dispute", correction, answer
     return "skip", "", answer
+
+
+def _render_line(statement: str, *, ungrounded: bool, correction: str = "") -> str:
+    """One prompt-ready capability line; a founder dispute travels with it.
+
+    Downstream prompts frame these lines as cited, implemented behavior, so a
+    disputed capability must never read there as a bare statement with the
+    founder's correction absent.
+    """
+    line = f"- {statement}"
+    if correction:
+        line += f" (disputed by founder: {correction})"
+    if ungrounded:
+        line += " (ungrounded)"
+    return line
+
+
+def _journaled_exploration(store) -> tuple[dict[str, dict], dict[str, str]]:
+    """current_capability payloads by event id, plus founder corrections.
+
+    Corrections are the evidence records ref'ing a disputed interpretation -
+    the only evidence that refs a current_capability today.
+    """
+    caps: dict[str, dict] = {}
+    corrections: dict[str, str] = {}
+    for event in store.events():
+        if (
+            event.type == "interpretation.derived"
+            and event.payload.get("kind") == "current_capability"
+        ):
+            caps[event.id] = event.payload
+        elif event.type == "evidence.captured":
+            for ref in event.refs:
+                if caps.get(ref, {}).get("ratified") is False:
+                    corrections[ref] = event.payload["content"]
+    return caps, corrections
 
 
 def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
@@ -78,11 +127,29 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
     founder before it is journaled: a confirmation marks the interpretation
     ``ratified: true``, a dispute marks it ``ratified: false`` and journals
     the correction as evidence ref'ing it, a skip adds nothing. `InputRequired`
-    propagates like every other founder ask.
+    propagates like every other founder ask; EOF (a founder closing the
+    terminal) skips the remaining ratifications instead. A session that
+    already journaled capabilities re-renders them without re-calling the
+    map or re-asking the founder.
     """
     code_ids = corpus.ids_of_kind("code")
     if not code_ids:
         return ""
+    prior, prior_corrections = _journaled_exploration(store)
+    if prior:
+        # Resume idempotency: mailbox answers pop on consumption and a fresh
+        # map call would re-key every ratification question, so a run resumed
+        # after exploration journaled its findings must not re-call the map,
+        # re-ask the founder, or duplicate interpretation events - it renders
+        # what the journal already holds.
+        return "\n".join(
+            _render_line(
+                p["statement"],
+                ungrounded=p["ungrounded"],
+                correction=prior_corrections.get(event_id, ""),
+            )
+            for event_id, p in prior.items()
+        )
     result = structured(
         router,
         "cognition",
@@ -94,6 +161,8 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
     if result is None:
         return None
     lines: list[str] = []
+    journaled: set[str] = {p["statement"] for p in prior.values()}
+    walked_away = False
     for cap in result.data.capabilities:
         # Only code establishes implemented behavior: a resolvable span in a
         # metrics or discussion source still does not ground a capability.
@@ -103,15 +172,26 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
             if corpus.kind_of(c.source_id) == "code" and corpus.validate_citation(c)
         ]
         statement = f"{cap.name}: {cap.actor} {cap.trigger} -> {cap.outcome}"
+        if statement in journaled:
+            # Already on the record (a model may emit one capability twice):
+            # never re-ask the founder or duplicate the interpretation event.
+            continue
         payload = {
             "kind": "current_capability",
             "statement": statement,
             "ungrounded": not valid,
             "citations": quoted_citations(corpus, valid),
         }
-        verdict, correction, answer = (
-            _ask_ratification(input_port, statement) if input_port else ("skip", "", None)
-        )
+        if input_port is None or walked_away:
+            verdict, correction, answer = "skip", "", None
+        else:
+            try:
+                verdict, correction, answer = _ask_ratification(input_port, statement)
+            except WALKAWAY_ERRORS:
+                # The founder walked away: skip the remaining ratifications
+                # (no verdicts journaled) and keep the run alive.
+                walked_away = True
+                verdict, correction, answer = "skip", "", None
         if verdict == "confirm":
             payload["ratified"] = True
         elif verdict == "dispute":
@@ -122,6 +202,7 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
             actor=result.actor("code-explorer"),
             payload=payload,
         )
+        journaled.add(statement)
         if verdict == "dispute":
             store.append(
                 type="evidence.captured",
@@ -134,7 +215,13 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
                 },
                 refs=[event.id],
             )
-        lines.append(f"- {statement}" + ("" if valid else " (ungrounded)"))
+        lines.append(
+            _render_line(
+                statement,
+                ungrounded=not valid,
+                correction=correction if verdict == "dispute" else "",
+            )
+        )
     for term in result.data.glossary:
         # The glossary plays by the capability rules: only a resolvable span in
         # a code source grounds a term, and every kept citation carries a quote.

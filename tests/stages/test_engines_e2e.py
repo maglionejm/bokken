@@ -304,6 +304,45 @@ def test_glossary_threads_into_cluster_and_specify(tmp_path: Path) -> None:
     assert "sync window" in provider.rendered["handoff/specify"]
 
 
+def test_ungrounded_glossary_terms_stay_out_of_threaded_prompts(tmp_path: Path) -> None:
+    """define/cluster and handoff/specify frame the glossary as cited from the
+    corpus; a term no code span grounds must not ride under that label."""
+    from bokken.handoff.generate import generate_handoff
+    from bokken.stages import schemas as s
+    from tests.stages.fake_provider import PromptCapture
+
+    class UngroundedGlossaryProvider(PromptCapture):
+        def _dispatch(self, prompt_id, rendered):
+            result = super()._dispatch(prompt_id, rendered)
+            if prompt_id == "explore/capability_map":
+                result.glossary.append(
+                    s.DomainTerm(term="phantom quota", meaning="a term no code grounds")
+                )
+            return result
+
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+    session_dir = create_session(
+        "ungrounded-glossary-e2e",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    provider = UngroundedGlossaryProvider()
+    assert make_runner(session_dir, provider).run().halt == "completed"
+    ungrounded = [
+        e
+        for e in read_events(session_dir)
+        if e.payload.get("kind") == "domain_term" and e.payload["ungrounded"]
+    ]
+    assert ungrounded, "the ungrounded term never reached the journal"
+    assert "sync window" in provider.rendered["define/cluster"]
+    assert "phantom quota" not in provider.rendered["define/cluster"]
+    generate_handoff(session_dir, lambda store: ModelRouter(store, provider))
+    assert "sync window" in provider.rendered["handoff/specify"]
+    assert "phantom quota" not in provider.rendered["handoff/specify"]
+
+
 def test_missing_glossary_renders_an_honest_placeholder(tmp_path: Path) -> None:
     from tests.stages.fake_provider import PromptCapture
 
