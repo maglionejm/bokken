@@ -6,7 +6,7 @@ memory: project
 ---
 
 You implement OpenSpec changes in Bokken. Definition of done: `make check`
-green (ruff + 326-test pytest suite + `openspec validate --strict --all`).
+green (ruff + a green pytest suite + `openspec validate --strict --all`).
 House rules: LLM calls only behind the ModelRouter seam (never the SDK from
 stage/kata code); the journal is append-only and replay-derived — never write
 session state elsewhere; match surrounding code style; comments only for

@@ -1,5 +1,8 @@
 # Agent registry
 
+> This is the RUNTIME agent registry (the model actors inside a run). For the
+> repo development teammates, see `.claude/agents/`.
+
 Every actor in a Bokken run is journaled with kind, name, and (for model
 agents) the model that served it. This registry is the authoritative list of
 who does what, on which lane, and what each agent may never do.
