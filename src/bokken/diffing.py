@@ -89,23 +89,37 @@ def _insight_confidence(node: InsightNode) -> str:
     return "simulated" if node.synthetic else "grounded"
 
 
-def _run_confidence(model: DossierModel) -> str:
-    """A whole-run honesty label, copied from the model, for rows that summarize
-    material without a per-insight confidence class (assumptions, the verdict).
+def _verdict_confidence(model: DossierModel) -> str:
+    """Honesty class for the recommendation verdict, keyed off the SOURCE
+    decision record's own provenance — never the run mode.
 
-    A dojo run is synthetic throughout; a founder run reads as real testimony.
+    The verdict is `simulated` when the decision record flags
+    `requires_real_validation` (simulated material fed it) OR its authoring
+    actor is non-human (a model call decided it, as in a founder run where the
+    facilitator authors the recommendation). Only a genuinely human-authored,
+    real-validation verdict reads `reported`. A run without a verdict has no
+    grounded decision to report, so it stays `simulated`.
     """
-    return "simulated" if model.dojo_banner else "reported"
+    decision = model.recommendation
+    if decision is None:
+        return "simulated"
+    if decision.requires_real_validation or decision.actor_kind != "human":
+        return "simulated"
+    return "reported"
 
 
 def _opportunities(model: DossierModel) -> dict[str, InsightNode]:
-    # Keyed by statement: the diff matches Ulwick outcomes across runs by their
-    # statement text, as the spec requires. Later insertions win a duplicate.
-    return {i.statement: i for i in model.insights.values() if i.kind == "opportunity"}
+    # Keyed by (stripped) statement text: the diff matches Ulwick outcomes across
+    # runs by their statement, as the spec requires — surrounding whitespace does
+    # not make two identical statements read as an add+drop. Statements are still
+    # displayed verbatim (never case-folded). Later insertions win a duplicate.
+    return {i.statement.strip(): i for i in model.insights.values() if i.kind == "opportunity"}
 
 
 def _capabilities(model: DossierModel) -> dict[str, InsightNode]:
-    return {i.statement: i for i in model.insights.values() if i.kind == "current_capability"}
+    return {
+        i.statement.strip(): i for i in model.insights.values() if i.kind == "current_capability"
+    }
 
 
 def _verdict(model: DossierModel) -> str | None:
@@ -125,7 +139,7 @@ def _diff_opportunities(old: DossierModel, new: DossierModel) -> list[Opportunit
             rows.append(
                 OpportunityDelta(
                     run="both",
-                    statement=statement,
+                    statement=new_node.statement,  # displayed verbatim; matched on stripped key
                     # A "both" row summarizes the new run's material; carry its
                     # class unchanged. (It is synthetic iff both are.)
                     confidence_class=_insight_confidence(new_node),
@@ -140,7 +154,7 @@ def _diff_opportunities(old: DossierModel, new: DossierModel) -> list[Opportunit
             rows.append(
                 OpportunityDelta(
                     run="new",
-                    statement=statement,
+                    statement=new_node.statement,
                     confidence_class=_insight_confidence(new_node),
                     new_score=new_node.score,
                     new_band=new_node.band,
@@ -151,7 +165,7 @@ def _diff_opportunities(old: DossierModel, new: DossierModel) -> list[Opportunit
             rows.append(
                 OpportunityDelta(
                     run="old",
-                    statement=statement,
+                    statement=old_node.statement,
                     confidence_class=_insight_confidence(old_node),
                     old_score=old_node.score,
                     old_band=old_node.band,
@@ -161,21 +175,23 @@ def _diff_opportunities(old: DossierModel, new: DossierModel) -> list[Opportunit
 
 
 def _diff_assumptions(old: DossierModel, new: DossierModel) -> list[AssumptionFlip]:
-    old_by = {a.statement: a for a in old.assumptions.values()}
-    new_by = {a.statement: a for a in new.assumptions.values()}
-    old_conf = _run_confidence(old)
-    new_conf = _run_confidence(new)
+    # Match by (stripped) statement text; each row's honesty class is copied from
+    # the assumption's own scoring provenance (model.confidence_class), never a
+    # blanket run label. See _assumption_confidence in dossier/model.py.
+    old_by = {a.statement.strip(): a for a in old.assumptions.values()}
+    new_by = {a.statement.strip(): a for a in new.assumptions.values()}
     rows: list[AssumptionFlip] = []
     for statement, new_a in new_by.items():
         if statement in old_by:
             old_a = old_by[statement]
             if (old_a.score or "untested") != (new_a.score or "untested"):
                 # Only score changes are flips; an unchanged assumption is silent.
+                # A "both" row summarizes the new run's scoring; carry its class.
                 rows.append(
                     AssumptionFlip(
                         run="both",
-                        statement=statement,
-                        confidence_class=new_conf,
+                        statement=new_a.statement,
+                        confidence_class=new_a.confidence_class,
                         old_score=old_a.score or "untested",
                         new_score=new_a.score or "untested",
                     )
@@ -184,8 +200,8 @@ def _diff_assumptions(old: DossierModel, new: DossierModel) -> list[AssumptionFl
             rows.append(
                 AssumptionFlip(
                     run="new",
-                    statement=statement,
-                    confidence_class=new_conf,
+                    statement=new_a.statement,
+                    confidence_class=new_a.confidence_class,
                     new_score=new_a.score or "untested",
                 )
             )
@@ -194,8 +210,8 @@ def _diff_assumptions(old: DossierModel, new: DossierModel) -> list[AssumptionFl
             rows.append(
                 AssumptionFlip(
                     run="old",
-                    statement=statement,
-                    confidence_class=old_conf,
+                    statement=old_a.statement,
+                    confidence_class=old_a.confidence_class,
                     old_score=old_a.score or "untested",
                 )
             )
@@ -211,7 +227,7 @@ def _diff_capabilities(old: DossierModel, new: DossierModel) -> list[CapabilityC
             rows.append(
                 CapabilityChange(
                     run="new",
-                    statement=statement,
+                    statement=new_node.statement,  # displayed verbatim; matched on stripped key
                     confidence_class=_insight_confidence(new_node),
                     change="added",
                 )
@@ -222,7 +238,7 @@ def _diff_capabilities(old: DossierModel, new: DossierModel) -> list[CapabilityC
             rows.append(
                 CapabilityChange(
                     run="both",
-                    statement=statement,
+                    statement=new_node.statement,
                     confidence_class=_insight_confidence(new_node),
                     change="changed",
                 )
@@ -232,7 +248,7 @@ def _diff_capabilities(old: DossierModel, new: DossierModel) -> list[CapabilityC
             rows.append(
                 CapabilityChange(
                     run="old",
-                    statement=statement,
+                    statement=old_node.statement,
                     confidence_class=_insight_confidence(old_node),
                     change="removed",
                 )
@@ -277,8 +293,8 @@ def diff_sessions(old_dir: Path, new_dir: Path) -> DiffData:
         old_verdict=old_verdict,
         new_verdict=new_verdict,
         changed=old_verdict != new_verdict,
-        old_confidence_class=_run_confidence(old),
-        new_confidence_class=_run_confidence(new),
+        old_confidence_class=_verdict_confidence(old),
+        new_confidence_class=_verdict_confidence(new),
     )
 
     return DiffData(

@@ -742,8 +742,9 @@ def diff(
 
     Pure derivation - no model calls. Reports Ulwick opportunity re-ranking,
     assumptions that flipped status, current-capability changes, and the verdict
-    change. Refuses (exit 2) if either run is unfinalized or they differ in
-    product."""
+    change. Statements are matched across runs by their (whitespace-stripped)
+    text, so a reworded statement reads as an add plus a drop, not a change.
+    Refuses (exit 2) if either run is unfinalized or they differ in product."""
     from bokken.diffing import DiffRefused, diff_sessions
 
     old_dir = resolve_session_dir(old)

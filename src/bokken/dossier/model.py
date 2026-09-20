@@ -104,6 +104,11 @@ class DecisionNode(BaseModel):
     dissent: list[dict[str, Any]]
     requires_real_validation: bool
     actor: str
+    # `human` when a person authored the decision; `agent`/`system` when a model
+    # or the harness did. Carried so downstream consumers can tell a
+    # model-authored verdict (simulated) from human-ratified testimony without
+    # re-deriving from run mode.
+    actor_kind: str
 
 
 class AssumptionNode(BaseModel):
@@ -112,6 +117,10 @@ class AssumptionNode(BaseModel):
     impact: str
     uncertainty: str
     score: str | None
+    # Honesty class derived from the evidence that justified the score, not from
+    # run mode: `simulated` when grounded only in simulated/assumed material (or
+    # unscored), else the realest grounded class (`observed`/`reported`).
+    confidence_class: str
 
 
 class ArtifactNode(BaseModel):
@@ -227,6 +236,26 @@ class DossierModel(BaseModel):
 
 _STAGE_ORDER = ["intake", "empathize", "define", "ideate", "prototype", "test", "complete"]
 
+# Realest-first: an assumption's honesty class is the strongest grounding among
+# the evidence that justified its score.
+_CONFIDENCE_ORDER = ["observed", "reported", "assumed", "simulated"]
+
+
+def _assumption_confidence(score_refs: list[str], evidence: dict[str, EvidenceNode]) -> str:
+    """Honesty class for an assumption, derived from its scoring evidence.
+
+    Keys off the SOURCE records (the evidence that justified the score), never
+    run mode: an assumption scored on real human testimony reads `reported`/
+    `observed`; one scored only on simulated/assumed material — or never scored
+    against real evidence at all — stays `simulated`. This is the same
+    propagation the model applies to insights, so nothing is laundered.
+    """
+    classes = [evidence[r].confidence_class for r in score_refs if r in evidence]
+    for level in _CONFIDENCE_ORDER:
+        if level in classes:
+            return level
+    return "simulated"
+
 
 def build_model(session_dir: Path) -> DossierModel:
     events = list(read_events(session_dir))
@@ -311,6 +340,7 @@ def build_model(session_dir: Path) -> DossierModel:
                 dissent=[reservation.model_dump() for reservation in recorded.dissent],
                 requires_real_validation=recorded.requires_real_validation,
                 actor=event.actor.name,
+                actor_kind=event.actor.kind,
             )
         elif event.type == "facilitation.move_executed":
             executed = event.payload_as(MoveExecuted)
@@ -414,6 +444,7 @@ def build_model(session_dir: Path) -> DossierModel:
             impact=a.impact,
             uncertainty=a.uncertainty,
             score=a.score,
+            confidence_class=_assumption_confidence(a.score_refs, evidence),
         )
         for a in state.assumptions.values()
     }

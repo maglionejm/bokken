@@ -91,11 +91,17 @@ def _assumption(store: JournalStore, statement: str, score: str | None = None):
     return reg
 
 
-def _verdict(store: JournalStore, resolution: str):
+def _verdict(
+    store: JournalStore,
+    resolution: str,
+    *,
+    actor: Actor = FACILITATOR,
+    requires_real_validation: bool = False,
+):
     store.append(
         type="decision.recorded",
         stage="test",
-        actor=FACILITATOR,
+        actor=actor,
         payload={
             "question": "kill, iterate, or proceed",
             "options": ["kill", "iterate", "proceed"],
@@ -103,6 +109,7 @@ def _verdict(store: JournalStore, resolution: str):
             "positions": [],
             "resolution": resolution,
             "dissent": [],
+            "requires_real_validation": requires_real_validation,
         },
     )
 
@@ -312,12 +319,16 @@ def test_dojo_rows_stay_synthetic_founder_reads_real(tmp_path: Path) -> None:
     assert all(a.confidence_class == "simulated" for a in dojo.assumptions)
     assert dojo.verdict.old_confidence_class == "simulated"
 
-    # A founder run reading real testimony is not laundered into synthetic.
+    # A founder run reading real testimony is not laundered into synthetic:
+    # a human-authored verdict with no simulated backing reads `reported`, and
+    # an assumption scored on real (reported) testimony reads `reported` too.
+    founder_actor = Actor(kind="human", name="founder")
+
     def founder_pop(store):
         ev = store.append(
             type="evidence.captured",
             stage="test",
-            actor=Actor(kind="human", name="founder"),
+            actor=founder_actor,
             payload={
                 "content": "we validated pre-booking with 12 riders",
                 "source": "validation interview",
@@ -328,17 +339,93 @@ def test_dojo_rows_stay_synthetic_founder_reads_real(tmp_path: Path) -> None:
         store.append(
             type="assumption.scored",
             stage="test",
-            actor=Actor(kind="human", name="founder"),
+            actor=founder_actor,
             payload={"score": "supported"},
             refs=[ev.id],
         )
-        _verdict(store, "proceed")
+        _verdict(store, "proceed", actor=founder_actor)
 
     f_old = _build("fon-old", brief=brief, mode="founder", populate=founder_pop)
     f_new = _build("fon-new", brief=brief, mode="founder", populate=founder_pop)
     founder = diff_sessions(f_old, f_new)
     assert founder.verdict.old_confidence_class == "reported"
     assert all(a.confidence_class == "reported" for a in founder.assumptions)
+
+
+def test_founder_model_authored_verdict_reads_simulated_not_reported(tmp_path: Path) -> None:
+    # Regression: a FOUNDER run whose verdict was authored by a model call (the
+    # facilitator) — or backed by simulated material — must NOT be laundered into
+    # `reported` just because the run isn't dojo. The honesty class comes from the
+    # source decision record's provenance (actor kind / requires_real_validation),
+    # and the same for an assumption scored on simulated evidence.
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+
+    def _sim_scored(store, statement, score):
+        # An assumption scored against simulated (persona) evidence -> simulated.
+        sim = _evidence(store, f"personas think {statement}", "simulated")
+        reg = store.append(
+            type="assumption.registered",
+            stage="prototype",
+            actor=FACILITATOR,
+            payload={"statement": statement, "impact": "high", "uncertainty": "high"},
+        )
+        store.append(
+            type="assumption.scored",
+            stage="test",
+            actor=FACILITATOR,
+            payload={"score": score},
+            refs=[reg.id, sim.id],
+        )
+
+    def founder_pop(store):
+        _sim_scored(store, "riders will pre-book", "untested")
+        # Verdict authored by the facilitator (a model call): model-authored.
+        _verdict(store, "proceed", actor=FACILITATOR, requires_real_validation=True)
+
+    def founder_pop_new(store):
+        _sim_scored(store, "riders will pre-book", "supported")  # flip -> a "both" row
+        _verdict(store, "kill", actor=FACILITATOR, requires_real_validation=True)
+
+    data = diff_sessions(
+        _build("mv-old", brief=brief, mode="founder", populate=founder_pop),
+        _build("mv-new", brief=brief, mode="founder", populate=founder_pop_new),
+    )
+
+    # In the DiffData (the table's source): verdict + the simulated-backed
+    # assumption both read simulated, never reported.
+    assert data.verdict is not None
+    assert data.verdict.old_confidence_class == "simulated"
+    assert data.verdict.new_confidence_class == "simulated"
+    by_statement = {a.statement: a for a in data.assumptions}
+    assert by_statement["riders will pre-book"].confidence_class == "simulated"
+
+    # And through the --json contract, unchanged.
+    result = diff_result(data)
+    assert result.verdict is not None
+    assert result.verdict.old_confidence_class == "simulated"
+    assert result.verdict.new_confidence_class == "simulated"
+    assert all(a.confidence_class == "simulated" for a in result.assumptions)
+
+
+def test_reworded_statement_whitespace_is_a_change_not_add_drop(tmp_path: Path) -> None:
+    # Low-severity hardening: surrounding whitespace must not turn one statement
+    # into a false add+drop. Matching strips (never case-folds) the key.
+    brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
+
+    def old(store):
+        _assumption(store, "riders will pre-book", "untested")
+
+    def new(store):
+        _assumption(store, "  riders will pre-book  ", "supported")  # same, padded
+
+    data = diff_sessions(
+        _build("ws-old", brief=brief, populate=old),
+        _build("ws-new", brief=brief, populate=new),
+    )
+    runs = sorted(a.run for a in data.assumptions)
+    assert runs == ["both"]  # one flip row, not a "new" + "old" pair
+    assert data.assumptions[0].old_score == "untested"
+    assert data.assumptions[0].new_score == "supported"
 
 
 # --- 2.1 contract round-trip ------------------------------------------------
