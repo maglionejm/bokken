@@ -1,12 +1,14 @@
 """Ideate hardening: founder pick validation, vote resolution, novelty floor."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from bokken.journal import GENESIS_HASH, new_event, read_events, replay
+from bokken.journal import GENESIS_HASH, new_event, read_events, replay, resolve_session_dir
 from bokken.orchestrator import Answer, create_session
 from bokken.stages.base import FOUNDER
+from bokken.stages.exploration import CODE_CONTEXT_CAP_CHARS
 from bokken.stages.ideate import IdeateEngine, novelty_floor
 from tests.journal.conftest import AGENT
 from tests.stages.fake_provider import ScriptedProvider
@@ -41,9 +43,6 @@ def _option(seq: int, prev_hash: str, summary: str):
 
 def test_feasibility_code_context_is_capped(tmp_path: Path) -> None:
     """The corpus rides uncached in the feasibility lens: it must stay bounded."""
-    from types import SimpleNamespace
-
-    from bokken.stages.exploration import CODE_CONTEXT_CAP_CHARS
 
     repo = tmp_path / "app"
     (repo / "src").mkdir(parents=True)
@@ -98,7 +97,6 @@ def test_founder_pick_reasks_on_invalid_input() -> None:
 
 
 def test_founder_pick_falls_back_explicitly_after_three_invalid_answers() -> None:
-    from bokken.journal import resolve_session_dir
 
     decision = _founder_run("pick-fallback", ["0", "x", "99"])
     assert decision.resolution == "facilitator option 1"

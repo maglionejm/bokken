@@ -1,16 +1,22 @@
 """Validation interviews: guide, honest labels, bounded loop, rescoring."""
 
+import sys
+import types
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from bokken.interview import build_guide, run_validation_interview
-from bokken.interview.channels import Consent, ConsentNotGranted, TerminalChannel
+from bokken.interview.channels import Consent, ConsentNotGranted, TerminalChannel, TwilioChannel
 from bokken.interview.engine import REFUSAL
 from bokken.interview.guide import Guide, journal_guide
 from bokken.journal import Actor, read_events
 from bokken.journal.store import JournalStore
 from bokken.models import ModelRouter
+from bokken.models.router import ModelOutcome
+from bokken.orchestrator import create_session
+from bokken.stages.schemas import InterviewerTurn
 from tests.stages.fake_provider import ScriptedProvider
 from tests.stages.test_engines_e2e import BRIEF, make_inputs, make_runner
 
@@ -62,7 +68,6 @@ def bare_store(tmp_path: Path):
 
 
 def test_guide_interview_and_rescoring(tmp_path):
-    from bokken.orchestrator import create_session
 
     session_dir = create_session(
         "validate-e2e",
@@ -125,7 +130,6 @@ class FailingRouter:
     """Every interviewer turn fails: the model is down mid-interview."""
 
     def invoke(self, *args, **kwargs):
-        from bokken.models.router import ModelOutcome
 
         return ModelOutcome(status="error", detail="provider capacity")
 
@@ -150,8 +154,6 @@ class BlankQuestionRouter:
     """The interviewer keeps choosing ask, but produces no question text."""
 
     def invoke(self, *args, **kwargs):
-        from bokken.models.router import ModelOutcome
-        from bokken.stages.schemas import InterviewerTurn
 
         return ModelOutcome(
             status="ok",
@@ -181,9 +183,6 @@ def test_blank_question_aborts_instead_of_sending_nothing(bare_store):
 def _fake_twilio(monkeypatch, inbound: list[str]) -> list[str]:
     """Install a fake twilio SDK. `inbound` is what the number replies, in order
     (empty = the number never replies). Returns the list of outbound bodies."""
-    import sys
-    import types
-    from datetime import UTC, datetime, timedelta
 
     sent: list[str] = []
     queue = list(inbound)
@@ -217,7 +216,6 @@ def _fake_twilio(monkeypatch, inbound: list[str]) -> list[str]:
 
 
 def _twilio_channel(silent: bool = False):
-    from bokken.interview.channels import TwilioChannel
 
     channel = TwilioChannel("+34600000000")
     channel.POLL_SECONDS = 0
@@ -259,8 +257,6 @@ def test_twilio_consent_is_affirmative_or_nothing(monkeypatch, inbound, outcome)
 
 
 def test_twilio_receive_joins_all_fresh_messages_oldest_first(monkeypatch):
-    import types
-    from datetime import UTC, datetime, timedelta
 
     _fake_twilio(monkeypatch, [])
     channel = _twilio_channel()
