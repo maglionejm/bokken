@@ -218,7 +218,7 @@ def to_markdown(result: BacklogResult) -> str:
     """Issue-tracker checklist in markdown: a task list of the ranked items."""
     lines: list[str] = [f"# Validation backlog - {result.name}", ""]
     if result.banner:
-        lines += [f"> {result.banner.lstrip('> ')}", ""]
+        lines += [f"> {result.banner.removeprefix('> ')}", ""]
     lines += [result.flip_the_verdict, ""]
     if not result.items:
         lines.append("- [x] Nothing left to test.")
