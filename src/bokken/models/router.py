@@ -84,8 +84,6 @@ MODELS: dict[str, ModelSpec] = {
 }
 MODEL_ALLOWLIST = frozenset(MODELS)
 MODEL_PROVIDERS = {name: spec.provider for name, spec in MODELS.items()}
-ANTHROPIC_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "anthropic")
-OPENAI_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "openai")
 PROVIDERS = frozenset({"anthropic", "openai"})
 REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 DEFAULT_REASONING_EFFORT = "high"

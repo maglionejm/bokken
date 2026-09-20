@@ -84,7 +84,7 @@ class JournalStore:
     def __enter__(self) -> JournalStore:
         return self
 
-    def __exit__(self, *exc_info: object) -> None:
+    def __exit__(self, *_: object) -> None:
         self.close()
 
     @property
