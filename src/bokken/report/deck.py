@@ -456,6 +456,60 @@ class Deck:
             first=True,
         )
 
+    def underserved(self):
+        """Segment x outcome opportunity matrix: which segment is most underserved
+        on which desired outcome. Each cell carries its mean Ulwick score and the
+        sample size n; low-confidence cells (n<2) are flagged in red and in a note.
+        Omitted when no outcomes were scored."""
+        c = self.ctx
+        matrix = c.opportunity_matrix
+        if not matrix:
+            return
+        s = self.slide()
+        self.header(
+            s, "odi/ulwick core", "Underserved by segment — where the niche hides in the average"
+        )
+        header = ["Segment \\ Outcome"] + [f"O{i}" for i in range(len(matrix.outcomes))]
+        rows = [header]
+        low_cells: dict[tuple[int, int], RGBColor] = {}
+        for ri, segment in enumerate(matrix.segments, 1):
+            row = [segment[:24]]
+            for ci, outcome in enumerate(matrix.outcomes, 1):
+                cell = matrix.cell(segment, outcome)
+                if cell is None:
+                    row.append("-")
+                    continue
+                flag = "*" if cell.low_confidence else ""
+                row.append(f"{cell.score} (n{cell.n}){flag}")
+                if cell.low_confidence:
+                    low_cells[(ri, ci)] = ACCENT
+            rows.append(row)
+        n_out = len(matrix.outcomes)
+        seg_w = Inches(3.0)
+        col_w = (BODY_W - seg_w) / n_out if n_out else BODY_W
+        self.table(
+            s,
+            MARGIN,
+            Inches(1.6),
+            BODY_W,
+            rows,
+            [seg_w] + [Emu(int(col_w))] * n_out,
+            row_h=Inches(0.52),
+            cell_colors=low_cells,
+        )
+        legend_y = Inches(1.6) + Inches(0.52) * (len(rows) + 0.4)
+        frame = self.text(s, MARGIN, legend_y, BODY_W, Inches(2.2))
+        self.block_title(frame, "Outcomes")
+        for i, outcome in enumerate(matrix.outcomes):
+            self.para(frame, f"O{i}: {outcome}"[:150], size=8.5, before=2)
+        note = (
+            "Opp = Importance + max(Importance - Satisfaction, 0), mean across a segment's personas; "
+            "n = sample size; * = low confidence (n<2)."
+        )
+        if matrix.simulated:
+            note += " Simulated panel — validate with real users."
+        self.para(frame, note, size=8.5, color=GRAY, before=6)
+
     def concept(self):
         m, c = self.ctx.model, self.ctx
         if not m.concept:
@@ -629,6 +683,7 @@ class Deck:
         self.anatomy()
         self.ui_tests()
         self.opportunities()
+        self.underserved()
         self.concept()
         self.research()
         self.register()

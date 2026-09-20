@@ -175,6 +175,17 @@ border-radius:50%;background:var(--accent);color:#fff;font-family:var(--mono);fo
 display:flex;align-items:center;justify-content:center}
 .reveal{opacity:0;transform:translateY(12px);transition:opacity .55s ease,transform .55s ease}
 .reveal.seen{opacity:1;transform:none}
+/* underserved heatmap */
+table.heat td.cell{text-align:center;font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink)}
+table.heat td.cell .n{display:block;font-family:var(--mono);font-size:10px;color:var(--ink2);margin-top:2px}
+table.heat td.cell.sev{background:rgba(199,62,58,.22)}
+table.heat td.cell.under{background:rgba(179,118,45,.20)}
+table.heat td.cell.served{background:rgba(47,111,78,.14)}
+table.heat td.cell.empty{color:var(--gray)}
+table.heat td.cell.low{outline:2px dashed var(--gray);outline-offset:-3px}
+table.heat td.cell .lc{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+text-transform:uppercase;color:var(--gray)}
+table.heat th.seg{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--card);text-transform:none;letter-spacing:0}
 @media print{.rail{display:none}.shell{display:block}#prog{display:none}}
 """
 
@@ -242,6 +253,72 @@ def _chips(items: list[tuple[str, str]]) -> str:
     )
 
 
+def _heat_class(score: float) -> str:
+    """Ulwick banding for the cell tint: >=15 severely underserved, 12-15
+    underserved, otherwise served. Chrome only - the number carries the fact."""
+    if score >= 15:
+        return "sev"
+    if score >= 12:
+        return "under"
+    return "served"
+
+
+def _underserved_section(chapter, matrix, dojo: bool) -> str:
+    """The "Underserved by segment" heatmap: segments as rows, desired outcomes
+    as columns. Every cell shows its mean Ulwick opportunity score and the sample
+    size behind it; a cell with fewer than two personas is visibly flagged
+    low-confidence. A no-script fallback lists the same numbers so the section
+    reads with JavaScript disabled. Dojo framing is carried, never dropped."""
+    parts: list[str] = [chapter("underserved")]
+    add = parts.append
+    add(
+        "<p class='lede'>The ODI/Ulwick core: which segment is most underserved on which "
+        "desired outcome. Derived from the journal alone - the mean opportunity score "
+        "(Importance + max(Importance &minus; Satisfaction, 0)) over each segment's personas, "
+        "with the sample size <em>n</em> behind every cell. Cells backed by fewer than two "
+        "personas are flagged low-confidence.</p>"
+    )
+    if dojo:
+        add(
+            "<p class='lede'>This matrix is scored by a synthetic persona panel and requires "
+            "validation with real users before it is acted on.</p>"
+        )
+    # Numbered outcome columns keep the header narrow; the legend below maps them.
+    add("<table class='heat'><tr><th class='seg'>Segment \\ Outcome</th>")
+    for i in range(len(matrix.outcomes)):
+        add(f"<th class='r'>O{i}</th>")
+    add("</tr>")
+    for segment in matrix.segments:
+        add(f"<tr><th class='seg'>{_e(segment)}</th>")
+        for outcome in matrix.outcomes:
+            cell = matrix.cell(segment, outcome)
+            if cell is None:
+                add("<td class='cell empty'>&mdash;</td>")
+                continue
+            classes = f"cell {_heat_class(cell.score)}" + (" low" if cell.low_confidence else "")
+            lc = "<span class='lc'>low confidence</span>" if cell.low_confidence else ""
+            add(f"<td class='{classes}'>{_e(cell.score)}<span class='n'>n={cell.n}</span>{lc}</td>")
+        add("</tr>")
+    add("</table>")
+    # No-script fallback: the same cell numbers, readable with JS disabled.
+    add("<noscript>")
+    add("<p class='lede'>Cell values (score, sample size):</p>")
+    for i, outcome in enumerate(matrix.outcomes):
+        add(f"<div class='debt'>O{i}: {_e(outcome)}</div>")
+    for cell in matrix.cells:
+        flag = " - low confidence (n<2)" if cell.low_confidence else ""
+        add(
+            f"<div class='debt'>{_e(cell.segment)} &times; {_e(cell.outcome)}: "
+            f"score {_e(cell.score)}, n={cell.n}{_e(flag)}</div>"
+        )
+    add("</noscript>")
+    # Legend maps numbered columns back to their outcome text.
+    for i, outcome in enumerate(matrix.outcomes):
+        add(f"<div class='debt'>O{i}: {_e(outcome)}</div>")
+    add("</section>")
+    return "".join(parts)
+
+
 def render_page(ctx: ReportContext, theme=None) -> str:
     m, c = ctx.model, ctx
     parts: list[str] = []
@@ -255,6 +332,15 @@ def render_page(ctx: ReportContext, theme=None) -> str:
         ("inputs", "Inputs", "inputs", "What the run was grounded in"),
         ("empathize", "Empathize", "stage · empathize", "Evidence, on the record"),
     ]
+    if c.opportunity_matrix:
+        chapters.append(
+            (
+                "underserved",
+                "Underserved by segment",
+                "odi/ulwick core",
+                "Which segment is most underserved on which outcome",
+            )
+        )
     if c.ui_review:
         chapters.append(
             (
@@ -601,6 +687,10 @@ def render_page(ctx: ReportContext, theme=None) -> str:
         for node in c.opportunities[:8]:
             add(f"<div class='debt'>{_e(node.statement)}</div>")
     add("</section>")
+
+    # ---- underserved by segment (ODI/Ulwick core) ----
+    if c.opportunity_matrix:
+        add(_underserved_section(chapter, c.opportunity_matrix, m.dojo_banner))
 
     # ---- UI review ----
     if c.ui_review:

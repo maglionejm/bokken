@@ -1,5 +1,6 @@
 """Report exports: deterministic, journaled, full coverage, honest appendix."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,28 @@ def dojo_session(tmp_path: Path) -> Path:
         mode="dojo",
         gate_policy="none",
         config_extra={"panel": {"size": 6, "seed": 11}},
+    )
+    assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
+    return session_dir
+
+
+@pytest.fixture
+def two_segment_session(tmp_path: Path) -> Path:
+    """A completed dojo run whose personas span two segments and scored the
+    desired outcomes, so the segment x outcome matrix has real cells."""
+    from bokken.orchestrator import create_session
+
+    brief = {
+        **BRIEF,
+        "target_segments": ["commuters", "operators"],
+        "inputs": make_inputs(tmp_path),
+    }
+    session_dir = create_session(
+        "report-heatmap",
+        brief=brief,
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 8, "seed": 11}},
     )
     assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
     return session_dir
@@ -394,3 +417,216 @@ def test_opportunity_score_falls_back_to_prose_for_legacy_journals() -> None:
         synthetic=True,
     )
     assert opportunity_score(legacy) == 12.5
+
+
+# ---- segment x outcome opportunity heatmap (ODI/Ulwick core) ----
+
+
+def test_matrix_is_computed_with_per_cell_sample_sizes(two_segment_session: Path) -> None:
+    """Cells keyed by (segment, outcome) carry the mean Ulwick score over that
+    segment's personas for that outcome and the count n of personas behind it."""
+    from bokken.report.context import build_opportunity_matrix, ulwick_score
+
+    model = build_model(two_segment_session)
+    matrix = build_opportunity_matrix(two_segment_session, model)
+    assert matrix is not None
+    assert set(matrix.segments) == {"commuters", "operators"}
+    assert matrix.outcomes  # desired outcomes were scored
+    # Every cell reconciles with the raw journal: recompute the mean Ulwick score
+    # and the sample size independently and require an exact match.
+    seg_of = {p.persona_id: p.segment for p in model.personas}
+    outcome_stmt: dict[str, str] = {}
+    raw: dict[tuple[str, str], list[float]] = {}
+    for event in read_events(two_segment_session):
+        if event.type != "interpretation.derived":
+            continue
+        if event.payload.get("kind") == "desired_outcome":
+            outcome_stmt[event.id] = event.payload["statement"]
+        elif event.payload.get("kind") == "outcome_score":
+            seg = seg_of.get(event.extension("persona_id"))
+            ref = next((r for r in event.refs if r in outcome_stmt), None)
+            if seg and ref:
+                raw.setdefault((seg, outcome_stmt[ref]), []).append(
+                    ulwick_score(event.extension("importance"), event.extension("satisfaction"))
+                )
+    assert raw  # sanity: the journal really scored outcomes per persona
+    for (seg, outcome), scores in raw.items():
+        cell = matrix.cell(seg, outcome)
+        assert cell is not None
+        assert cell.n == len(scores)
+        assert cell.score == pytest.approx(round(sum(scores) / len(scores), 1))
+
+
+def test_cli_matrix_equals_report_derivation(two_segment_session: Path) -> None:
+    """One derivation, two surfaces: the report context and the shape the CLI
+    emits are the same object, so the numbers cannot diverge for a session."""
+    from bokken.report.context import build_context, build_opportunity_matrix
+
+    model = build_model(two_segment_session)
+    ctx = build_context(two_segment_session, model)
+    standalone = build_opportunity_matrix(two_segment_session, model)
+    assert ctx.opportunity_matrix is not None
+    assert ctx.opportunity_matrix.model_dump() == standalone.model_dump()
+
+
+def _single_persona_segment_session(tmp_path: Path) -> Path:
+    """A hand-authored session where exactly one persona in a segment scored a
+    given outcome, so that cell must be flagged low-confidence (n=1)."""
+    from bokken.journal import Actor, JournalStore
+    from bokken.orchestrator import create_session
+
+    brief = {**BRIEF, "target_segments": ["solo"]}
+    session_dir = create_session("heatmap-thin", brief=brief, mode="dojo")
+    facilitator = Actor(kind="agent", name="facilitator")
+    with JournalStore.open(session_dir) as store:
+        outcome = store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "desired_outcome",
+                "statement": "Minimize the time to reconcile the ledger",
+                "ungrounded": True,  # hand-authored with no evidence refs
+                "job_step": "reconcile",
+            },
+        )
+        # A single persona in segment "solo" scores that one outcome.
+        store.append(
+            type="artifact.generated",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "panel_manifest",
+                "path": "panel/manifest.json",
+                "content_hash": "0" * 64,
+            },
+        )
+        manifest_dir = session_dir / "panel"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        (manifest_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "panel_kind": "interview",
+                    "personas": [
+                        {
+                            "persona_id": "p-solo",
+                            "name": "Solo",
+                            "role": "segment",
+                            "segment": "solo",
+                        }
+                    ],
+                }
+            )
+        )
+        store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=Actor(kind="agent", name="Solo", persona_id="p-solo"),
+            payload={
+                "kind": "outcome_score",
+                "statement": "Solo scores outcome 0: importance 9, satisfaction 3",
+                "ungrounded": False,
+                "importance": 9,
+                "satisfaction": 3,
+                "persona_id": "p-solo",
+            },
+            refs=[outcome.id],
+        )
+    return session_dir
+
+
+def test_thin_cell_is_flagged_low_confidence_in_both_formats(tmp_path: Path) -> None:
+    from bokken.report.context import build_context
+    from bokken.report.deck import Deck
+    from bokken.report.page import render_page
+
+    session_dir = _single_persona_segment_session(tmp_path)
+    model = build_model(session_dir)
+    ctx = build_context(session_dir, model)
+    matrix = ctx.opportunity_matrix
+    assert matrix is not None
+    cell = matrix.cell("solo", "Minimize the time to reconcile the ledger")
+    assert cell is not None
+    assert cell.n == 1
+    assert cell.score == pytest.approx(9 + max(9 - 3, 0))  # 15.0
+    assert cell.low_confidence is True
+
+    html = render_page(ctx)
+    assert "Underserved by segment" in html
+    assert "n=1" in html
+    assert "low confidence" in html.lower()
+    # The deck slide flags the same cell (asterisk marker in its table cell, red).
+    from bokken.report.deck import ACCENT
+
+    deck = Deck(ctx)
+    deck.underserved()
+    slide = deck.prs.slides[0]
+    heading = "\n".join(sh.text_frame.text for sh in slide.shapes if sh.has_text_frame)
+    assert "Underserved by segment" in heading
+    table = next(sh.table for sh in slide.shapes if sh.has_table)
+    # Row 1 (solo), column 1 (O0): the single-persona cell, flagged.
+    flagged = table.cell(1, 1)
+    assert "(n1)*" in flagged.text
+    assert flagged.text_frame.paragraphs[0].runs[0].font.color.rgb == ACCENT
+
+
+def test_heatmap_derived_without_model_calls(two_segment_session: Path) -> None:
+    """Exporting the heatmap section adds no model.called events on either surface."""
+    before = sum(1 for e in read_events(two_segment_session) if e.type == "model.called")
+    pptx_path, html_path = generate_report(two_segment_session)
+    html = html_path.read_text()
+    assert "Underserved by segment" in html
+    assert "n=" in html  # per-cell sample size shown
+    text = deck_text(pptx_path)
+    assert "Underserved by segment" in text
+    after = sum(1 for e in read_events(two_segment_session) if e.type == "model.called")
+    assert after == before
+
+
+def test_heatmap_has_noscript_fallback(two_segment_session: Path) -> None:
+    from bokken.report.page import render_page
+
+    ctx = build_context(two_segment_session, build_model(two_segment_session))
+    html = render_page(ctx)
+    assert "<noscript>" in html
+    fallback = html.split("<noscript>", 1)[1].split("</noscript>", 1)[0]
+    # The same cell numbers appear inside the no-script block.
+    a_cell = ctx.opportunity_matrix.cells[0]
+    assert f"n={a_cell.n}" in fallback
+    assert str(a_cell.score) in fallback
+
+
+def test_dojo_framing_survives_the_heatmap_section(two_segment_session: Path) -> None:
+    pptx_path, html_path = generate_report(two_segment_session)
+    html = html_path.read_text()
+    assert "Underserved by segment" in html
+    assert "Simulated run." in html  # the global banner is not dropped
+    assert "validation with real users" in html
+    text = deck_text(pptx_path)
+    assert "SIMULATED RUN" in text
+    assert "Underserved by segment" in text
+
+
+def test_no_scored_outcomes_omits_the_section(tmp_path: Path) -> None:
+    """A session that never scored desired outcomes has no matrix, so neither the
+    HTML nor the deck carries an Underserved-by-segment section."""
+    from bokken.orchestrator import create_session
+    from bokken.report.context import build_opportunity_matrix
+    from bokken.report.deck import Deck
+    from bokken.report.page import render_page
+
+    # A fresh session halted at intake never ran Empathize, so no outcome_score.
+    session_dir = create_session("no-scores", brief=BRIEF, mode="dojo")
+    assert build_opportunity_matrix(session_dir, build_model(session_dir)) is None
+    ctx = build_context(session_dir, build_model(session_dir))
+    assert ctx.opportunity_matrix is None
+
+    assert "Underserved by segment" not in render_page(ctx)
+
+    deck = Deck(ctx)
+    deck.underserved()  # no-op when there is no matrix
+    assert not any(
+        sh.has_text_frame and "Underserved by segment" in sh.text_frame.text
+        for sl in deck.prs.slides
+        for sh in sl.shapes
+    )

@@ -94,6 +94,43 @@ class ExportResult(BaseModel):
     html_path: str
 
 
+class OpportunityCell(BaseModel):
+    """One (segment, outcome) cell of the Ulwick opportunity matrix.
+
+    `score` is the mean Ulwick opportunity score over the segment's personas who
+    scored the outcome; `n` is how many did. `low_confidence` is `n < 2` — a
+    single-persona cell is not a finding, and the flag travels with the number so
+    a thin cell reads as thin on every surface.
+    """
+
+    segment: str
+    outcome: str
+    score: float
+    n: int
+    low_confidence: bool
+
+
+class OpportunityMatrix(BaseModel):
+    """Segment x outcome opportunity landscape, derived purely from the journal.
+
+    The one shape shared by the `opportunities` verb's `--json` output and the
+    report's "Underserved by segment" heatmap, so the CLI number and the report
+    number agree for a given session. `segments` and `outcomes` are the ordered
+    axes; `cells` carries the populated (segment, outcome) triples (a pair with no
+    scoring personas has no cell). `simulated` carries the dojo framing.
+    """
+
+    kind: Literal["opportunity_matrix"] = "opportunity_matrix"
+    name: str
+    segments: list[str]
+    outcomes: list[str]
+    cells: list[OpportunityCell]
+    simulated: bool = False
+
+    def cell(self, segment: str, outcome: str) -> OpportunityCell | None:
+        return next((c for c in self.cells if c.segment == segment and c.outcome == outcome), None)
+
+
 class OpportunityDeltaOut(BaseModel):
     run: Literal["both", "new", "old"]
     statement: str

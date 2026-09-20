@@ -297,3 +297,149 @@ def test_run_json_carries_receipt_fields(brief_file: Path) -> None:
     runner.invoke(app, ["gate", "receipts-json", "approve"])
     outcome = json.loads(runner.invoke(app, ["run", "receipts-json", "--json"]).stdout)
     assert outcome["model_calls"] >= 1
+
+
+def _completed_two_segment_session(tmp_path, monkeypatch, name: str):
+    from tests.stages.test_engines_e2e import BRIEF as E2E_BRIEF
+    from tests.stages.test_engines_e2e import make_inputs, make_runner
+
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path / "home"))
+    from bokken.orchestrator import create_session
+
+    session_dir = create_session(
+        name,
+        brief={
+            **E2E_BRIEF,
+            "target_segments": ["commuters", "operators"],
+            "inputs": make_inputs(tmp_path),
+        },
+        mode="dojo",
+        gate_policy="none",
+        config_extra={"panel": {"size": 8, "seed": 11}},
+    )
+    assert make_runner(session_dir, ScriptedProvider()).run().halt == "completed"
+    return session_dir
+
+
+def test_opportunities_verb_matches_report_derivation(tmp_path, monkeypatch) -> None:
+    """The CLI --json output is the same OpportunityMatrix the report derives, so
+    the verb number and the report number agree for one session."""
+    from bokken.dossier.model import build_model
+    from bokken.report.context import build_opportunity_matrix
+
+    session_dir = _completed_two_segment_session(tmp_path, monkeypatch, "opps-e2e")
+    result = runner.invoke(app, ["opportunities", "opps-e2e", "--json"])
+    assert result.exit_code == 0, result.output
+    document = json.loads(result.stdout)
+    assert document["kind"] == "opportunity_matrix"
+    assert set(document["segments"]) == {"commuters", "operators"}
+    assert document["cells"] and all("score" in c and "n" in c for c in document["cells"])
+    # Cells reconcile with the report's own derivation of the same session.
+    derived = build_opportunity_matrix(session_dir, build_model(session_dir))
+    assert document == json.loads(derived.model_dump_json())
+    # Every cell carries its sample size and low-confidence flag.
+    assert all(isinstance(c["n"], int) and "low_confidence" in c for c in document["cells"])
+
+
+def test_opportunities_human_matrix_flags_thin_cells_and_dojo(tmp_path, monkeypatch) -> None:
+    session_dir = _completed_two_segment_session(tmp_path, monkeypatch, "opps-human")
+    plain = runner.invoke(app, ["opportunities", "opps-human"])
+    assert plain.exit_code == 0, plain.output
+    flat = plain.stdout
+    assert "Underserved by segment" in flat
+    assert "commuters" in flat and "operators" in flat
+    assert "n" in flat  # per-cell sample size is shown
+    assert "simulated run" in flat  # dojo framing stated
+    assert "validation with real users" in flat
+    del session_dir
+
+
+def test_opportunities_thin_cell_flagged_in_both_surfaces(tmp_path, monkeypatch) -> None:
+    """A single-persona cell (n=1) is flagged low-confidence in both the human
+    matrix and the --json output."""
+    from tests.stages.test_engines_e2e import BRIEF as E2E_BRIEF
+
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path / "home"))
+    from bokken.journal import Actor, JournalStore
+    from bokken.orchestrator import create_session
+
+    session_dir = create_session(
+        "opps-thin", brief={**E2E_BRIEF, "target_segments": ["solo"]}, mode="dojo"
+    )
+    facilitator = Actor(kind="agent", name="facilitator")
+    with JournalStore.open(session_dir) as store:
+        outcome = store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "desired_outcome",
+                "statement": "Minimize reconcile time",
+                "ungrounded": True,
+            },
+        )
+        store.append(
+            type="artifact.generated",
+            stage="empathize",
+            actor=facilitator,
+            payload={
+                "kind": "panel_manifest",
+                "path": "panel/manifest.json",
+                "content_hash": "0" * 64,
+            },
+        )
+        (session_dir / "panel").mkdir(parents=True, exist_ok=True)
+        (session_dir / "panel" / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "panel_kind": "interview",
+                    "personas": [
+                        {
+                            "persona_id": "p-solo",
+                            "name": "Solo",
+                            "role": "segment",
+                            "segment": "solo",
+                        }
+                    ],
+                }
+            )
+        )
+        store.append(
+            type="interpretation.derived",
+            stage="empathize",
+            actor=Actor(kind="agent", name="Solo", persona_id="p-solo"),
+            payload={
+                "kind": "outcome_score",
+                "statement": "Solo scores outcome 0",
+                "ungrounded": False,
+                "importance": 9,
+                "satisfaction": 3,
+                "persona_id": "p-solo",
+            },
+            refs=[outcome.id],
+        )
+    document = json.loads(runner.invoke(app, ["opportunities", "opps-thin", "--json"]).stdout)
+    cell = next(c for c in document["cells"] if c["segment"] == "solo")
+    assert cell["n"] == 1 and cell["low_confidence"] is True
+    plain = runner.invoke(app, ["opportunities", "opps-thin"])
+    assert plain.exit_code == 0
+    assert "*" in plain.stdout  # the low-confidence marker
+
+
+def test_opportunities_refuses_when_no_outcomes_scored(brief_file: Path) -> None:
+    """A session that never scored desired outcomes exits 2 with a message naming
+    what is missing, and writes no matrix to stdout."""
+    new_session(brief_file, "opps-empty")  # fresh session, halted at intake
+    result = runner.invoke(app, ["opportunities", "opps-empty"])
+    assert result.exit_code == 2
+    assert "no scored desired outcomes" in result.stderr
+    assert result.stdout.strip() == ""  # no matrix emitted
+    as_json = runner.invoke(app, ["opportunities", "opps-empty", "--json"])
+    assert as_json.exit_code == 2
+    assert as_json.stdout.strip() == ""
+
+
+def test_opportunities_unknown_session_exits_2(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("BOKKEN_HOME", str(tmp_path / "home"))
+    result = runner.invoke(app, ["opportunities", "no-such-session"])
+    assert result.exit_code == 2
