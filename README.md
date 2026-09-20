@@ -137,7 +137,7 @@ export ANTHROPIC_API_KEY=...
 # OpenAI provider
 uvx --from 'bokken[openai]' bokken version
 export OPENAI_API_KEY=...
-uv run bokken new retention --provider openai --model gpt-5 \
+uvx --from 'bokken[openai]' bokken new retention --provider openai --model gpt-5 \
   --reasoning-effort high --brief bokken-brief.json --mode dojo
 ```
 
@@ -222,6 +222,9 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 | [docs/handoff.md](docs/handoff.md) | The OpenSpec handoff contract and ingestion workflow |
 | [docs/mcp.md](docs/mcp.md) | MCP tools, resources, and client setup |
 | [docs/agents.md](docs/agents.md) | The agent registry: every actor, its lane, its model, and what it may never do |
+| [docs/codebase-map.md](docs/codebase-map.md) | Navigation map for agents: each subpackage's seams, invariants, and top gotcha |
+| [docs/gotchas.md](docs/gotchas.md) | Hard-won failure modes: symptom, rule, and the PR that paid for it |
+| [docs/recipes.md](docs/recipes.md) | Task cookbooks: files to touch in order, and the test that rides along |
 
 ## Project structure
 
@@ -230,19 +233,27 @@ bokken/
 ├── src/bokken/
 │   ├── journal/       # the ledger: schema, store, replay, queries (the moat)
 │   ├── orchestrator/  # the DT state machine, runner, gates, budgets
-│   ├── stages/        # the five stage engines (both modes)
+│   ├── stages/        # the five stage engines (both modes) + code exploration
 │   ├── kata/          # the facilitation move library
 │   ├── panel/         # persona casting, typed corpus, grounding, firewall
 │   ├── models/        # model routing, journaled invocations, prompts
+│   ├── interview/     # consent-gated real-human validation interviews
 │   ├── dossier/       # Session Dossier generation
-│   ├── handoff/       # OpenSpec MVP-spec generation
+│   ├── handoff/       # OpenSpec MVP-spec generation + executable adapters
+│   ├── report/        # PPTX deck + self-contained HTML report, themes
+│   ├── demo/          # the scripted, zero-network demo provider
 │   ├── cli/           # the terminal surface
 │   ├── mcp/           # the MCP surface
-│   └── contract.py    # one result contract for both surfaces
+│   ├── contract.py    # one result contract for both surfaces
+│   ├── library.py     # cross-run learnings (workspace-level)
+│   ├── bundle.py      # bokken pack: one portable archive + manifest
+│   ├── diffing.py     # bokken diff: cross-run comparison
+│   ├── backlog.py     # bokken backlog: ranked validation to-do
+│   └── estimate.py    # bokken estimate: modeled pre-flight cost
 ├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
 ├── tests/             # the whole loop runs offline against a fake provider (no API key)
-└── scripts/           # live smoke run
+└── scripts/           # live smoke run + MCPB bundle build
 ```
 
 ## Development

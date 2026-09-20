@@ -60,7 +60,7 @@ declare `ungrounded: true`.
 
 | Type | Payload | Notes |
 | --- | --- | --- |
-| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw\|desired_outcome\|outcome_score\|opportunity\|current_capability), statement, ungrounded; outcome scores carry importance/satisfaction/persona_id, opportunity records carry score/band/per_persona, code-exploration capabilities carry validated corpus citations` | `refs` point at supporting evidence or outcome events; an interpretation with neither refs nor validated `citations` must set `ungrounded: true` |
+| `interpretation.derived` | `kind (insight\|theme\|pov\|hmw\|desired_outcome\|outcome_score\|opportunity\|current_capability\|domain_term), statement, ungrounded; outcome scores carry importance/satisfaction/persona_id, opportunity records carry score/band/per_persona, code-exploration capabilities carry validated corpus citations (each may quote its span) and, once the founder has ruled, ratified` | `refs` point at supporting evidence or outcome events; an interpretation with neither refs nor validated `citations` must set `ungrounded: true` |
 
 ### `option.*` — the idea lineage graph
 
