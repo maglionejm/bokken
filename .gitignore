@@ -13,11 +13,17 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Logs
+*.log
+logs/
+
 # Python
 __pycache__/
 *.pyc
 .venv/
 dist/
+build/
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
 
