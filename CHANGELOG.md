@@ -6,6 +6,10 @@ main may be ahead of the latest PyPI release.
 
 ## [Unreleased]
 
+(nothing yet)
+
+## [1.5.0] — 2026-09-20
+
 ### Added
 - v1.5 verb slate — four new read verbs, all pure journal derivation (no model
   calls, no network):
@@ -53,6 +57,8 @@ main may be ahead of the latest PyPI release.
   manifests hash the exact archived bytes (#75).
 
 ### Changed
+- Docs audit for the v1.5 slate: README structure tree, codebase map, events,
+  MCP, operating and agents corrections (#89).
 - Repo-wide dead-code removal and line-by-line simplification, verified
   output-identical: deliverables byte-identical on a re-rendered journal, demo
   receipt and journal unchanged. `.editorconfig` gains Python and Makefile
