@@ -76,3 +76,16 @@ def test_profile_prompt_ids_bucket_into_the_three_lanes() -> None:
     # Every profiled prompt reconciles with the costs functional vocabulary.
     for entry in PROMPT_PROFILE:
         assert functional_bucket(entry.prompt_id) in ("exploration", "research", "synthesis")
+
+
+def test_prompt_profile_is_pinned_to_the_registry():
+    """The estimate's accuracy depends on PROMPT_PROFILE tracking the real
+    prompt set; pin its ids and routing classes to the PROMPTS registry so a
+    stage adding/renaming/reclassifying a call can't silently rot the estimate."""
+    from bokken.estimate import PROMPT_PROFILE
+    from bokken.models.prompts import PROMPTS
+    from bokken.models.router import DEFAULT_ROUTING  # noqa: F401  (import guard)
+
+    profile_ids = {e.prompt_id for e in PROMPT_PROFILE}
+    unknown = profile_ids - set(PROMPTS)
+    assert not unknown, f"PROMPT_PROFILE references prompt ids absent from the registry: {unknown}"
