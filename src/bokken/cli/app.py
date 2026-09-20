@@ -7,7 +7,7 @@ import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 
 import typer
 from pydantic import BaseModel, ValidationError
@@ -60,7 +60,7 @@ _REFUSED = (
 )
 
 
-def _fail(message: str, code: int) -> None:
+def _fail(message: str, code: int) -> NoReturn:
     print(message, file=sys.stderr)
     raise typer.Exit(code)
 
@@ -119,11 +119,6 @@ def _print_run(result: contract.RunOutcome) -> None:
 
 
 JsonFlag = Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON on stdout.")]
-
-
-@app.callback()
-def _root() -> None:
-    pass
 
 
 @app.command("version")
@@ -629,7 +624,6 @@ def _parse_since(since: str | None):
         ts = datetime.fromisoformat(since)
     except ValueError:
         _fail(f"--since must be a seq number or an ISO timestamp, got {since!r}", 2)
-        raise  # unreachable; keeps type-checkers honest
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=UTC)
     return None, ts
@@ -804,7 +798,6 @@ def diff(
         data = diff_sessions(old_dir, new_dir)
     except DiffRefused as refusal:
         _fail(str(refusal), 2)
-        return
     result = contract.diff_result(data)
 
     def line(text: str) -> None:
@@ -981,7 +974,6 @@ def opportunities(name: str, as_json: JsonFlag = False) -> None:
             "no opportunity matrix to show (run Empathize to score outcomes first)",
             2,
         )
-        return
 
     def human() -> None:
         if matrix.simulated:
@@ -1087,10 +1079,8 @@ def export(
         pptx_path, html_path = generate_report(resolve_session_dir(name), theme_spec=theme)
     except ThemeError as err:
         _fail(str(err), 2)
-        return
     except ReportError as err:
         _fail(str(err), 2)
-        return
     result = contract.ExportResult(pptx_path=str(pptx_path), html_path=str(html_path))
     emit(
         result,
@@ -1126,7 +1116,6 @@ def handoff(
         generated = generate_handoff(session_dir, wiring.session_router_factory(session_dir))
     except (HandoffRefusedError, HandoffGenerationError, HandoffFormatError) as refusal:
         _fail(str(refusal), 2)
-        return
     adapter_paths: list[str] = []
     if emit_targets:
         try:

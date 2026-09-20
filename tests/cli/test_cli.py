@@ -75,7 +75,7 @@ def test_operator_supplied_absolute_input_path_is_not_confined(tmp_path: Path) -
     assert "consolidating" in corpus.context_for()
 
 
-def test_terminal_port_answers_are_human_attributed(brief_file: Path, monkeypatch) -> None:
+def test_terminal_port_answers_are_human_attributed(monkeypatch) -> None:
     """The other side of the input-provenance seam: a human typing at the
     terminal keeps human attribution, so the CLI and MCP paths stay distinct."""
     import typer

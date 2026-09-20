@@ -226,7 +226,7 @@ async def test_gate_attribution_is_from_handshake_not_arguments(tmp_path: Path) 
         assert resolved.actor.name and resolved.actor.name != "boss"
 
 
-async def test_stale_input_is_refused(tmp_path: Path) -> None:
+async def test_stale_input_is_refused() -> None:
     async with connected() as client:
         await client.call_tool(
             "create_session_tool",
@@ -321,7 +321,7 @@ async def test_journal_parity_with_cli(tmp_path: Path) -> None:
         assert via_mcp == via_cli
 
 
-async def test_submitted_input_is_attributed_to_the_client_not_the_founder(tmp_path: Path) -> None:
+async def test_submitted_input_is_attributed_to_the_client_not_the_founder() -> None:
     """An answer an agent types over MCP is that agent's, never human testimony."""
     fabricated = "AGENT-FABRICATED: riders churn because arrivals are unpredictable"
     async with connected() as client:
@@ -392,7 +392,7 @@ async def test_submitted_input_is_attributed_to_the_client_not_the_founder(tmp_p
     assert flagged and all(d.requires_real_validation for d in flagged)
 
 
-async def test_agent_supplied_evidence_is_labeled_synthetic_in_the_dossier(tmp_path: Path) -> None:
+async def test_agent_supplied_evidence_is_labeled_synthetic_in_the_dossier() -> None:
     from bokken.dossier.model import build_model
 
     async with connected() as client:

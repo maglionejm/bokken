@@ -181,7 +181,7 @@ def test_product_mismatch_by_repo_is_refused(tmp_path: Path) -> None:
     assert "not the same product" in str(exc.value)
 
 
-def test_product_mismatch_by_problem_space_is_refused(tmp_path: Path) -> None:
+def test_product_mismatch_by_problem_space_is_refused() -> None:
     a = _build("ps-alpha", brief={**BRIEF, "problem_space": "shuttle retention"})
     b = _build("ps-beta", brief={**BRIEF, "problem_space": "grocery delivery"})
 

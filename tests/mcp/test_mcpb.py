@@ -27,7 +27,7 @@ def test_manifest_wraps_uvx_serve_and_never_hardcodes_secrets():
     assert "sk-" not in raw
 
 
-def test_build_injects_release_version(tmp_path, monkeypatch):
+def test_build_injects_release_version():
     import subprocess
     import sys
 

@@ -173,7 +173,7 @@ def test_table_contains_all_four_sections(tmp_path: Path) -> None:
     assert "[both]" in result.stdout  # rows labelled by run of origin
 
 
-def test_product_mismatch_exits_2_empty_stdout(tmp_path: Path) -> None:
+def test_product_mismatch_exits_2_empty_stdout() -> None:
     _session(
         "app-alpha",
         brief={**BRIEF, "problem_space": "shuttle retention"},
@@ -200,7 +200,7 @@ def test_unfinalized_exits_2_empty_stdout(tmp_path: Path) -> None:
     assert "in-flight-run" in result.stderr and "not finalized" in result.stderr
 
 
-def test_unknown_session_exits_2(tmp_path: Path) -> None:
+def test_unknown_session_exits_2() -> None:
     result = runner.invoke(app, ["diff", "ghost-a", "ghost-b"])
     assert result.exit_code == 2
     assert result.stdout == ""

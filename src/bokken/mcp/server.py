@@ -92,10 +92,6 @@ def _client_actor(ctx: Context) -> Actor:
 # --- input mailbox (Founder-mode questions answered programmatically) ---------
 
 
-def _question_id(question: str) -> str:
-    return short_id(question)
-
-
 def _atomic_write(path, payload: str) -> None:
     """Rename-based atomicity so concurrent clients never read torn JSON."""
     import os
@@ -130,7 +126,7 @@ class MailboxPort:
         return {}
 
     def ask(self, question: str, *, kind: str = "text") -> Answer:
-        qid = _question_id(question)
+        qid = short_id(question)
         answers = self._answers()
         if qid in answers:
             entry = answers.pop(qid)
