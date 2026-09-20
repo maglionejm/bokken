@@ -154,6 +154,87 @@ def diff_result(data) -> DiffResult:
     )
 
 
+class LaneBreakdown(BaseModel):
+    lane: str  # exploration | research | synthesis
+    calls: int
+    tokens: int
+    cost_usd: float
+
+
+class EstimateResult(BaseModel):
+    """A modeled pre-flight cost estimate: a range, a per-lane breakdown, and the
+    assumptions behind it. Derived, never measured - see `caveat`."""
+
+    kind: Literal["estimate"] = "estimate"
+    panel_size: int
+    provider: str
+    model: str | None = None
+    cost_low_usd: float
+    cost_point_usd: float
+    cost_high_usd: float
+    total_calls: int
+    total_tokens: int
+    lanes: list[LaneBreakdown] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    caveat: str
+
+
+def estimate_result(estimate) -> EstimateResult:
+    """Map a `bokken.estimate.Estimate` onto the shared contract shape."""
+    return EstimateResult(
+        panel_size=estimate.panel_size,
+        provider=estimate.provider,
+        model=estimate.model,
+        cost_low_usd=estimate.cost_low_usd,
+        cost_point_usd=estimate.cost_point_usd,
+        cost_high_usd=estimate.cost_high_usd,
+        total_calls=estimate.total_calls,
+        total_tokens=estimate.total_tokens,
+        lanes=[
+            LaneBreakdown(lane=la.lane, calls=la.calls, tokens=la.tokens, cost_usd=la.cost_usd)
+            for la in estimate.lanes
+        ],
+        assumptions=list(estimate.assumptions),
+        caveat=estimate.caveat,
+    )
+
+
+class BacklogItem(BaseModel):
+    rank: int
+    kind: Literal["assumption", "research_debt"]
+    # impact/uncertainty/score are the assumption register fields; a
+    # research-debt item leaves them None (it is an open question, not a scored
+    # assumption). `priority` is the ordinal impact x uncertainty product used
+    # to rank, exposed so an export can sort or filter deterministically.
+    impact: str | None = None
+    uncertainty: str | None = None
+    score: str | None = None
+    priority: int | None = None
+    confidence_class: str
+    source: str
+    statement: str
+
+
+class BacklogResult(BaseModel):
+    kind: Literal["backlog"] = "backlog"
+    name: str
+    mode: str | None
+    items: list[BacklogItem] = Field(default_factory=list)
+    # Register counts over the whole assumption register (not just the backlog):
+    # supported items are excluded from `items` but still counted here.
+    supported: int = 0
+    contradicted: int = 0
+    untested: int = 0
+    research_debt: int = 0
+    flip_the_verdict: str = ""
+    # Honesty framing: a simulated-only backlog restates the dojo banner and
+    # the requires-real-validation context so it is never read as validated fact.
+    dojo_banner: bool = False
+    requires_real_validation: bool = False
+    simulated_only: bool = False
+    banner: str | None = None
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"
