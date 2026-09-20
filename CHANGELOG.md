@@ -7,6 +7,22 @@ main may be ahead of the latest PyPI release.
 ## [Unreleased]
 
 ### Added
+- v1.5 verb slate — four new read verbs, all pure journal derivation (no model
+  calls, no network):
+  - `bokken opportunities NAME`: segment x outcome Ulwick opportunity heatmap
+    (per-cell mean score + sample size, low-confidence flag below two
+    personas); also surfaces as a report/deck section.
+  - `bokken backlog NAME`: ranked, exportable validation to-do from the
+    assumption register and research debt (impact x uncertainty); `--format
+    csv|markdown`.
+  - `bokken diff OLD NEW`: cross-run comparison of two finalized runs of the
+    same product (opportunity re-rank, assumption flips, capability changes,
+    verdict change); refuses (exit 2) on an unfinalized run or product
+    mismatch. Honesty fix: each delta's confidence is taken from the source
+    record's own provenance, never a blanket run label.
+  - `bokken estimate BRIEF.json`: modeled pre-flight cost + token estimate
+    (range + per-lane breakdown; `--panel-size`/`--provider`/`--model`) from a
+    brief before any session exists.
 - Exploration mining v2, adapted from build-software-with-style's
   legacy-reengineering template: capability citations journal the quoted
   span they point at; founder mode ratifies the capability map

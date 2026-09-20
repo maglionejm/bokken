@@ -168,6 +168,18 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
   never laundered into fresh evidence.
 - **`bundle.py`** (top-level) — `pack_session` produces one portable archive
   with an honest sha256 manifest.
+- **`diffing.py`** (top-level) — `diff_sessions` builds the cross-run diff of
+  two finalized runs of the same product (opportunity re-rank, assumption flips,
+  capability changes, verdict change). Pure derivation; each delta carries the
+  *source record's* confidence class, never a blanket run label; raises
+  `DiffRefused` (CLI exit 2) on an unfinalized session or a product mismatch.
+- **`backlog.py`** (top-level) — `build_backlog` ranks the assumption register
+  and research debt on the impact x uncertainty product (`_priority`); `to_csv`
+  / `to_markdown` export it. Pure derivation.
+- **`estimate.py`** (top-level) — models a run's cost + token range and per-lane
+  breakdown from a brief, before any session exists. Pure derivation: no
+  session, no model call, no network, no journal — an illustrative profile, not
+  a measurement.
 
 ## Where does X live
 
@@ -204,6 +216,10 @@ Line numbers approximate; grep the symbol if it drifted.
 | MCP tools + mailbox | `_client_actor`, `MailboxPort` | `src/bokken/mcp/server.py` |
 | Cross-run learnings | (module) | `src/bokken/library.py` |
 | Session archive | `pack_session` | `src/bokken/bundle.py` |
+| Cross-run diff | `diff_sessions`, `DiffRefused` | `src/bokken/diffing.py` |
+| Validation backlog | `build_backlog`, `_priority` | `src/bokken/backlog.py` |
+| Pre-flight estimate | (module) | `src/bokken/estimate.py` |
+| Segment x outcome matrix | `build_opportunity_matrix`, `LOW_CONFIDENCE_N` | `src/bokken/report/context.py` |
 
 ## Reading order for a new agent
 

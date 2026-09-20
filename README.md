@@ -209,7 +209,7 @@ coding harness. See [docs/handoff.md](docs/handoff.md).
 
 | | |
 | --- | --- |
-| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · pack · costs · validate · library · doctor · version · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
+| **CLI** | `demo · init · new · run · step · stop · status · list · gate · back · journal · dossier · handoff · export · pack · costs · opportunities · backlog · diff · estimate · validate · library · doctor · version · serve` — every read verb speaks `--json`; exit codes are stable (0 success, 1 unexpected, 2 refused) |
 | **MCP** | `bokken serve` (stdio): 14 tools + 4 resources over the same core with identical result shapes; agent actions are journaled with the client's handshake identity — see [docs/mcp.md](docs/mcp.md) |
 
 ## Documentation
@@ -241,7 +241,7 @@ bokken/
 │   └── contract.py    # one result contract for both surfaces
 ├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
-├── tests/             # 334 tests; the whole loop runs offline against a fake provider
+├── tests/             # the whole loop runs offline against a fake provider (no API key)
 └── scripts/           # live smoke run
 ```
 
