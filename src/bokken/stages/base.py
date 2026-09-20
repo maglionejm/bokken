@@ -105,11 +105,11 @@ def glossary_text(state) -> str:
 
 def evidence_lines(store: JournalStore) -> str:
     """Render captured evidence as '- id: content' lines for clustering prompts."""
-    lines = []
-    for event in store.events():
-        if event.type == "evidence.captured":
-            lines.append(f"- {event.id}: {event.payload['content']}")
-    return "\n".join(lines)
+    return "\n".join(
+        f"- {event.id}: {event.payload['content']}"
+        for event in store.events()
+        if event.type == "evidence.captured"
+    )
 
 
 def dumps(value: Any) -> str:

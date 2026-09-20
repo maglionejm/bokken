@@ -46,6 +46,19 @@ def quoted_citations(corpus, citations) -> list[dict]:
     return quoted
 
 
+def _code_citations(corpus, citations) -> list:
+    """The citations that ground a finding: resolvable spans in *code* sources.
+
+    Only code establishes implemented behavior - a resolvable span in a metrics
+    or discussion source still does not ground a capability or a term.
+    """
+    return [
+        c
+        for c in citations
+        if corpus.kind_of(c.source_id) == "code" and corpus.validate_citation(c)
+    ]
+
+
 def _ask_ratification(input_port, statement: str):
     """One compact founder prompt per capability: confirm / dispute / skip.
 
@@ -163,14 +176,9 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
     lines: list[str] = []
     journaled: set[str] = set()
     walked_away = False
+    explorer = result.actor("code-explorer")
     for cap in result.data.capabilities:
-        # Only code establishes implemented behavior: a resolvable span in a
-        # metrics or discussion source still does not ground a capability.
-        valid = [
-            c
-            for c in cap.citations
-            if corpus.kind_of(c.source_id) == "code" and corpus.validate_citation(c)
-        ]
+        valid = _code_citations(corpus, cap.citations)
         statement = f"{cap.name}: {cap.actor} {cap.trigger} -> {cap.outcome}"
         if statement in journaled:
             # Already on the record (a model may emit one capability twice):
@@ -199,7 +207,7 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
         event = store.append(
             type="interpretation.derived",
             stage="empathize",
-            actor=result.actor("code-explorer"),
+            actor=explorer,
             payload=payload,
         )
         journaled.add(statement)
@@ -223,17 +231,12 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
             )
         )
     for term in result.data.glossary:
-        # The glossary plays by the capability rules: only a resolvable span in
-        # a code source grounds a term, and every kept citation carries a quote.
-        valid = [
-            c
-            for c in term.citations
-            if corpus.kind_of(c.source_id) == "code" and corpus.validate_citation(c)
-        ]
+        # The glossary plays by the capability rules, quotes included.
+        valid = _code_citations(corpus, term.citations)
         store.append(
             type="interpretation.derived",
             stage="empathize",
-            actor=result.actor("code-explorer"),
+            actor=explorer,
             payload={
                 "kind": "domain_term",
                 "statement": f"{term.term}: {term.meaning}",

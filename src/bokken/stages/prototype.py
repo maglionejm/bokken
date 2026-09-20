@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 
 from bokken.journal import Actor
+from bokken.journal.schema import content_hash
 from bokken.orchestrator import StageContext, StageOutcome
 from bokken.stages.base import RouterFactory, StageError, open_stage, structured
 from bokken.stages.research import prior_research, run_concept_research
@@ -16,12 +17,13 @@ _RISK_ORDER = {"high": 2, "medium": 1, "low": 0}
 
 def _exercise_wireframe(ctx: StageContext, absolute) -> None:
     """The prototype gets the same treatment as the product: a real browser pass."""
-    from bokken.journal.schema import content_hash as _hash
-    from bokken.stages.walkthrough import WalkerUnavailable, build_walker
+    # Resolved at call time so the walkthrough module's `build_walker` seam
+    # (monkeypatched by tests) is the one that fires.
+    from bokken.stages.walkthrough import build_walker
 
     try:
         observations = build_walker().visit(absolute.as_uri(), max_pages=1)
-    except (WalkerUnavailable, Exception):
+    except Exception:  # WalkerUnavailable included
         return  # honest skip: the artifact stands on its own
     for i, obs in enumerate(observations[:1], 1):
         ctx.store.append(
@@ -44,7 +46,7 @@ def _exercise_wireframe(ctx: StageContext, absolute) -> None:
                 payload={
                     "path": f"artifacts/prototype/wireframe_{i}.png",
                     "kind": "ui_screenshot",
-                    "content_hash": _hash(obs.screenshot_png),
+                    "content_hash": content_hash(obs.screenshot_png),
                 },
             )
 
@@ -147,13 +149,12 @@ class PrototypeEngine:
         )
 
         for item in plan.data.artifacts:
-            assumption_refs = [
-                registered[i].id for i in item.assumption_indexes if 0 <= i < len(registered)
-            ]
-            if not assumption_refs:
+            mapped = [registered[i] for i in item.assumption_indexes if 0 <= i < len(registered)]
+            if not mapped:
                 raise StageError(
                     f"artifact {item.kind} maps to no assumption register entry; refused"
                 )
+            assumption_refs = [e.id for e in mapped]
             outcome = router.invoke(
                 "generation",
                 "prototype/artifact",
@@ -165,11 +166,7 @@ class PrototypeEngine:
                         _design_tokens(ctx) if item.kind == "wireframe_html" else "(n/a)"
                     ),
                     "problem_statement": problem_statement,
-                    "assumptions": "; ".join(
-                        registered[i].payload["statement"]
-                        for i in item.assumption_indexes
-                        if 0 <= i < len(registered)
-                    ),
+                    "assumptions": "; ".join(e.payload["statement"] for e in mapped),
                 },
                 stream=True,
                 max_tokens=64000,

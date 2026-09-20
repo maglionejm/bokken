@@ -32,12 +32,8 @@ class Guide:
 
 def build_guide(store) -> Guide:
     state = replay(store.events())
-    seen: set[str] = set()
-    debt = []
-    for item in state.research_debt:
-        if item.question not in seen:
-            seen.add(item.question)
-            debt.append(item.question)
+    # First occurrence wins, order kept.
+    debt = list(dict.fromkeys(item.question for item in state.research_debt))
     probes = [
         (
             aid,

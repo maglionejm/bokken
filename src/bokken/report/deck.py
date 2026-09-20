@@ -17,7 +17,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
-from bokken.report.context import ReportContext
+from bokken.report.context import LEGACY_OPPORTUNITY_SCORE, ReportContext
 
 INK = RGBColor(0x1F, 0x24, 0x30)
 GRAY = RGBColor(0x6B, 0x72, 0x80)
@@ -44,6 +44,10 @@ VERDICT_COLORS = {
     "iterate": AMBER,
     "amber": AMBER,
 }
+
+# Legacy opportunity statements only: "O<n>: <outcome> - opportunity <score> (<band>)".
+_O_PREFIX = re.compile(r"^O\d+: ")
+_BAND = re.compile(r"\(([^)]+)\)")
 
 PAGE_W, PAGE_H = Inches(13.333), Inches(7.5)
 MARGIN = Inches(0.6)
@@ -371,14 +375,14 @@ class Deck:
             f"{len(c.ui_feature_results)} features exercised in a real browser — {broken} broken",
         )
         rows = [["Feature", "Verdict", "Finding (observed)"]]
-        for r in c.ui_feature_results[:8]:
-            rows.append(
-                [
-                    r.get("feature", "")[:40],
-                    r.get("verdict", "?"),
-                    (r.get("finding") or f"{len(r.get('steps', []))} step(s), see report")[:110],
-                ]
-            )
+        rows.extend(
+            [
+                r.get("feature", "")[:40],
+                r.get("verdict", "?"),
+                (r.get("finding") or f"{len(r.get('steps', []))} step(s), see report")[:110],
+            ]
+            for r in c.ui_feature_results[:8]
+        )
         shot = None
         for r in c.ui_feature_results:
             if r.get("verdict") == "broken" and r.get("screenshot"):
@@ -420,21 +424,22 @@ class Deck:
                 # right so an outcome mentioning "opportunity" stays intact.
                 score_text = str(node.score)
                 band_text = node.band or "-"
-                clean = re.sub(r"^O\d+: ", "", statement.rsplit(" - opportunity ", 1)[0])
+                clean = _O_PREFIX.sub("", statement.rsplit(" - opportunity ", 1)[0])
             else:  # legacy journal without score/band keys: parse the prose
-                score = re.search(r"opportunity (\d+(?:\.\d+)?)", statement)
+                score = LEGACY_OPPORTUNITY_SCORE.search(statement)
                 tail = (
                     statement[statement.find("opportunity") :] if "opportunity" in statement else ""
                 )
-                band = re.search(r"\(([^)]+)\)", tail)
-                clean = re.sub(r"^O\d+: ", "", statement.split(" - opportunity")[0])
+                band = _BAND.search(tail)
+                clean = _O_PREFIX.sub("", statement.split(" - opportunity")[0])
                 score_text = score.group(1) if score else "-"
                 band_text = band.group(1) if band else "-"
             rows.append([str(i), clean[:105], score_text, band_text[:22]])
-        colors = {}
-        for ri, row in enumerate(rows):
-            if ri > 0 and "underserved" in str(row[3]):
-                colors[(ri, 3)] = ACCENT if "sever" in str(row[3]) else AMBER
+        colors = {
+            (ri, 3): ACCENT if "sever" in str(row[3]) else AMBER
+            for ri, row in enumerate(rows)
+            if ri > 0 and "underserved" in str(row[3])
+        }
         self.table(
             s,
             MARGIN,
@@ -559,14 +564,14 @@ class Deck:
         )
         if mr.get("competitors"):
             rows = [["Competitor / prior art", "What it does", "Overlap with the concept"]]
-            for comp in mr["competitors"][:5]:
-                rows.append(
-                    [
-                        comp.get("name", "")[:34],
-                        comp.get("what", "")[:60],
-                        comp.get("overlap", "")[:52],
-                    ]
-                )
+            rows.extend(
+                [
+                    comp.get("name", "")[:34],
+                    comp.get("what", "")[:60],
+                    comp.get("overlap", "")[:52],
+                ]
+                for comp in mr["competitors"][:5]
+            )
             self.table(
                 s,
                 MARGIN,
@@ -598,7 +603,7 @@ class Deck:
         )
         rows = [["Assumption", "Impact", "Verdict"]]
         ordered = sorted(m.assumptions.values(), key=lambda a: (a.score or "z") != "contradicted")
-        for a in list(ordered)[:9]:
+        for a in ordered[:9]:
             rows.append([a.statement[:110], a.impact, a.score or "untested"])
         self.table(
             s,
@@ -640,8 +645,7 @@ class Deck:
         s = self.slide()
         self.header(s, "action oriented", "What to do next, in order")
         rows = [["#", "Action"]]
-        for i, action in enumerate(c.next_actions[:7], 1):
-            rows.append([str(i), action[:165]])
+        rows.extend([str(i), action[:165]] for i, action in enumerate(c.next_actions[:7], 1))
         self.table(
             s, MARGIN, Inches(1.6), BODY_W, rows, [Inches(0.6), Inches(11.53)], row_h=Inches(0.68)
         )

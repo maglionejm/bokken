@@ -10,6 +10,8 @@ here would produce a dishonest dossier rather than an error.
 
 from __future__ import annotations
 
+import json
+from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
 
@@ -403,10 +405,8 @@ def build_model(session_dir: Path) -> DossierModel:
             generated = event.payload_as(ArtifactGenerated)
             manifest_path = session_dir / generated.path
             if generated.kind == "panel_manifest" and manifest_path.exists():
-                import json as _json
-
                 try:
-                    manifest = _json.loads(manifest_path.read_text())
+                    manifest = json.loads(manifest_path.read_text())
                     cards = [
                         PersonaCard(
                             persona_id=persona["persona_id"],
@@ -418,7 +418,7 @@ def build_model(session_dir: Path) -> DossierModel:
                         )
                         for persona in manifest["personas"]
                     ]
-                except (OSError, KeyError, _json.JSONDecodeError):
+                except (OSError, KeyError, json.JSONDecodeError):
                     # A truncated or unreadable manifest is replayed on every
                     # future dossier/report build; degrade to a persona list
                     # missing this panel instead of failing them all forever.
@@ -457,11 +457,15 @@ def build_model(session_dir: Path) -> DossierModel:
     ]
 
     def decision_for(stage: str, question_fragment: str) -> DecisionNode | None:
-        found = None
-        for node in decisions.values():  # insertion-ordered: keep the latest match
-            if node.stage == stage and question_fragment in node.question:
-                found = node
-        return found
+        # Insertion-ordered: the latest match wins.
+        return next(
+            (
+                node
+                for node in reversed(decisions.values())
+                if node.stage == stage and question_fragment in node.question
+            ),
+            None,
+        )
 
     pivotal = _pivotal_moments(transitions, options, decisions, moves, gates_rejected)
     reached = _STAGE_ORDER.index(state.stage)
@@ -505,57 +509,51 @@ def _pivotal_moments(
     moves: list[MoveNode],
     gates_rejected: list[str],
 ) -> list[PivotalMoment]:
-    pivotal: list[PivotalMoment] = []
-    for t in transitions:
-        if t.loopback:
-            pivotal.append(
-                PivotalMoment(
-                    kind="loopback",
-                    description=(
-                        f"the run returned from {t.from_stage} to {t.to_stage}: {t.condition}"
-                    ),
-                    refs=t.refs,
-                )
-            )
-    children: dict[str, int] = {}
-    for option in options.values():
-        for parent in option.parents:
-            children[parent] = children.get(parent, 0) + 1
-    for option in options.values():
-        if option.status == "killed" and children.get(option.id):
-            pivotal.append(
-                PivotalMoment(
-                    kind="killed_frontrunner",
-                    description=(
-                        f"option {option.summary!r} was built on by others but killed: "
-                        f"{option.status_reason}"
-                    ),
-                    refs=[option.id],
-                )
-            )
-    for decision in decisions.values():
-        if decision.dissent:
-            pivotal.append(
-                PivotalMoment(
-                    kind="adopted_with_dissent",
-                    description=(
-                        f"{decision.question!r} was resolved with dissent on record: "
-                        + "; ".join(d.get("reservation", "") for d in decision.dissent)
-                    ),
-                    refs=[decision.id],
-                )
-            )
-    for move in moves:
-        if move.executed and move.move_id == "timebox_pivot":
-            pivotal.append(
-                PivotalMoment(
-                    kind="timebox_pivot",
-                    description="divergence was pivoted to convergence on novelty decay",
-                    refs=[move.id],
-                )
-            )
-    for reason in gates_rejected:
-        pivotal.append(
-            PivotalMoment(kind="gate_rejected", description=f"a gate was rejected: {reason}")
+    pivotal: list[PivotalMoment] = [
+        PivotalMoment(
+            kind="loopback",
+            description=f"the run returned from {t.from_stage} to {t.to_stage}: {t.condition}",
+            refs=t.refs,
         )
+        for t in transitions
+        if t.loopback
+    ]
+    children = Counter(parent for option in options.values() for parent in option.parents)
+    pivotal.extend(
+        PivotalMoment(
+            kind="killed_frontrunner",
+            description=(
+                f"option {option.summary!r} was built on by others but killed: "
+                f"{option.status_reason}"
+            ),
+            refs=[option.id],
+        )
+        for option in options.values()
+        if option.status == "killed" and children[option.id]
+    )
+    pivotal.extend(
+        PivotalMoment(
+            kind="adopted_with_dissent",
+            description=(
+                f"{decision.question!r} was resolved with dissent on record: "
+                + "; ".join(d.get("reservation", "") for d in decision.dissent)
+            ),
+            refs=[decision.id],
+        )
+        for decision in decisions.values()
+        if decision.dissent
+    )
+    pivotal.extend(
+        PivotalMoment(
+            kind="timebox_pivot",
+            description="divergence was pivoted to convergence on novelty decay",
+            refs=[move.id],
+        )
+        for move in moves
+        if move.executed and move.move_id == "timebox_pivot"
+    )
+    pivotal.extend(
+        PivotalMoment(kind="gate_rejected", description=f"a gate was rejected: {reason}")
+        for reason in gates_rejected
+    )
     return pivotal

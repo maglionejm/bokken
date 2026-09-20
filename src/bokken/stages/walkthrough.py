@@ -10,9 +10,11 @@ accessibility facts. Bounded by design: no form submission, no auth flows.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import urljoin, urlparse
 
 from bokken.journal import Actor
 from bokken.journal.schema import content_hash
@@ -139,9 +141,6 @@ class PlaywrightWalker:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
             raise WalkerUnavailable("playwright is not installed (uv sync --extra ui)") from exc
-
-        import time
-        from urllib.parse import urljoin, urlparse
 
         observations: list[PageObservation] = []
         base = urlparse(app_url)

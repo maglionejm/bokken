@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from bokken.dossier.model import EXCLUDED_ARTIFACT_KINDS, DecisionNode, DossierModel
 
 DOJO_BANNER = (
@@ -147,6 +149,4 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
 def render_json(model: DossierModel, generated_at: str) -> str:
     document = model.model_dump(mode="json")
     document["generated_at"] = generated_at
-    import json
-
     return json.dumps(document, sort_keys=True, indent=2) + "\n"
