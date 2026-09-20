@@ -109,7 +109,10 @@ state, which is what makes every run crash-safe and resumable by construction.
   and the self-escalation guard are all enforced by code paths with journaled
   outcomes.
 - **Market frameworks in the engines**: Empathize derives JTBD desired
-  outcomes and journals a deterministic Ulwick opportunity ranking; Ideate
+  outcomes and journals a deterministic Ulwick opportunity ranking (also
+  projected as a segment x outcome opportunity heatmap — `bokken
+  opportunities` and a report/deck section — with per-cell sample sizes and a
+  low-confidence flag below two personas); Ideate
   converges through three firewalled lenses (adversarial feasibility against
   the repo with green/amber/red verdicts and veto, independent RICE with no
   code access, outcome desirability); concept one-pagers are Hills
@@ -144,7 +147,11 @@ state, which is what makes every run crash-safe and resumable by construction.
   one archive with a self-describing manifest; `report/theme.py` brands the
   chrome without touching content; `handoff/emit.py` renders the OpenSpec
   package as target-native execution prompts. All three are pure functions
-  of the session directory — no model calls, nothing mutated.
+  of the session directory — no model calls, nothing mutated. Three further
+  derivation-only helpers read the journal the same way: `diffing.py`
+  (cross-run diff of two finalized runs), `backlog.py` (impact x uncertainty
+  validation to-do), and `estimate.py` (modeled pre-flight cost/tokens — the
+  one helper that needs no session at all).
 - **Two surfaces, one contract**: CLI `--json` output and MCP tool results are
   the same pydantic shapes (`bokken/contract.py`). Trust differs at the edge,
   not in the core: client-supplied input paths are confined to authorized

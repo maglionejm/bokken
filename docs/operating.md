@@ -148,9 +148,29 @@ bokken costs retention      # spend per stage x prompt x class, cache hit rate, 
 bokken validate retention   # real-human interview vs the research debt (terminal or --channel twilio)
 bokken library              # cross-run learnings per product (seeds new runs automatically)
 bokken pack retention       # one portable archive: manifest + deliverables (+ journal unless --deliverables-only)
+bokken opportunities retention   # segment x outcome Ulwick opportunity matrix (per-cell score + sample size)
+bokken backlog retention    # ranked validation to-do (impact x uncertainty); --format csv|markdown
+bokken diff retention-v1 retention-v2   # what moved between two finalized runs of the same product
+bokken estimate brief.json  # modeled cost + tokens before you create a session
 bokken handoff retention --emit claude-code   # executable HANDOFF.md + .claude command for your coding agent
 bokken export retention --theme acme.json     # white-label the report chrome (builtin: bokken, plain)
 ```
+
+The last four are **pure journal derivation** — no model calls, no network.
+`opportunities` builds the segment x outcome Ulwick matrix from the replayed
+per-persona outcome scores (each cell carries its mean score and sample size; a
+cell with fewer than two personas is flagged low-confidence), and the same
+matrix also surfaces as a section in the report and deck. `backlog` ranks the
+assumption register and research debt on the impact x uncertainty product and
+exports as `csv` or a markdown issue-tracker checklist. `diff` compares two
+finalized runs of the same product — opportunity re-ranking, assumption flips,
+current-capability changes, verdict change — matching statements by text and
+carrying each run's own source-record confidence class; it refuses (exit 2) if
+either run is unfinalized or the two differ in product. `estimate` is the only
+one that needs no session at all: it models a run's cost and token range (with a
+per-lane breakdown) from a brief before you create anything, an illustrative
+profile rather than a measurement — once a run exists, `bokken costs` reports the
+actual list price. All four honor `--json`.
 
 **Dossier** — `dossier/dossier.md` (Part A outcomes + Part B process narrative +
 honesty section) and `dossier/dossier.json` (Part C — the full machine-readable
