@@ -241,7 +241,7 @@ bokken/
 │   └── contract.py    # one result contract for both surfaces
 ├── openspec/          # bokken's own spec-driven development (13 capabilities)
 ├── docs/              # documentation + the GitHub Pages site
-├── tests/             # 334 tests; the whole loop runs offline against a fake provider
+├── tests/             # the whole loop runs offline against a fake provider (no API key)
 └── scripts/           # live smoke run
 ```
 
