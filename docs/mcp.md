@@ -195,8 +195,9 @@ Works mid-run (labeled partial).
 
 **`generate_handoff`** — produce/refresh the OpenSpec MVP-spec package
 ([handoff.md](handoff.md)). Returns `{kind:"handoff", package_dir, change_id,
-capabilities[]}`. Tool error when the session has no convergence decision or
-the recommendation is `kill`.
+capabilities[], adapters[]}` — `adapters` is always empty over MCP; executable
+adapters are rendered only by `bokken handoff --emit`. Tool error when the
+session has no convergence decision or the recommendation is `kill`.
 
 ## Resources
 
