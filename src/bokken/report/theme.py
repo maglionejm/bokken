@@ -1,8 +1,8 @@
 """Report themes: brand the deliverables without touching their truthfulness.
 
 A theme changes chrome (colors, footer attribution, brand label) - never
-content. v1 themes the HTML fully and the deck's footer; the deck palette
-and a locale switch land with the page decomposition.
+content. v1 themes the HTML fully; the deck (palette and footer) and a
+locale switch land with the page decomposition.
 """
 
 from __future__ import annotations

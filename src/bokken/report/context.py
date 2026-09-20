@@ -91,7 +91,6 @@ class ReportContext:
     handoff_refusal: str | None
     synthetic_evidence: int
     register_counts: dict[str, int]  # supported / contradicted / untested
-    loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
     opportunities: list[InsightNode] = field(default_factory=list)
     current_capabilities: list[InsightNode] = field(default_factory=list)
@@ -579,11 +578,6 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         handoff_refusal=None if spec_entries else _handoff_refusal(model),
         synthetic_evidence=sum(1 for e in model.evidence.values() if e.synthetic),
         register_counts=register_counts,
-        loopbacks=[
-            f"{t.from_stage} -> {t.to_stage}: {t.condition}"
-            for t in model.transitions
-            if t.loopback
-        ],
         prototype_artifacts=[a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS],
         opportunities=_ranked_opportunities(model),
         current_capabilities=[i for i in model.insights.values() if i.kind == "current_capability"],
