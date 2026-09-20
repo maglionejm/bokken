@@ -877,6 +877,60 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
         out.print("demo session: illustrative usage - you were charged $0.00")
 
 
+@app.command("estimate")
+@guarded
+def estimate(
+    brief: Annotated[Path, typer.Argument(help="Brief as a JSON file.")],
+    panel_size: Annotated[
+        int, typer.Option(help="Panel size to model (matches `bokken new`).")
+    ] = 6,
+    provider: Annotated[str, typer.Option(help="anthropic or openai")] = "anthropic",
+    model: Annotated[
+        str | None, typer.Option(help="Use this model for frontier routing classes.")
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Predict a run's cost + tokens before creating a session (modeled estimate).
+
+    Pure derivation - no session, no model call, no network, no journal. The
+    figure is a modeled estimate from an illustrative profile, not a
+    measurement; once a run exists, `bokken costs` reports the actual list
+    price."""
+    from bokken.estimate import estimate_run
+
+    # Load and validate the brief before any derivation; a missing or
+    # schema-invalid file exits 2 with a stderr message and writes nothing.
+    try:
+        brief_data = json.loads(brief.read_text(encoding="utf-8"))
+    except OSError as exc:
+        _fail(f"cannot read brief file {brief}: {exc}", 2)
+    except json.JSONDecodeError as exc:
+        _fail(f"brief file {brief} is not valid JSON: {exc}", 2)
+    Brief.model_validate(brief_data)  # schema-invalid brief -> guarded exits 2
+
+    est = estimate_run(panel_size, provider=provider, model=model)
+    result = contract.estimate_result(est)
+    emit(result, as_json, lambda: _print_estimate(result))
+
+
+def _print_estimate(result: contract.EstimateResult) -> None:
+    where = f"provider {result.provider}" + (f", model {result.model}" if result.model else "")
+    out.print(
+        f"modeled estimate: ${result.cost_low_usd:.2f}-${result.cost_high_usd:.2f} "
+        f"(point ~${result.cost_point_usd:.2f}, list prices) · {where}"
+    )
+    out.print(f"{'lane':<12}{'calls':>7}{'tokens':>12}{'~$':>10}")
+    for lane in result.lanes:
+        out.print(f"{lane.lane:<12}{lane.calls:>7}{lane.tokens:>12,}{lane.cost_usd:>10.2f}")
+    out.print(
+        f"{'total':<12}{result.total_calls:>7}{result.total_tokens:>12,}"
+        f"{result.cost_point_usd:>10.2f}"
+    )
+    for line in result.assumptions:
+        out.print(f"- {line}")
+    out.print(result.caveat)
+
+
 @app.command("export")
 @guarded
 def export(
