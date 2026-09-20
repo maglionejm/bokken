@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import os
 import sys
 import threading
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
@@ -26,6 +29,7 @@ from bokken.journal import (
     resolve_session_dir,
     sessions_dir,
 )
+from bokken.journal.query import _type_matches
 from bokken.journal.store import SessionLockedError, read_events
 from bokken.models import RoutingConfigError, session_model_config
 from bokken.orchestrator import (
@@ -66,8 +70,6 @@ def _fail(message: str, code: int) -> NoReturn:
 
 
 def guarded(fn: Callable[..., Any]) -> Callable[..., Any]:
-    import functools
-
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
@@ -82,8 +84,6 @@ def guarded(fn: Callable[..., Any]) -> Callable[..., Any]:
         except _REFUSED as exc:
             _fail(str(exc), 2)
         except Exception as exc:  # unexpected
-            import os
-
             if os.environ.get("BOKKEN_DEBUG"):
                 raise
             _fail(f"unexpected error: {exc}", 1)
@@ -119,6 +119,24 @@ def _print_run(result: contract.RunOutcome) -> None:
 
 
 JsonFlag = Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON on stdout.")]
+
+
+def _csv_list(text: str) -> list[str]:
+    return [s.strip() for s in text.split(",") if s.strip()]
+
+
+def _review_brief(brief_data: dict) -> None:
+    """Interactive review of the three fields a brief hinges on; each prompt
+    shows the drafted value as its default."""
+    brief_data["problem_space"] = typer.prompt("Problem space", default=brief_data["problem_space"])
+    segments = typer.prompt(
+        "Target segments (comma-separated)", default=", ".join(brief_data["target_segments"])
+    )
+    brief_data["target_segments"] = _csv_list(segments)
+    criteria = typer.prompt(
+        "Success criteria (comma-separated)", default=", ".join(brief_data["success_criteria"])
+    )
+    brief_data["success_criteria"] = _csv_list(criteria)
 
 
 @app.command("version")
@@ -173,19 +191,7 @@ def init(
             _fail(str(exc), 2)
         if not yes and not as_json:
             out.print(f"drafted from {from_repo} (drafting cost ~${drafting_cost:.2f}); review:")
-            brief_data["problem_space"] = typer.prompt(
-                "Problem space", default=brief_data["problem_space"]
-            )
-            segments = typer.prompt(
-                "Target segments (comma-separated)",
-                default=", ".join(brief_data["target_segments"]),
-            )
-            brief_data["target_segments"] = [s.strip() for s in segments.split(",") if s.strip()]
-            criteria = typer.prompt(
-                "Success criteria (comma-separated)",
-                default=", ".join(brief_data["success_criteria"]),
-            )
-            brief_data["success_criteria"] = [s.strip() for s in criteria.split(",") if s.strip()]
+            _review_brief(brief_data)
     elif template is not None:
         if template not in TEMPLATES:
             raise typer.BadParameter(f"unknown template; pick one of {sorted(TEMPLATES)}")
@@ -204,19 +210,7 @@ def init(
             raise typer.BadParameter(f"unknown template; pick one of {names}")
         product = typer.prompt("Product name")
         brief_data = build_brief(chosen, product)
-        brief_data["problem_space"] = typer.prompt(
-            "Problem space", default=brief_data["problem_space"]
-        )
-        segments = typer.prompt(
-            "Target segments (comma-separated)",
-            default=", ".join(brief_data["target_segments"]),
-        )
-        brief_data["target_segments"] = [s.strip() for s in segments.split(",") if s.strip()]
-        criteria = typer.prompt(
-            "Success criteria (comma-separated)",
-            default=", ".join(brief_data["success_criteria"]),
-        )
-        brief_data["success_criteria"] = [s.strip() for s in criteria.split(",") if s.strip()]
+        _review_brief(brief_data)
         repo = typer.prompt("Path to the product's repo (empty to skip)", default="")
         if repo.strip():
             brief_data["inputs"]["repo"] = str(Path(repo.strip()).expanduser().resolve())
@@ -612,14 +606,12 @@ def journal(
             render(event)
 
 
-def _parse_since(since: str | None):
+def _parse_since(since: str | None) -> tuple[int | None, datetime | None]:
     """--since accepts a seq number or an ISO timestamp (naive = UTC)."""
     if since is None:
         return None, None
     if since.isdigit():
         return int(since), None
-    from datetime import UTC, datetime
-
     try:
         ts = datetime.fromisoformat(since)
     except ValueError:
@@ -634,12 +626,10 @@ def _matches(
     type_filter: str | None,
     stage: str | None,
     actor: str | None,
-    since_ts: Any = None,
+    since_ts: datetime | None = None,
 ) -> bool:
     if since_ts is not None and event.ts < since_ts:
         return False
-    from bokken.journal.query import _type_matches
-
     if type_filter is not None and not _type_matches(event.type, type_filter):
         return False
     if stage is not None and event.stage != stage:
@@ -902,27 +892,12 @@ def pack(
 @guarded
 def costs(name: str, as_json: JsonFlag = False) -> None:
     """Cost report from the journaled model calls (list-price estimate)."""
-    from bokken.dossier.model import build_model
-    from bokken.journal.store import read_events
-    from bokken.panel import grounding_health
-    from bokken.report.context import cost_rows, functional_rollup
-
     session_dir = resolve_session_dir(name)
-    rows = cost_rows(build_model(session_dir))
-    total = round(sum(r["cost_usd"] for r in rows), 2)
-    hit = sum(r["cache_read"] for r in rows)
-    raw = sum(r["input"] for r in rows)
-    # Lane economics are only half the picture: a cheaper sidekick that
-    # paraphrases shows up here as backstop-forced abstentions, not as savings.
-    grounding = grounding_health(read_events(session_dir))
-    rollup = functional_rollup(rows)
-    payload = {
-        "rows": rows,
-        "total_usd": total,
-        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
-        "rollup": rollup,
-        "grounding": grounding,
-    }
+    payload = contract.cost_payload(session_dir)
+    rows = payload["rows"]
+    total = payload["total_usd"]
+    rollup = payload["rollup"]
+    grounding = payload["grounding"]
     if as_json:
         print(json.dumps(payload, indent=2))
         return
@@ -985,21 +960,21 @@ def opportunities(name: str, as_json: JsonFlag = False) -> None:
             "Underserved by segment (Ulwick: Opp = Importance + max(Importance - Satisfaction, 0); "
             "each cell shows score and sample size n; * = low confidence, n<2)"
         )
-        width = max((len(s) for s in matrix.segments), default=7)
-        width = max(width, 7)
+        width = max([7, *map(len, matrix.segments)])
         header = f"{'segment':<{width}}" + "".join(
             f"{f'O{i}':>12}" for i in range(len(matrix.outcomes))
         )
         out.print(header)
+
+        def cell_text(segment: str, outcome: str) -> str:
+            cell = matrix.cell(segment, outcome)
+            if cell is None:
+                return f"{'-':>12}"
+            flag = "*" if cell.low_confidence else ""
+            return f"{f'{cell.score} (n{cell.n}){flag}':>12}"
+
         for segment in matrix.segments:
-            cells = []
-            for outcome in matrix.outcomes:
-                cell = matrix.cell(segment, outcome)
-                if cell is None:
-                    cells.append(f"{'-':>12}")
-                else:
-                    flag = "*" if cell.low_confidence else ""
-                    cells.append(f"{f'{cell.score} (n{cell.n}){flag}':>12}")
+            cells = (cell_text(segment, outcome) for outcome in matrix.outcomes)
             out.print(f"{segment:<{width}}" + "".join(cells))
         for i, outcome in enumerate(matrix.outcomes):
             out.print(f"O{i}: {outcome}")
@@ -1077,9 +1052,7 @@ def export(
 
     try:
         pptx_path, html_path = generate_report(resolve_session_dir(name), theme_spec=theme)
-    except ThemeError as err:
-        _fail(str(err), 2)
-    except ReportError as err:
+    except (ThemeError, ReportError) as err:
         _fail(str(err), 2)
     result = contract.ExportResult(pptx_path=str(pptx_path), html_path=str(html_path))
     emit(
@@ -1144,11 +1117,12 @@ def doctor(
     from bokken.cli.doctor import run_checks
 
     checks = run_checks(network=network)
+    ok = all(c.ok for c in checks)
     if as_json:
         print(
             json.dumps(
                 {
-                    "ok": all(c.ok for c in checks),
+                    "ok": ok,
                     "checks": [
                         {"name": c.name, "ok": c.ok, "detail": c.detail, "fix": c.fix}
                         for c in checks
@@ -1162,7 +1136,7 @@ def doctor(
         out.print(f"{mark}{c.name:<22} {c.detail}", markup=False, highlight=False)
         if c.fix:
             out.print(f"   fix: {c.fix}", markup=False, highlight=False)
-    if all(c.ok for c in checks):
+    if ok:
         out.print("everything needed for a real run is in place")
     else:
         out.print("apply the fixes above, then re-run `bokken doctor`")

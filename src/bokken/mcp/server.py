@@ -2,27 +2,40 @@
 
 from __future__ import annotations
 
+import functools
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import ValidationError
 
 from bokken import contract
 from bokken.journal import (
     Actor,
     Brief,
+    WorkspaceError,
     list_sessions,
     query,
     replay,
     resolve_session_dir,
 )
 from bokken.journal.schema import BriefInputs, short_id
-from bokken.journal.store import read_events
+from bokken.journal.store import SessionLockedError, read_events
 from bokken.models import RoutingConfigError, session_model_config
-from bokken.orchestrator import Answer, InputRequired, Runner, create_session
-from bokken.panel.corpus import confine_inputs, input_roots
+from bokken.orchestrator import (
+    Answer,
+    IllegalTransitionError,
+    InputRequired,
+    OrchestratorError,
+    Runner,
+    RunResult,
+    create_session,
+)
+from bokken.panel import PanelConfigError
+from bokken.panel.corpus import InputPathRefused, confine_inputs, input_roots
 
 mcp = MCPServer(
     "bokken",
@@ -35,37 +48,29 @@ mcp = MCPServer(
 )
 
 
-def surfaced(fn):
+_REFUSED = (
+    WorkspaceError,
+    OrchestratorError,
+    IllegalTransitionError,
+    SessionLockedError,
+    PanelConfigError,
+    RoutingConfigError,
+    InputPathRefused,
+    ValidationError,
+    ValueError,
+    FileNotFoundError,
+)
+
+
+def surfaced(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Convert domain refusals into ToolErrors whose message reaches the client
     (mcp 2.x masks arbitrary exceptions as 'Error executing tool ...')."""
-    import functools
-
-    from pydantic import ValidationError
-
-    from bokken.journal import WorkspaceError
-    from bokken.journal.store import SessionLockedError
-    from bokken.orchestrator import IllegalTransitionError, OrchestratorError
-    from bokken.panel import PanelConfigError
-    from bokken.panel.corpus import InputPathRefused
-
-    refused = (
-        WorkspaceError,
-        OrchestratorError,
-        IllegalTransitionError,
-        SessionLockedError,
-        PanelConfigError,
-        RoutingConfigError,
-        InputPathRefused,
-        ValidationError,
-        ValueError,
-        FileNotFoundError,
-    )
 
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return fn(*args, **kwargs)
-        except refused as exc:
+        except _REFUSED as exc:
             raise ToolError(str(exc)) from exc
 
     return wrapper
@@ -92,7 +97,7 @@ def _client_actor(ctx: Context) -> Actor:
 # --- input mailbox (Founder-mode questions answered programmatically) ---------
 
 
-def _atomic_write(path, payload: str) -> None:
+def _atomic_write(path: Path, payload: str) -> None:
     """Rename-based atomicity so concurrent clients never read torn JSON."""
     import os
     import tempfile
@@ -171,7 +176,7 @@ def _runner(name: str) -> tuple[Runner, MailboxPort]:
     return runner, port
 
 
-def _run_outcome(result: Any, port: MailboxPort) -> dict:
+def _run_outcome(result: RunResult, port: MailboxPort) -> dict:
     pending = port.pending() if result.halt == "input_pending" else None
     return contract.RunOutcome(
         halt=result.halt,
@@ -243,7 +248,7 @@ def run_session(name: str, ctx: Context) -> dict:
     Completed runs are finalized automatically: Dossier, then handoff specs."""
     runner, port = _runner(name)
     outcome = _run_outcome(runner.run(actor=_client_actor(ctx)), port)
-    if outcome.get("halt") == "completed":
+    if outcome["halt"] == "completed":
         from bokken.cli import wiring
         from bokken.handoff import finalize_session
 
@@ -400,22 +405,7 @@ def export_report(name: str) -> dict:
 @surfaced
 def cost_report(name: str) -> dict:
     """Cost report from the journaled model calls (list-price estimate, cache hit rate)."""
-    from bokken.dossier.model import build_model
-    from bokken.journal.store import read_events
-    from bokken.panel import grounding_health
-    from bokken.report.context import cost_rows, functional_rollup
-
-    session_dir = resolve_session_dir(name)
-    rows = cost_rows(build_model(session_dir))
-    hit = sum(r["cache_read"] for r in rows)
-    raw = sum(r["input"] for r in rows)
-    return {
-        "rows": rows,
-        "total_usd": round(sum(r["cost_usd"] for r in rows), 2),
-        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
-        "rollup": functional_rollup(rows),
-        "grounding": grounding_health(read_events(session_dir)),
-    }
+    return contract.cost_payload(resolve_session_dir(name))
 
 
 # --- resources ------------------------------------------------------------------
