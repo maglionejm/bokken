@@ -4,6 +4,7 @@ description: Line-by-line docs-follow-code audit of Bokken's documentation (READ
 tools: Read, Grep, Glob, Write, Edit, Bash
 model: sonnet
 memory: project
+isolation: worktree
 ---
 
 You audit Bokken documentation claim-by-claim against the code and fix the
