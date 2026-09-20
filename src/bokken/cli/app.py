@@ -463,6 +463,57 @@ def status(name: str, as_json: JsonFlag = False) -> None:
     emit(result, as_json, human)
 
 
+@app.command("backlog")
+@guarded
+def backlog(
+    name: str,
+    fmt: Annotated[
+        str | None,
+        typer.Option("--format", help="Export as 'csv' or 'markdown' (issue-tracker checklist)."),
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Ranked, exportable validation to-do from the assumption register and research debt."""
+    from bokken.backlog import build_backlog, to_csv, to_markdown
+
+    if fmt is not None and fmt not in ("csv", "markdown"):
+        _fail("--format must be 'csv' or 'markdown'", 2)
+    session_dir = resolve_session_dir(name)
+    result = build_backlog(session_dir, name)
+    if fmt == "csv":
+        print(to_csv(result), end="")
+        return
+    if fmt == "markdown":
+        print(to_markdown(result), end="")
+        return
+
+    def human() -> None:
+        from rich.table import Table
+
+        if result.banner:
+            out.print(result.banner)
+        table = Table(title=f"Validation backlog: {result.name}")
+        for col in ("rank", "kind", "impact", "uncertainty", "confidence", "source", "statement"):
+            table.add_column(col)
+        for it in result.items:
+            table.add_row(
+                str(it.rank),
+                it.kind,
+                it.impact or "-",
+                it.uncertainty or "-",
+                it.confidence_class,
+                it.source,
+                it.statement,
+            )
+        if not result.items:
+            out.print("no untested or contradicted assumptions and no open research debt")
+        else:
+            out.print(table)
+        out.print(result.flip_the_verdict)
+
+    emit(result, as_json, human)
+
+
 @app.command("list")
 @guarded
 def list_cmd(as_json: JsonFlag = False) -> None:
