@@ -94,6 +94,51 @@ class ExportResult(BaseModel):
     html_path: str
 
 
+class LaneBreakdown(BaseModel):
+    lane: str  # exploration | research | synthesis
+    calls: int
+    tokens: int
+    cost_usd: float
+
+
+class EstimateResult(BaseModel):
+    """A modeled pre-flight cost estimate: a range, a per-lane breakdown, and the
+    assumptions behind it. Derived, never measured - see `caveat`."""
+
+    kind: Literal["estimate"] = "estimate"
+    panel_size: int
+    provider: str
+    model: str | None = None
+    cost_low_usd: float
+    cost_point_usd: float
+    cost_high_usd: float
+    total_calls: int
+    total_tokens: int
+    lanes: list[LaneBreakdown] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    caveat: str
+
+
+def estimate_result(estimate) -> EstimateResult:
+    """Map a `bokken.estimate.Estimate` onto the shared contract shape."""
+    return EstimateResult(
+        panel_size=estimate.panel_size,
+        provider=estimate.provider,
+        model=estimate.model,
+        cost_low_usd=estimate.cost_low_usd,
+        cost_point_usd=estimate.cost_point_usd,
+        cost_high_usd=estimate.cost_high_usd,
+        total_calls=estimate.total_calls,
+        total_tokens=estimate.total_tokens,
+        lanes=[
+            LaneBreakdown(lane=la.lane, calls=la.calls, tokens=la.tokens, cost_usd=la.cost_usd)
+            for la in estimate.lanes
+        ],
+        assumptions=list(estimate.assumptions),
+        caveat=estimate.caveat,
+    )
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"
