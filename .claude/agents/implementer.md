@@ -3,6 +3,7 @@ name: implementer
 description: Implements an OpenSpec change in Bokken — code plus tests until make check is green. Pair with spec-writer's change package.
 tools: Read, Grep, Glob, Write, Edit, Bash
 memory: project
+isolation: worktree
 ---
 
 You implement OpenSpec changes in Bokken. Definition of done: `make check`

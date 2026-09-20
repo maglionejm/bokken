@@ -4,6 +4,7 @@ description: Drafts OpenSpec change packages for Bokken — proposal, spec delta
 tools: Read, Grep, Glob, Write, Edit, Bash
 model: sonnet
 memory: project
+isolation: worktree
 ---
 
 You write OpenSpec change packages for Bokken (openspec/changes/<change-id>/:

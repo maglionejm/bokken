@@ -29,6 +29,22 @@ Spec → implement → review → document, spec-driven via OpenSpec
 (`/opsx:propose` → `/opsx:apply` → `/opsx:archive`). Repo teammates live in
 `.claude/agents/`.
 
+## Running the teammates as a team
+
+The four `.claude/agents/` definitions (`spec-writer`, `implementer`,
+`reviewer`, `docs-auditor`) double as Agent Team members. Agent Teams is
+experimental and enabled for this repo via
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json` — open
+Claude Code from the repo root so the setting and the named types load. Then
+ask the lead in plain English, e.g. *"spawn spec-writer, implementer,
+reviewer, and docs-auditor as a team and coordinate through the shared task
+list."* The three writing teammates carry `isolation: worktree` so their git
+work stays conflict-free; the reviewer is read-only and works the live tree.
+Drive them from the lead session: ↑/↓ to select a teammate, Enter to view and
+message it, `@name` to talk to one, `Ctrl+T` for the shared task list. One
+team per session; re-spawn after a resume (in-process teammates don't
+persist). Releases stay a human decision regardless of who did the work.
+
 ## Two golden rules
 
 1. **Every behavior fix ships with its test in the same commit.** A dropped fix
