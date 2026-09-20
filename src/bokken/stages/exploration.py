@@ -161,7 +161,7 @@ def run_code_exploration(corpus, store, router, input_port=None) -> str | None:
     if result is None:
         return None
     lines: list[str] = []
-    journaled: set[str] = {p["statement"] for p in prior.values()}
+    journaled: set[str] = set()
     walked_away = False
     for cap in result.data.capabilities:
         # Only code establishes implemented behavior: a resolvable span in a

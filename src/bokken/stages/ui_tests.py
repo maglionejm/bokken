@@ -109,7 +109,7 @@ class PlaywrightFeatureTester:
                 self.goto(action.value)
             elif action.target_index is None:
                 return "no-op: click/fill without a target_index"
-            elif action.target_index is not None:
+            else:
                 locator = self.page.locator(
                     "button, a[href], input:not([type=hidden]), select, textarea, "
                     "[role=tab], [role=button]"

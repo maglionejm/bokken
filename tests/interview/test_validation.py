@@ -75,8 +75,6 @@ def test_guide_interview_and_rescoring(tmp_path):
     assert make_runner(session_dir, provider).run().halt == "completed"
 
     with JournalStore.open(session_dir) as store:
-        from bokken.journal import Actor
-
         store.append(
             type="assumption.registered",
             stage=None,

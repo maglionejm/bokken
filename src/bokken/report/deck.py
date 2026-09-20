@@ -55,9 +55,8 @@ CHIP_W = Inches(1.95)
 
 class Deck:
     def __init__(self, ctx: ReportContext, theme=None) -> None:
-        from bokken.report.theme import BUILTIN
-
-        self.theme = theme or BUILTIN["bokken"]
+        # `theme` mirrors render_page's signature; the deck palette and footer
+        # are not themed yet (see report/theme.py), so nothing reads it here.
         self.ctx = ctx
         self.prs = Presentation()
         self.prs.slide_width = PAGE_W

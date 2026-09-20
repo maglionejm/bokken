@@ -115,7 +115,7 @@ def test_validation_debt_becomes_mandatory_tasks(completed_session: Path) -> Non
     assert "SIMULATED VALIDATION" in readme  # dojo banner
 
 
-def test_refusals(tmp_path: Path) -> None:
+def test_refusals() -> None:
     from bokken.journal import JournalStore
 
     # No convergence decision.

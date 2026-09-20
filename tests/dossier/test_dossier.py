@@ -133,7 +133,7 @@ def test_negative_space_lists_debt_and_suppressions(dojo_session: Path) -> None:
         assert debt.question in markdown
 
 
-def test_partial_dossier_for_in_flight_session(tmp_path: Path) -> None:
+def test_partial_dossier_for_in_flight_session() -> None:
     from bokken.orchestrator import create_session
 
     session_dir = create_session("dossier-partial", brief=BRIEF, mode="founder")

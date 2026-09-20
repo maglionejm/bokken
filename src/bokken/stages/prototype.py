@@ -51,14 +51,12 @@ def _exercise_wireframe(ctx: StageContext, absolute) -> None:
 
 def _design_tokens(ctx: StageContext) -> str:
     """Real CSS from the declared repo so wireframes speak the product's language."""
-    from pathlib import Path as _P
-
     repo = (ctx.state.brief.get("inputs") or {}).get("repo")
     if not repo:
         return "(no repo declared - use a neutral utilitarian SaaS look)"
     chunks: list[str] = []
     budget = 12_000
-    for css in sorted(_P(repo).rglob("*.css"))[:4]:
+    for css in sorted(Path(repo).rglob("*.css"))[:4]:
         try:
             text = css.read_text(encoding="utf-8", errors="ignore")
         except OSError:

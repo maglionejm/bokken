@@ -65,7 +65,7 @@ class FakeTester:
         assert app_url == "http://fake.local"
 
     def goto(self, url):
-        self.here = url
+        pass
 
     def digest(self):
         return (
@@ -77,8 +77,6 @@ class FakeTester:
         return "ok (navigated to http://fake.local/done)"
 
     def screenshot(self):
-        import base64
-
         return base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg"
             "YAAAAAMAASsJTYQAAAAASUVORK5CYII="
@@ -108,16 +106,15 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
     review = next(e for e in events if e.payload.get("kind") == "ui_review")
     assert "Functional UI review" in (session_dir / review.payload["path"]).read_text()
 
-    events2 = events
     feature_evidence = [
         e
-        for e in events2
+        for e in events
         if e.type == "evidence.captured" and e.payload.get("source") == "ui_feature_test"
     ]
     assert len(feature_evidence) == 2
     assert all(e.payload["confidence_class"] == "observed" for e in feature_evidence)
-    kinds2 = [e.payload.get("kind") for e in events2 if e.type == "artifact.generated"]
-    assert kinds2.count("ui_feature_tests") == 2
+    kinds = [e.payload.get("kind") for e in events if e.type == "artifact.generated"]
+    assert kinds.count("ui_feature_tests") == 2
     tests_md = (session_dir / "artifacts/ui/ui_feature_tests.md").read_text()
     assert "Schedule upload" in tests_md and "WORKS" in tests_md
 
@@ -282,11 +279,7 @@ def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkey
 
 
 def test_wireframe_artifact_generated_on_tokens_and_exercised(tmp_path, monkeypatch) -> None:
-    from bokken.journal import read_events
-    from bokken.orchestrator import create_session
-    from bokken.stages import walkthrough as wt2
-
-    monkeypatch.setattr(wt2, "build_walker", lambda: FakeWalker2())
+    monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker2())
     inputs = make_inputs(tmp_path)
     css = tmp_path / "styles.css"
     css.write_text(":root{--accent:#c00}.card{border:1px solid}")
@@ -314,12 +307,8 @@ def test_wireframe_artifact_generated_on_tokens_and_exercised(tmp_path, monkeypa
 
 class FakeWalker2:
     def visit(self, app_url, *, max_pages=12, seed_paths=None):
-        import base64
-
-        from bokken.stages import walkthrough as wt3
-
         return [
-            wt3.PageObservation(
+            wt.PageObservation(
                 url=app_url,
                 title="Mock",
                 load_ms=5,

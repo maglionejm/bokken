@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from bokken.handoff.schema import CapabilityDraft, RequirementDraft, ScenarioDraft, SpecPackage
 
@@ -37,7 +37,6 @@ class HandoffContext:
     validation_items: list[ValidationItem]
     trace_ids: dict[str, str | None]  # problem_statement/concept/recommendation -> event id
     dojo: bool = False
-    extra: dict = field(default_factory=dict)
 
 
 class HandoffFormatError(Exception):

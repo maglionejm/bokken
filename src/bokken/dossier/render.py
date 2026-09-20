@@ -18,19 +18,10 @@ def _flat(s: str | None) -> str:
     return " ".join((s or "").split())
 
 
-def _label(synthetic: bool, flagged: bool = False) -> str:
-    parts = []
-    if synthetic:
-        parts.append("[synthetic]")
-    if flagged:
-        parts.append("[requires real validation]")
-    return (" " + " ".join(parts)) if parts else ""
-
-
 def _decision_line(node: DecisionNode | None, fallback: str) -> str:
     if node is None:
         return f"_{fallback}_"
-    label = _label(False, node.requires_real_validation)
+    label = " [requires real validation]" if node.requires_real_validation else ""
     return f"{_flat(node.resolution)}{label} (decision `{node.id}`)"
 
 

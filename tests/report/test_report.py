@@ -215,12 +215,10 @@ def test_honesty_banner_in_both_formats(dojo_session: Path) -> None:
 
 
 def test_appendix_lists_specs_after_handoff(dojo_session: Path) -> None:
-    from bokken.cli import wiring
     from bokken.handoff import finalize_session
 
-    result = finalize_session(dojo_session, lambda store: wiring_router(store))
+    result = finalize_session(dojo_session, wiring_router)
     assert result.handoff_generated and result.report_generated
-    del wiring  # only imported to mirror production call sites
     model = build_model(dojo_session)
     ctx = build_context(dojo_session, model)
     assert ctx.spec_entries, "handoff specs should be summarized"
@@ -469,7 +467,7 @@ def test_cli_matrix_equals_report_derivation(two_segment_session: Path) -> None:
     assert ctx.opportunity_matrix.model_dump() == standalone.model_dump()
 
 
-def _single_persona_segment_session(tmp_path: Path) -> Path:
+def _single_persona_segment_session() -> Path:
     """A hand-authored session where exactly one persona in a segment scored a
     given outcome, so that cell must be flagged low-confidence (n=1)."""
     from bokken.journal import Actor, JournalStore
@@ -535,12 +533,12 @@ def _single_persona_segment_session(tmp_path: Path) -> Path:
     return session_dir
 
 
-def test_thin_cell_is_flagged_low_confidence_in_both_formats(tmp_path: Path) -> None:
+def test_thin_cell_is_flagged_low_confidence_in_both_formats() -> None:
     from bokken.report.context import build_context
     from bokken.report.deck import Deck
     from bokken.report.page import render_page
 
-    session_dir = _single_persona_segment_session(tmp_path)
+    session_dir = _single_persona_segment_session()
     model = build_model(session_dir)
     ctx = build_context(session_dir, model)
     matrix = ctx.opportunity_matrix
@@ -607,7 +605,7 @@ def test_dojo_framing_survives_the_heatmap_section(two_segment_session: Path) ->
     assert "Underserved by segment" in text
 
 
-def test_no_scored_outcomes_omits_the_section(tmp_path: Path) -> None:
+def test_no_scored_outcomes_omits_the_section() -> None:
     """A session that never scored desired outcomes has no matrix, so neither the
     HTML nor the deck carries an Underserved-by-segment section."""
     from bokken.orchestrator import create_session
