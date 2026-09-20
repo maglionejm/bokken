@@ -463,6 +463,57 @@ def status(name: str, as_json: JsonFlag = False) -> None:
     emit(result, as_json, human)
 
 
+@app.command("backlog")
+@guarded
+def backlog(
+    name: str,
+    fmt: Annotated[
+        str | None,
+        typer.Option("--format", help="Export as 'csv' or 'markdown' (issue-tracker checklist)."),
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Ranked, exportable validation to-do from the assumption register and research debt."""
+    from bokken.backlog import build_backlog, to_csv, to_markdown
+
+    if fmt is not None and fmt not in ("csv", "markdown"):
+        _fail("--format must be 'csv' or 'markdown'", 2)
+    session_dir = resolve_session_dir(name)
+    result = build_backlog(session_dir, name)
+    if fmt == "csv":
+        print(to_csv(result), end="")
+        return
+    if fmt == "markdown":
+        print(to_markdown(result), end="")
+        return
+
+    def human() -> None:
+        from rich.table import Table
+
+        if result.banner:
+            out.print(result.banner)
+        table = Table(title=f"Validation backlog: {result.name}")
+        for col in ("rank", "kind", "impact", "uncertainty", "confidence", "source", "statement"):
+            table.add_column(col)
+        for it in result.items:
+            table.add_row(
+                str(it.rank),
+                it.kind,
+                it.impact or "-",
+                it.uncertainty or "-",
+                it.confidence_class,
+                it.source,
+                it.statement,
+            )
+        if not result.items:
+            out.print("no untested or contradicted assumptions and no open research debt")
+        else:
+            out.print(table)
+        out.print(result.flip_the_verdict)
+
+    emit(result, as_json, human)
+
+
 @app.command("list")
 @guarded
 def list_cmd(as_json: JsonFlag = False) -> None:
@@ -731,6 +782,89 @@ def library(
                 out.print(f"  [{a['score']}] {a['statement'][:100]}")
 
 
+@app.command("diff")
+@guarded
+def diff(
+    old: Annotated[str, typer.Argument(help="The earlier finalized run.")],
+    new: Annotated[str, typer.Argument(help="The later finalized run.")],
+    as_json: JsonFlag = False,
+) -> None:
+    """Compare two finalized runs of the same product: what moved between them.
+
+    Pure derivation - no model calls. Reports Ulwick opportunity re-ranking,
+    assumptions that flipped status, current-capability changes, and the verdict
+    change. Statements are matched across runs by their (whitespace-stripped)
+    text, so a reworded statement reads as an add plus a drop, not a change.
+    Refuses (exit 2) if either run is unfinalized or they differ in product."""
+    from bokken.diffing import DiffRefused, diff_sessions
+
+    old_dir = resolve_session_dir(old)
+    new_dir = resolve_session_dir(new)
+    try:
+        data = diff_sessions(old_dir, new_dir)
+    except DiffRefused as refusal:
+        _fail(str(refusal), 2)
+        return
+    result = contract.diff_result(data)
+
+    def line(text: str) -> None:
+        # markup off: run tags like [both] and class tags like [simulated] are
+        # literal text, not Rich style markup.
+        out.print(text, markup=False, highlight=False)
+
+    def human() -> None:
+        line(f"diff {result.old_session} -> {result.new_session} (product {result.product})")
+        line("opportunities:")
+        if not result.opportunities:
+            line("  (none)")
+        for o in result.opportunities:
+            if o.run == "both":
+                delta = f" (delta {o.score_delta:+g})" if o.score_delta is not None else ""
+                line(
+                    f"  [both] {o.statement}: {o.old_score} -> {o.new_score}{delta}, "
+                    f"{o.old_band} -> {o.new_band} [{o.confidence_class}]"
+                )
+            elif o.run == "new":
+                line(
+                    f"  [new] added: {o.statement}: {o.new_score} ({o.new_band}) "
+                    f"[{o.confidence_class}]"
+                )
+            else:
+                line(
+                    f"  [old] dropped: {o.statement}: {o.old_score} ({o.old_band}) "
+                    f"[{o.confidence_class}]"
+                )
+        line("assumptions:")
+        if not result.assumptions:
+            line("  (none)")
+        for a in result.assumptions:
+            if a.run == "both":
+                line(
+                    f"  [both] {a.statement}: {a.old_score} -> {a.new_score} [{a.confidence_class}]"
+                )
+            elif a.run == "new":
+                line(f"  [new] added: {a.statement}: {a.new_score} [{a.confidence_class}]")
+            else:
+                line(f"  [old] dropped: {a.statement}: {a.old_score} [{a.confidence_class}]")
+        line("capabilities:")
+        if not result.capabilities:
+            line("  (none)")
+        for c in result.capabilities:
+            line(f"  [{c.run}] {c.change}: {c.statement} [{c.confidence_class}]")
+        line("verdict:")
+        if result.verdict is None:
+            line("  (none)")
+        else:
+            v = result.verdict
+            marker = "changed" if v.changed else "unchanged"
+            line(
+                f"  {v.old_verdict} [{v.old_confidence_class}] -> "
+                f"{v.new_verdict} [{v.new_confidence_class}] ({marker})"
+            )
+
+    emit(result, as_json, human)
+
+
 @app.command("pack")
 @guarded
 def pack(
@@ -879,6 +1013,60 @@ def opportunities(name: str, as_json: JsonFlag = False) -> None:
             out.print(f"O{i}: {outcome}")
 
     emit(matrix, as_json, human)
+
+
+@app.command("estimate")
+@guarded
+def estimate(
+    brief: Annotated[Path, typer.Argument(help="Brief as a JSON file.")],
+    panel_size: Annotated[
+        int, typer.Option(help="Panel size to model (matches `bokken new`).")
+    ] = 6,
+    provider: Annotated[str, typer.Option(help="anthropic or openai")] = "anthropic",
+    model: Annotated[
+        str | None, typer.Option(help="Use this model for frontier routing classes.")
+    ] = None,
+    as_json: JsonFlag = False,
+) -> None:
+    """Predict a run's cost + tokens before creating a session (modeled estimate).
+
+    Pure derivation - no session, no model call, no network, no journal. The
+    figure is a modeled estimate from an illustrative profile, not a
+    measurement; once a run exists, `bokken costs` reports the actual list
+    price."""
+    from bokken.estimate import estimate_run
+
+    # Load and validate the brief before any derivation; a missing or
+    # schema-invalid file exits 2 with a stderr message and writes nothing.
+    try:
+        brief_data = json.loads(brief.read_text(encoding="utf-8"))
+    except OSError as exc:
+        _fail(f"cannot read brief file {brief}: {exc}", 2)
+    except json.JSONDecodeError as exc:
+        _fail(f"brief file {brief} is not valid JSON: {exc}", 2)
+    Brief.model_validate(brief_data)  # schema-invalid brief -> guarded exits 2
+
+    est = estimate_run(panel_size, provider=provider, model=model)
+    result = contract.estimate_result(est)
+    emit(result, as_json, lambda: _print_estimate(result))
+
+
+def _print_estimate(result: contract.EstimateResult) -> None:
+    where = f"provider {result.provider}" + (f", model {result.model}" if result.model else "")
+    out.print(
+        f"modeled estimate: ${result.cost_low_usd:.2f}-${result.cost_high_usd:.2f} "
+        f"(point ~${result.cost_point_usd:.2f}, list prices) · {where}"
+    )
+    out.print(f"{'lane':<12}{'calls':>7}{'tokens':>12}{'~$':>10}")
+    for lane in result.lanes:
+        out.print(f"{lane.lane:<12}{lane.calls:>7}{lane.tokens:>12,}{lane.cost_usd:>10.2f}")
+    out.print(
+        f"{'total':<12}{result.total_calls:>7}{result.total_tokens:>12,}"
+        f"{result.cost_point_usd:>10.2f}"
+    )
+    for line in result.assumptions:
+        out.print(f"- {line}")
+    out.print(result.caveat)
 
 
 @app.command("export")

@@ -131,6 +131,147 @@ class OpportunityMatrix(BaseModel):
         return next((c for c in self.cells if c.segment == segment and c.outcome == outcome), None)
 
 
+class OpportunityDeltaOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    old_score: float | None = None
+    new_score: float | None = None
+    score_delta: float | None = None
+    old_band: str | None = None
+    new_band: str | None = None
+
+
+class AssumptionFlipOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    old_score: str | None = None
+    new_score: str | None = None
+
+
+class CapabilityChangeOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    change: Literal["added", "removed", "changed"]
+
+
+class VerdictChangeOut(BaseModel):
+    old_verdict: str | None
+    new_verdict: str | None
+    changed: bool
+    old_confidence_class: str
+    new_confidence_class: str
+
+
+class DiffResult(BaseModel):
+    kind: Literal["diff"] = "diff"
+    old_session: str
+    new_session: str
+    product: str
+    opportunities: list[OpportunityDeltaOut] = Field(default_factory=list)
+    assumptions: list[AssumptionFlipOut] = Field(default_factory=list)
+    capabilities: list[CapabilityChangeOut] = Field(default_factory=list)
+    verdict: VerdictChangeOut | None = None
+
+
+def diff_result(data) -> DiffResult:
+    """Build the CLI/MCP contract shape from a `diffing.DiffData` — the one
+    derived structure both surfaces consume, so the table and `--json` never
+    disagree. Every row keeps its run provenance and confidence class."""
+    return DiffResult(
+        old_session=data.old_session,
+        new_session=data.new_session,
+        product=data.product,
+        opportunities=[OpportunityDeltaOut(**vars(o)) for o in data.opportunities],
+        assumptions=[AssumptionFlipOut(**vars(a)) for a in data.assumptions],
+        capabilities=[CapabilityChangeOut(**vars(c)) for c in data.capabilities],
+        verdict=VerdictChangeOut(**vars(data.verdict)) if data.verdict is not None else None,
+    )
+
+
+class LaneBreakdown(BaseModel):
+    lane: str  # exploration | research | synthesis
+    calls: int
+    tokens: int
+    cost_usd: float
+
+
+class EstimateResult(BaseModel):
+    """A modeled pre-flight cost estimate: a range, a per-lane breakdown, and the
+    assumptions behind it. Derived, never measured - see `caveat`."""
+
+    kind: Literal["estimate"] = "estimate"
+    panel_size: int
+    provider: str
+    model: str | None = None
+    cost_low_usd: float
+    cost_point_usd: float
+    cost_high_usd: float
+    total_calls: int
+    total_tokens: int
+    lanes: list[LaneBreakdown] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    caveat: str
+
+
+def estimate_result(estimate) -> EstimateResult:
+    """Map a `bokken.estimate.Estimate` onto the shared contract shape."""
+    return EstimateResult(
+        panel_size=estimate.panel_size,
+        provider=estimate.provider,
+        model=estimate.model,
+        cost_low_usd=estimate.cost_low_usd,
+        cost_point_usd=estimate.cost_point_usd,
+        cost_high_usd=estimate.cost_high_usd,
+        total_calls=estimate.total_calls,
+        total_tokens=estimate.total_tokens,
+        lanes=[
+            LaneBreakdown(lane=la.lane, calls=la.calls, tokens=la.tokens, cost_usd=la.cost_usd)
+            for la in estimate.lanes
+        ],
+        assumptions=list(estimate.assumptions),
+        caveat=estimate.caveat,
+    )
+
+
+class BacklogItem(BaseModel):
+    rank: int
+    kind: Literal["assumption", "research_debt"]
+    # impact/uncertainty/score are the assumption register fields; a
+    # research-debt item leaves them None (it is an open question, not a scored
+    # assumption). `priority` is the ordinal impact x uncertainty product used
+    # to rank, exposed so an export can sort or filter deterministically.
+    impact: str | None = None
+    uncertainty: str | None = None
+    score: str | None = None
+    priority: int | None = None
+    confidence_class: str
+    source: str
+    statement: str
+
+
+class BacklogResult(BaseModel):
+    kind: Literal["backlog"] = "backlog"
+    name: str
+    mode: str | None
+    items: list[BacklogItem] = Field(default_factory=list)
+    # Register counts over the whole assumption register (not just the backlog):
+    # supported items are excluded from `items` but still counted here.
+    supported: int = 0
+    contradicted: int = 0
+    untested: int = 0
+    research_debt: int = 0
+    flip_the_verdict: str = ""
+    # Honesty framing: a simulated-only backlog restates the dojo banner and
+    # the requires-real-validation context so it is never read as validated fact.
+    dojo_banner: bool = False
+    requires_real_validation: bool = False
+    simulated_only: bool = False
+    banner: str | None = None
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"

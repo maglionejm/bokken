@@ -385,3 +385,134 @@ unknown session SHALL exit 2 per the CLI's output discipline.
   scored desired outcomes
 - **THEN** the command exits 2 with a message naming that no outcome scores were
   journaled, and writes no matrix
+### Requirement: Diff verb
+
+`bokken diff <old> <new>` SHALL compare two finalized runs of the *same product* and report what moved between them, by derivation only — it SHALL build the shared read model for each session (the dossier model built from the journal alone) and diff it, making no model calls, no journal writes, and no mutation of either session. The report SHALL cover four axes: (1) **opportunity re-ranking** — Ulwick outcomes present in both runs matched by statement, each with its `<old>` and `<new>` opportunity score and band and their deltas, plus outcomes added in `<new>` and outcomes dropped from `<old>`; (2) **assumptions that flipped status** — assumptions matched by statement whose score changed, reporting the `<old>` and `<new>` score (drawn from `supported | contradicted | untested`), plus assumptions added and dropped; (3) **current capabilities added / removed / changed** — the code-exploration `current_capability` insights matched by statement; and (4) **verdict change** — the recommendation (`kill | iterate | proceed`) of each run and whether it changed.
+
+Every reported row SHALL label which run it came from (`old`, `new`, or `both`) and SHALL carry the confidence class of the material it summarizes, copied unchanged from the two read models — the diff SHALL NOT re-derive, re-ground, or relabel anything, so material grounded only in `simulated` or `assumed` evidence stays labelled synthetic in the diff and real testimony reads as such. The verb SHALL refuse with exit code `2`, writing a specific message to stderr and no diff to stdout, when either session is not finalized, or when the two sessions are not the same product — product identity being the library product key (`inputs.repo`, or the brief `problem_space` when no repo is set). The default output SHALL be a plain utilitarian terminal table (no emojis, no decorative Unicode); `--json` SHALL emit exactly one JSON document conforming to the documented `DiffResult` shape, carrying the same per-row run provenance and confidence classes as the table. A combined cross-run HTML report is out of scope for this requirement.
+
+#### Scenario: What moved between two runs of one product
+
+- **WHEN** `bokken diff retention-v1 retention-v2 --json` is invoked on two finalized sessions built from the same repository, where the second run re-ranked an opportunity, flipped an assumption from `untested` to `supported`, added a current capability, and changed the verdict from `iterate` to `proceed`
+- **THEN** stdout is exactly one `DiffResult` JSON document (stderr empty, exit code 0) whose opportunity section shows the re-ranked outcome with both scores and the delta, whose assumptions section shows the `untested -> supported` flip, whose capabilities section lists the added capability, and whose verdict section reports `iterate -> proceed`, with every row labelled by run of origin and carrying its confidence class
+
+#### Scenario: Different products are refused
+
+- **WHEN** `bokken diff app-alpha app-beta` is invoked on two finalized sessions whose product keys differ (different `inputs.repo`, or different `problem_space` when neither sets a repo)
+- **THEN** the command exits `2` with a stderr message naming that the two sessions are not the same product, and writes no diff to stdout
+
+#### Scenario: An unfinalized session is refused
+
+- **WHEN** `bokken diff done-run in-flight-run` is invoked where `in-flight-run` has not reached the `complete` stage
+- **THEN** the command exits `2` with a stderr message naming which session is not finalized and pointing to how to finalize it, and writes no diff to stdout
+### Requirement: Estimate verb
+
+`bokken estimate <brief.json>` SHALL predict a run's token usage and
+list-price cost **before** any session is created, by derivation only - no
+`ModelRouter` call, no provider SDK, no network, and no journal written. It
+SHALL accept `--panel-size` (default 6, matching `bokken new`), `--provider`,
+and `--model`, and SHALL price on the **served** model that the brief's
+provider/model routing would resolve to (via the same routing resolution a
+created session uses), reusing the single pricing function so the estimate and
+a later `bokken costs` receipt speak one pricing language. The estimate SHALL
+be built from the per-routing-class token profile and the run's executed
+prompt set, scaling the research lane with panel size (more personas -> more
+per-persona research-lane calls). Output SHALL be a **low-high USD range**
+(never a single false-precision number) plus a **per-functional-lane
+breakdown** - exploration / research / synthesis, using the same lane
+vocabulary as the costs functional rollup - each lane reporting its estimated
+calls, tokens, and cost, and the three lane costs SHALL sum to the estimate's
+point figure. The surface SHALL be labeled a **modeled estimate** and SHALL
+state its assumptions - the panel size assumed and that the token profile is
+an illustrative modeled profile, not a measurement of this brief - and SHALL
+NOT present the figure as a guaranteed or actual cost. `--json` SHALL emit one
+`EstimateResult` JSON document on stdout carrying the range, the per-lane
+breakdown, the assumptions, and the modeled-estimate caveat; a missing or
+schema-invalid brief file SHALL exit `2` with a stderr message and write no
+model call.
+
+#### Scenario: Modeled estimate with a range and lane breakdown
+
+- **WHEN** `bokken estimate brief.json --panel-size 6 --json` is invoked with a
+  valid brief
+- **THEN** stdout is one `EstimateResult` JSON document carrying a low-high USD
+  range whose low does not exceed its high, an exploration/research/synthesis
+  lane breakdown whose lane costs sum to the point estimate, a stated
+  assumption that the panel size is 6 and the profile is a modeled estimate,
+  and no session is created and no model is called
+
+#### Scenario: The estimate scales with panel size
+
+- **WHEN** `bokken estimate brief.json --panel-size 10` and
+  `bokken estimate brief.json --panel-size 4` are run against the same brief
+- **THEN** the panel-size-10 estimate's cost and research-lane call count are
+  strictly greater than the panel-size-4 estimate's, because more personas add
+  per-persona research-lane calls
+
+#### Scenario: Honest about being an estimate, never a guarantee
+
+- **WHEN** `bokken estimate brief.json` prints its human-readable output
+- **THEN** the output labels the figure a modeled estimate drawn from an
+  illustrative profile, states it is not a measurement or a guarantee, and
+  points to `bokken costs` for the actual list price once a run exists
+
+#### Scenario: A missing brief is refused before any work
+
+- **WHEN** `bokken estimate does-not-exist.json` is invoked
+- **THEN** the command exits `2` with a stderr message naming the unreadable
+  brief and no session, journal, or model call is produced
+### Requirement: Backlog verb
+
+`bokken backlog <name>` SHALL print a deterministic, replay-derived validation
+to-do list built from the journal alone with no model call. It SHALL rank the
+session's untested and contradicted assumptions by impact x uncertainty
+(reading the journaled `impact` and `uncertainty` on each assumption and the
+`score` from its latest scoring), highest first, and SHALL fold every open
+research-debt abstention in as a backlog item. Supported assumptions SHALL NOT
+appear. The default output SHALL be a plain terminal table with one row per
+item carrying at least rank, kind (`assumption` or `research_debt`), impact,
+uncertainty, confidence class, source/provenance, and the statement or open
+question. Every item SHALL carry its `confidence_class` and its session
+provenance, and a simulated-only backlog SHALL keep the simulated framing
+(restating the dojo banner and that the run still requires real validation) so
+it is never read as validated fact. The report SHALL include a single
+"what would flip the verdict" line derived from the register versus the test
+recommendation: since the recommendation is a challenge-class judgement over
+the register rather than a mechanical cutoff, that line SHALL state the
+register counts (supported / contradicted / untested) and the gap plainly —
+how many untested items remain to resolve and that any contradicted item is a
+standing kill-or-iterate signal — rather than asserting an invented threshold.
+`--json` SHALL emit exactly one `BacklogResult`-shaped JSON document with the
+ranked items, the register counts, the flip-the-verdict text, and the honesty
+flags; `--format csv` and `--format markdown` SHALL emit an issue-tracker
+checklist of the same ranked items. Exit codes SHALL follow the CLI output
+discipline: `2` for an unknown session, `0` otherwise (including an empty
+backlog).
+
+#### Scenario: Ranked backlog with CSV and markdown export
+
+- **WHEN** `bokken backlog mars-lander` runs on a completed dojo session whose
+  register holds untested and contradicted assumptions plus open research debt,
+  and then the same command is run with `--format csv` and with
+  `--format markdown`
+- **THEN** the terminal table lists the assumption and research-debt items
+  ranked by impact x uncertainty with each item's confidence class and source,
+  shows the "what would flip the verdict" line with the register counts, and
+  the `--format csv` and `--format markdown` runs emit the same ranked items as
+  an issue-tracker checklist
+
+#### Scenario: Empty backlog when nothing is untested
+
+- **WHEN** `bokken backlog mars-lander --json` runs on a session whose
+  assumptions are all supported and which has no open research debt
+- **THEN** stdout is one `BacklogResult` JSON document with an empty item list,
+  the register counts, and a flip-the-verdict line stating there is nothing
+  left to test, and the exit code is `0`
+
+#### Scenario: A simulated-only backlog keeps the simulated framing
+
+- **WHEN** `bokken backlog mars-lander --json` runs on a dojo session whose
+  assumption scores came only from the synthetic panel
+- **THEN** every item carries `confidence_class` `simulated`, and the payload
+  keeps the simulated framing (dojo banner and requires-real-validation), so
+  the backlog is not presented as validated fact
