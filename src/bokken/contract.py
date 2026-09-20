@@ -137,6 +137,8 @@ def estimate_result(estimate) -> EstimateResult:
         assumptions=list(estimate.assumptions),
         caveat=estimate.caveat,
     )
+
+
 class BacklogItem(BaseModel):
     rank: int
     kind: Literal["assumption", "research_debt"]
