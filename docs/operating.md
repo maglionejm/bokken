@@ -156,7 +156,8 @@ bokken handoff retention --emit claude-code   # executable HANDOFF.md + .claude 
 bokken export retention --theme acme.json     # white-label the report chrome (builtin: bokken, plain)
 ```
 
-The last four are **pure journal derivation** — no model calls, no network.
+`opportunities`, `backlog`, `diff`, and `estimate` are **pure journal
+derivation** — no model calls, no network.
 `opportunities` builds the segment x outcome Ulwick matrix from the replayed
 per-persona outcome scores (each cell carries its mean score and sample size; a
 cell with fewer than two personas is flagged low-confidence), and the same

@@ -14,9 +14,10 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
 - **Seams.** `schema.py` (`TAXONOMY`, `EXTENSION_KEYS`,
   `_validate_payload_and_invariants` — honesty checked at write time,
   strict-write / tolerant-read); `store.py` (single-writer `fcntl.LOCK_EX`
-  append); `replay.py` (`replay()` is a pure fold to `SessionState`);
-  `workspace.py` (`session_config`, `BOKKEN_HOME_ENV`); `query.py`
-  (`follow()` tails the log).
+  append; `_verified_tail` = verify + tail in one walk, used by
+  `JournalStore.open()` and `verify_chain()`); `replay.py` (`replay()` is a
+  pure fold to `SessionState`); `workspace.py` (`session_config`,
+  `BOKKEN_HOME_ENV`); `query.py` (`follow()` tails the log).
 - **Invariants.** Never mutate or delete a record. Appends are strict and
   validated; reads are tolerant of unknown keys. `SessionState.tokens_spent()`
   sums only `BILLED_TOKEN_KEYS` — the token meter has one definition.
@@ -64,7 +65,8 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
 - **Seams.** `machine.py` (`FORWARD`, `LOOPBACKS`, `can_exit` per-stage exit
   criteria, `CONCEPT_SELECTION_QUESTION`); `runner.py` (the loop; stopping on
   budget + `MAX_ENGINE_ATTEMPTS_PER_STAGE` stall guard; gate policy;
-  `_OVERRIDABLE_CONFIG_KEYS` + `KNOWN_BUDGET_KEYS`; `rework_pending`).
+  `_OVERRIDABLE_CONFIG_KEYS` + `KNOWN_BUDGET_KEYS`; module-level
+  `rework_pending` and `budget_exhausted`).
 - **Invariants.** Gate policy fails **closed** on an unknown/typo'd policy.
   Overrides are limited to budgets (no self-escalation); a typo'd budget key is
   refused, never treated as unlimited. `rework_pending` is discharged only by
@@ -104,8 +106,8 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
 ## `interview/` — human validation
 
 - **Responsibility.** Consent-gated remote interviews.
-- **Seams.** `engine.py` (`ConsentNotGranted` gate before any question,
-  `MAX_TURNS`); `channels.py` (`classify_reply`).
+- **Seams.** `engine.py` (raises `ConsentNotGranted` before any question,
+  `MAX_TURNS`); `channels.py` (`classify_reply`; defines `ConsentNotGranted`).
 - **Invariants.** No question is asked before affirmative journaled consent.
   Real answers are reported as human testimony (not `simulated`).
 - **Gotcha.** `classify_reply` grants consent only on a bare affirmative — an
@@ -153,8 +155,10 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
 
 - **`cli/`.** `wiring.py` (`build_runner` = engine assembly;
   `session_router_factory` keeps a demo run on `DemoProvider` across resumes);
-  `app.py` (verbs decorated `@guarded`; `autopilot`, `doctor`). Doctor's env
-  checks never print secrets.
+  `app.py` (verbs decorated `@guarded`); `autopilot.py` (`init --from-repo`
+  brief drafting: two journaled model calls in a scratch store that is
+  discarded); `doctor.py` (`run_checks`; env checks never print secrets);
+  `templates.py` (`TEMPLATES`, `build_brief`).
 - **`mcp/`.** `server.py` exposes the tools (derive the count with
   `grep -c '@mcp.tool' src/bokken/mcp/server.py`); `_client_actor` comes from
   the handshake, `MailboxPort` carries founder input, client paths are confined.
@@ -163,7 +167,9 @@ Read [CLAUDE.md](../CLAUDE.md) (the constitution) first, then this map.
   have shape while the receipt still says $0.00.
 - **`contract.py`** (top-level `src/bokken/contract.py`) — the shared result
   shapes for the CLI `--json` output *and* MCP tool results (`StatusResult`,
-  `RunOutcome`, `HandoffResult`, …). One contract, two surfaces.
+  `RunOutcome`, `HandoffResult`, …) plus `cost_payload()`, the costs dict
+  shared by `bokken costs --json` and the MCP `cost_report` tool. One contract,
+  two surfaces.
 - **`library.py`** (top-level) — cross-run learnings; borrowed learnings are
   never laundered into fresh evidence.
 - **`bundle.py`** (top-level) — `pack_session` produces one portable archive
@@ -190,6 +196,7 @@ Line numbers approximate; grep the symbol if it drifted.
 | Event taxonomy + optional keys | `TAXONOMY`, `EXTENSION_KEYS` | `src/bokken/journal/schema.py` |
 | Write-time honesty checks | `_validate_payload_and_invariants` | `src/bokken/journal/schema.py` |
 | Single-writer append | `append` (`fcntl.LOCK_EX`) | `src/bokken/journal/store.py` |
+| Chain verification | `_verified_tail`, `verify_chain` | `src/bokken/journal/store.py` |
 | State from journal | `replay`, `_apply` | `src/bokken/journal/replay.py` |
 | Token meter | `BILLED_TOKEN_KEYS`, `tokens_spent` | `src/bokken/journal/replay.py` |
 | The only LLM seam | `ModelRouter.invoke` | `src/bokken/models/router.py` |
@@ -199,19 +206,19 @@ Line numbers approximate; grep the symbol if it drifted.
 | Citation backstop | `grounding_health`, `CITATION_INVALID` | `src/bokken/panel/grounding.py` |
 | Governance firewall | `check_firewall`, `freeze_criteria` | `src/bokken/panel/governance.py` |
 | State machine | `FORWARD`, `LOOPBACKS`, `can_exit` | `src/bokken/orchestrator/machine.py` |
-| Run loop + stopping rules | `MAX_ENGINE_ATTEMPTS_PER_STAGE`, `KNOWN_BUDGET_KEYS` | `src/bokken/orchestrator/runner.py` |
+| Run loop + stopping rules | `MAX_ENGINE_ATTEMPTS_PER_STAGE`, `KNOWN_BUDGET_KEYS`, `budget_exhausted`, `rework_pending` | `src/bokken/orchestrator/runner.py` |
 | Facilitation moves | `MVP_MOVES`, `Kata.evaluate` | `src/bokken/kata/moves.py`, `registry.py` |
 | Stage base contract | `structured` | `src/bokken/stages/base.py` |
 | Founder-pick resume | `FOUNDER_PICK_ATTEMPTS` | `src/bokken/stages/ideate.py` |
 | Code exploration cap | `CODE_CONTEXT_CAP_CHARS` | `src/bokken/stages/exploration.py` |
-| Consent gate | `ConsentNotGranted`, `MAX_TURNS` | `src/bokken/interview/engine.py` |
+| Consent gate | `ConsentNotGranted` (defined in `channels.py`), `MAX_TURNS` | `src/bokken/interview/engine.py` |
 | Shared read model | `build_model` | `src/bokken/dossier/model.py` |
 | Spec rendering rules | `SHALL` + `Scenario`/`WHEN`/`THEN` | `src/bokken/handoff/render.py` |
 | Adapter targets | `TARGETS` | `src/bokken/handoff/emit.py` |
 | Finalization order | `finalize_session` | `src/bokken/handoff/finalize.py` |
 | Pricing function | `call_cost_usd` | `src/bokken/report/context.py` |
 | HTML/script escaping | `_e` | `src/bokken/report/page.py` |
-| Shared CLI/MCP shapes | `StatusResult`, `RunOutcome` | `src/bokken/contract.py` |
+| Shared CLI/MCP shapes | `StatusResult`, `RunOutcome`, `cost_payload` | `src/bokken/contract.py` |
 | Demo provider profile | `USAGE_BY_CLASS` | `src/bokken/demo/provider.py` |
 | MCP tools + mailbox | `_client_actor`, `MailboxPort` | `src/bokken/mcp/server.py` |
 | Cross-run learnings | (module) | `src/bokken/library.py` |

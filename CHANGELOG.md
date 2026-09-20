@@ -34,6 +34,11 @@ main may be ahead of the latest PyPI release.
   over MCP with stable question ids; ungrounded terms never thread as cited.
 
 ### Fixed
+- CI had run no checks since the workflow landed on 2026-09-03: `uvx openspec`
+  resolved to a PyPI package with no executable, so the OpenSpec step never
+  executed. Both workflows now run the npm OpenSpec CLI
+  (`npx @fission-ai/openspec validate --strict --all`), and the publish
+  workflow's validation is mandatory (#87).
 - Team review cycle (23 verified findings across three parallel reviewers):
   demo sessions stay offline across CLI and MCP resumes so the $0.00 claim
   stays true; theme errors fall back to the default theme instead of killing
@@ -48,6 +53,10 @@ main may be ahead of the latest PyPI release.
   manifests hash the exact archived bytes (#75).
 
 ### Changed
+- Repo-wide dead-code removal and line-by-line simplification, verified
+  output-identical: deliverables byte-identical on a re-rendered journal, demo
+  receipt and journal unchanged. `.editorconfig` gains Python and Makefile
+  sections (#88).
 - Full redocumentation pass: 6 corrections incl. a removed-API reference in
   operating.md; gallery rebuilt (#72).
 
