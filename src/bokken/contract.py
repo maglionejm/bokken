@@ -94,6 +94,42 @@ class ExportResult(BaseModel):
     html_path: str
 
 
+class BacklogItem(BaseModel):
+    rank: int
+    kind: Literal["assumption", "research_debt"]
+    # impact/uncertainty/score are the assumption register fields; a
+    # research-debt item leaves them None (it is an open question, not a scored
+    # assumption). `priority` is the ordinal impact x uncertainty product used
+    # to rank, exposed so an export can sort or filter deterministically.
+    impact: str | None = None
+    uncertainty: str | None = None
+    score: str | None = None
+    priority: int | None = None
+    confidence_class: str
+    source: str
+    statement: str
+
+
+class BacklogResult(BaseModel):
+    kind: Literal["backlog"] = "backlog"
+    name: str
+    mode: str | None
+    items: list[BacklogItem] = Field(default_factory=list)
+    # Register counts over the whole assumption register (not just the backlog):
+    # supported items are excluded from `items` but still counted here.
+    supported: int = 0
+    contradicted: int = 0
+    untested: int = 0
+    research_debt: int = 0
+    flip_the_verdict: str = ""
+    # Honesty framing: a simulated-only backlog restates the dojo banner and
+    # the requires-real-validation context so it is never read as validated fact.
+    dojo_banner: bool = False
+    requires_real_validation: bool = False
+    simulated_only: bool = False
+    banner: str | None = None
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"
