@@ -782,6 +782,89 @@ def library(
                 out.print(f"  [{a['score']}] {a['statement'][:100]}")
 
 
+@app.command("diff")
+@guarded
+def diff(
+    old: Annotated[str, typer.Argument(help="The earlier finalized run.")],
+    new: Annotated[str, typer.Argument(help="The later finalized run.")],
+    as_json: JsonFlag = False,
+) -> None:
+    """Compare two finalized runs of the same product: what moved between them.
+
+    Pure derivation - no model calls. Reports Ulwick opportunity re-ranking,
+    assumptions that flipped status, current-capability changes, and the verdict
+    change. Statements are matched across runs by their (whitespace-stripped)
+    text, so a reworded statement reads as an add plus a drop, not a change.
+    Refuses (exit 2) if either run is unfinalized or they differ in product."""
+    from bokken.diffing import DiffRefused, diff_sessions
+
+    old_dir = resolve_session_dir(old)
+    new_dir = resolve_session_dir(new)
+    try:
+        data = diff_sessions(old_dir, new_dir)
+    except DiffRefused as refusal:
+        _fail(str(refusal), 2)
+        return
+    result = contract.diff_result(data)
+
+    def line(text: str) -> None:
+        # markup off: run tags like [both] and class tags like [simulated] are
+        # literal text, not Rich style markup.
+        out.print(text, markup=False, highlight=False)
+
+    def human() -> None:
+        line(f"diff {result.old_session} -> {result.new_session} (product {result.product})")
+        line("opportunities:")
+        if not result.opportunities:
+            line("  (none)")
+        for o in result.opportunities:
+            if o.run == "both":
+                delta = f" (delta {o.score_delta:+g})" if o.score_delta is not None else ""
+                line(
+                    f"  [both] {o.statement}: {o.old_score} -> {o.new_score}{delta}, "
+                    f"{o.old_band} -> {o.new_band} [{o.confidence_class}]"
+                )
+            elif o.run == "new":
+                line(
+                    f"  [new] added: {o.statement}: {o.new_score} ({o.new_band}) "
+                    f"[{o.confidence_class}]"
+                )
+            else:
+                line(
+                    f"  [old] dropped: {o.statement}: {o.old_score} ({o.old_band}) "
+                    f"[{o.confidence_class}]"
+                )
+        line("assumptions:")
+        if not result.assumptions:
+            line("  (none)")
+        for a in result.assumptions:
+            if a.run == "both":
+                line(
+                    f"  [both] {a.statement}: {a.old_score} -> {a.new_score} [{a.confidence_class}]"
+                )
+            elif a.run == "new":
+                line(f"  [new] added: {a.statement}: {a.new_score} [{a.confidence_class}]")
+            else:
+                line(f"  [old] dropped: {a.statement}: {a.old_score} [{a.confidence_class}]")
+        line("capabilities:")
+        if not result.capabilities:
+            line("  (none)")
+        for c in result.capabilities:
+            line(f"  [{c.run}] {c.change}: {c.statement} [{c.confidence_class}]")
+        line("verdict:")
+        if result.verdict is None:
+            line("  (none)")
+        else:
+            v = result.verdict
+            marker = "changed" if v.changed else "unchanged"
+            line(
+                f"  {v.old_verdict} [{v.old_confidence_class}] -> "
+                f"{v.new_verdict} [{v.new_confidence_class}] ({marker})"
+            )
+
+    emit(result, as_json, human)
+
+
 @app.command("pack")
 @guarded
 def pack(
