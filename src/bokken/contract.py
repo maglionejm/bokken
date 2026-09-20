@@ -94,6 +94,66 @@ class ExportResult(BaseModel):
     html_path: str
 
 
+class OpportunityDeltaOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    old_score: float | None = None
+    new_score: float | None = None
+    score_delta: float | None = None
+    old_band: str | None = None
+    new_band: str | None = None
+
+
+class AssumptionFlipOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    old_score: str | None = None
+    new_score: str | None = None
+
+
+class CapabilityChangeOut(BaseModel):
+    run: Literal["both", "new", "old"]
+    statement: str
+    confidence_class: str
+    change: Literal["added", "removed", "changed"]
+
+
+class VerdictChangeOut(BaseModel):
+    old_verdict: str | None
+    new_verdict: str | None
+    changed: bool
+    old_confidence_class: str
+    new_confidence_class: str
+
+
+class DiffResult(BaseModel):
+    kind: Literal["diff"] = "diff"
+    old_session: str
+    new_session: str
+    product: str
+    opportunities: list[OpportunityDeltaOut] = Field(default_factory=list)
+    assumptions: list[AssumptionFlipOut] = Field(default_factory=list)
+    capabilities: list[CapabilityChangeOut] = Field(default_factory=list)
+    verdict: VerdictChangeOut | None = None
+
+
+def diff_result(data) -> DiffResult:
+    """Build the CLI/MCP contract shape from a `diffing.DiffData` — the one
+    derived structure both surfaces consume, so the table and `--json` never
+    disagree. Every row keeps its run provenance and confidence class."""
+    return DiffResult(
+        old_session=data.old_session,
+        new_session=data.new_session,
+        product=data.product,
+        opportunities=[OpportunityDeltaOut(**vars(o)) for o in data.opportunities],
+        assumptions=[AssumptionFlipOut(**vars(a)) for a in data.assumptions],
+        capabilities=[CapabilityChangeOut(**vars(c)) for c in data.capabilities],
+        verdict=VerdictChangeOut(**vars(data.verdict)) if data.verdict is not None else None,
+    )
+
+
 def status_of(name: str, state: SessionState) -> StatusResult:
     if state.stage == "complete":
         overall = "complete"
