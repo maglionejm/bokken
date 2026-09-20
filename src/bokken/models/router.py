@@ -272,9 +272,7 @@ class ModelRouter:
         self.routing = resolve_routing(state.config.get("routing"), self.provider_name)
         self.reasoning_effort: str | None = state.config.get("reasoning_effort")
 
-    def actor(
-        self, name: str, routing_class: RoutingClass | None = None, *, persona_id: str | None = None
-    ) -> Actor:
+    def actor(self, name: str, *, persona_id: str | None = None) -> Actor:
         """An agent actor for router-mediated work no single call produced.
 
         It deliberately claims no model. Before a call returns the router knows
@@ -285,9 +283,6 @@ class ModelRouter:
         opposite of what the ledger is for. Anything a call did produce takes
         its actor from that call - ``outcome.attribution`` or
         ``Attributed.actor()`` - so the served model travels with the payload.
-
-        ``routing_class`` is accepted for callers that still pass it and is
-        ignored: there is nothing correct to look up before the call.
         """
         return UNATTRIBUTED.actor(name, persona_id=persona_id)
 

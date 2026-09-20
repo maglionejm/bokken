@@ -188,7 +188,7 @@ def run_feature_tests(
         ctx.store.append(
             type="evidence.abstained",
             stage="empathize",
-            actor=router.actor("ui-tester", "research"),
+            actor=router.actor("ui-tester"),
             payload={
                 "question": "Per-feature functional tests of the running product",
                 "gap": f"browser could not open the app: {str(exc)[:160]}",

@@ -216,7 +216,7 @@ def _rescore(store, router) -> None:
         store.append(
             type="assumption.scored",
             stage=None,
-            actor=router.actor("validation-interviewer", "challenge"),
+            actor=router.actor("validation-interviewer"),
             payload={"score": scored.score, "rationale": scored.rationale},
             refs=[scored.assumption_id, *refs],
         )
