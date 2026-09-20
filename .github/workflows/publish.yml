@@ -20,13 +20,8 @@ jobs:
           uv run ruff check src tests
           uv run ruff format --check src tests
           uv run pytest -q
-      - name: OpenSpec validation (best effort in CI; mandatory locally via make check)
-        run: |
-          if command -v openspec >/dev/null 2>&1; then
-            openspec validate --strict --all
-          else
-            echo "openspec CLI not available on the runner; validated locally"
-          fi
+      - name: OpenSpec validation
+        run: npx --yes @fission-ai/openspec@1.11.0 validate --strict --all
 
   publish:
     needs: check
