@@ -68,6 +68,27 @@ def test_chain_verifies_and_detects_tampering(store: JournalStore) -> None:
     assert exc.value.seq == 2
 
 
+def test_open_refuses_a_tampered_chain_and_releases_the_lock(session_dir: Path) -> None:
+    """A writer must never extend a broken chain, and refusing must not leave the
+    session locked: a retry meets the chain break again, not a second writer."""
+    with JournalStore.open(session_dir) as store:
+        store.append(
+            type="session.created", stage="intake", actor=SYSTEM, payload=created_payload()
+        )
+        append_evidence(store, "first")
+    path = session_dir / "journal.jsonl"
+    lines = path.read_text().splitlines()
+    record = json.loads(lines[1])
+    record["payload"]["content"] = "altered"
+    lines[1] = json.dumps(record)
+    path.write_text("\n".join(lines) + "\n")
+    with pytest.raises(ChainBrokenError) as exc:
+        JournalStore.open(session_dir)
+    assert exc.value.seq == 2
+    with pytest.raises(ChainBrokenError):
+        JournalStore.open(session_dir)
+
+
 def test_second_writer_is_refused(store: JournalStore) -> None:
     with pytest.raises(SessionLockedError):
         JournalStore.open(store.session_dir)

@@ -238,7 +238,7 @@ def session_model_config(
     config: dict[str, Any] = {"provider": provider}
     if model is not None:
         _validate_class_model("cognition", model, provider)
-        config["routing"] = {routing_class: model for routing_class in FRONTIER_ROUTING_CLASSES}
+        config["routing"] = dict.fromkeys(FRONTIER_ROUTING_CLASSES, model)
     if reasoning_effort is not None:
         _validate_effort(reasoning_effort, resolve_routing(config.get("routing"), provider))
         config["reasoning_effort"] = reasoning_effort
@@ -375,22 +375,14 @@ class ModelRouter:
             web_search=web_search,
             served_model=result.model,
         )
-        if status != "ok":
-            return ModelOutcome(
-                status=status,
-                text=result.text,
-                usage=result.usage,
-                model=result.model or model,
-                request_id=result.request_id,
-                detail=detail,
-            )
         return ModelOutcome(
-            status="ok",
+            status=status,
             text=result.text,
-            data=data,
+            data=data if status == "ok" else None,
             usage=result.usage,
             model=result.model or model,
             request_id=result.request_id,
+            detail=detail,
         )
 
     def _journal_call(

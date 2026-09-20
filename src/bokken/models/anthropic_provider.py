@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from bokken.journal import RoutingClass
+from bokken.models.prompts import split_cache_marker
 from bokken.models.router import (
     DEFAULT_REASONING_EFFORT,
     FRONTIER_ROUTING_CLASSES,
@@ -59,8 +60,6 @@ class AnthropicProvider:
         web_search: bool = False,
         reasoning_effort: str | None = None,
     ) -> ProviderResult:
-        from bokken.models.prompts import split_cache_marker
-
         prefix, suffix = split_cache_marker(rendered)
         content = (
             [

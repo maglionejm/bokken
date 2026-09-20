@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import fcntl
 import os
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Any
@@ -49,12 +49,10 @@ class JournalStore:
         self.session_dir = session_dir
         self.path = session_dir / JOURNAL_FILENAME
         self._lock_file = lock_file
-        self._last_seq = 0
-        self._last_hash = GENESIS_HASH
         self._session_id = session_dir.name
-        for event in read_events(session_dir):
-            self._last_seq = event.seq
-            self._last_hash = event.hash
+        # A writer must never extend a corrupted or truncated chain, so the
+        # walk that finds the tail is the verification walk: one read, not two.
+        self._last_seq, self._last_hash = _verified_tail(read_events(session_dir))
 
     @classmethod
     def open(cls, session_dir: Path) -> JournalStore:
@@ -67,15 +65,13 @@ class JournalStore:
             raise SessionLockedError(
                 f"session at {session_dir} is locked by another writer"
             ) from exc
-        # A writer must never extend a corrupted or truncated chain.
-        if (session_dir / JOURNAL_FILENAME).exists():
-            try:
-                verify_chain(session_dir)
-            except Exception:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-                lock_file.close()
-                raise
-        return cls(session_dir, lock_file)
+        try:
+            return cls(session_dir, lock_file)
+        except Exception:
+            # A refused chain must not leave the session locked.
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            lock_file.close()
+            raise
 
     def close(self) -> None:
         fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_UN)
@@ -162,9 +158,18 @@ def read_events(session_dir: Path) -> Iterator[Event]:
 
 def verify_chain(session_dir: Path) -> None:
     """Verify seq contiguity and the hash chain; raise ChainBrokenError at the first break."""
+    _verified_tail(read_events(session_dir))
+
+
+def _verified_tail(events: Iterable[Event]) -> tuple[int, str]:
+    """Walk the chain to its tail, raising ChainBrokenError at the first break.
+
+    Returns ``(last_seq, last_hash)`` — ``(0, GENESIS_HASH)`` for an empty journal —
+    so a writer can verify the chain and position itself in the same single read.
+    """
     prev_hash = GENESIS_HASH
     expected_seq = 1
-    for event in read_events(session_dir):
+    for event in events:
         if event.seq != expected_seq:
             raise ChainBrokenError(event.seq, f"expected seq {expected_seq}")
         if event.prev_hash != prev_hash:
@@ -173,3 +178,4 @@ def verify_chain(session_dir: Path) -> None:
             raise ChainBrokenError(event.seq, "record hash does not match content")
         prev_hash = event.hash
         expected_seq += 1
+    return expected_seq - 1, prev_hash
