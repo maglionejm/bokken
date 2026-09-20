@@ -133,6 +133,7 @@ def generate_handoff(session_dir: Path, router_factory: RouterFactory) -> dict:
                 f"spec generation failed: {outcome.status} {outcome.detail}"
             )
         package = normalize(outcome.data, ctx)
+        capability_names = [c.name for c in package.capabilities]
         files = render_package(package, ctx)
         problems = validate_package(files)
         if problems:
@@ -164,12 +165,12 @@ def generate_handoff(session_dir: Path, router_factory: RouterFactory) -> dict:
                 "kind": PACKAGE_KIND,
                 "content_hash": hashlib.sha256("".join(sorted(files)).encode()).hexdigest(),
                 "change_id": ctx.change_id,
-                "capabilities": [c.name for c in package.capabilities],
+                "capabilities": capability_names,
             },
             refs=[i for i in ctx.trace_ids.values() if i],
         )
     return {
         "package_dir": str(root),
         "change_id": ctx.change_id,
-        "capabilities": [c.name for c in package.capabilities],
+        "capabilities": capability_names,
     }

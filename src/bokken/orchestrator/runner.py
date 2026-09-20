@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol, get_args
 from uuid import uuid4
 
+import bokken
 from bokken.journal import (
     Actor,
     Brief,
@@ -270,8 +272,6 @@ def create_session(
 ) -> Path:
     """Validate the brief and journal session.created; the session starts in intake."""
     validated = brief if isinstance(brief, Brief) else Brief.model_validate(brief)
-    import bokken
-
     config = default_config(mode, gate_policy, budgets) | (config_extra or {})
     # ``config_extra`` merges over the defaults and may carry its own
     # gate_policy or budgets, so the merged values — not just the arguments —
@@ -302,8 +302,6 @@ def create_session(
     except Exception:
         # A failed creation append must not strand a dir that "exists" by name
         # but holds no replayable session.
-        import shutil
-
         shutil.rmtree(session_dir, ignore_errors=True)
         raise
     return session_dir
@@ -390,6 +388,15 @@ def approved_gate_target(state: SessionState) -> Stage | None:
     if gate is None or gate.from_stage != state.stage:
         return None
     return gate.to_stage
+
+
+def budget_exhausted(state: SessionState, overrides: dict[str, Any] | None = None) -> bool:
+    """Is the session's total token budget spent? ``overrides`` are the budgets a
+    resume is about to apply — vetted, not yet journaled — so a resume that would
+    halt on the spot is judged on the budget it is asking for."""
+    budgets = {**state.config.get("budgets", {}), **(overrides or {}).get("budgets", {})}
+    total = budgets.get("total_tokens")
+    return total is not None and state.tokens_spent() >= total
 
 
 def stall_detail(stage: Stage, runs: int, verdict: CriteriaVerdict, rework: bool) -> str:
@@ -518,16 +525,7 @@ class Runner:
         illegal_keys = set(overrides) - _OVERRIDABLE_CONFIG_KEYS
         if actor.kind != "human" or illegal_keys:
             what = "non-human actor" if actor.kind != "human" else f"keys {sorted(illegal_keys)}"
-            store.append(
-                type="facilitation.move_suppressed",
-                stage=state.stage,
-                actor=actor,
-                payload={
-                    "move_id": "config_change_attempt",
-                    "trigger": f"config override refused: {what}",
-                    "reason": "mode_config",
-                },
-            )
+            self._journal_refused_override(store, state, actor, what)
             raise SelfEscalationError(
                 f"config override refused ({what}); the brief, gate policy, and "
                 "success criteria are immutable, and budgets change only by human action"
@@ -535,18 +533,25 @@ class Runner:
         try:
             validate_budget_keys(overrides.get("budgets"))
         except UnknownBudgetKeyError as exc:
-            store.append(
-                type="facilitation.move_suppressed",
-                stage=state.stage,
-                actor=actor,
-                payload={
-                    "move_id": "config_change_attempt",
-                    "trigger": f"config override refused: {exc}",
-                    "reason": "mode_config",
-                },
-            )
+            self._journal_refused_override(store, state, actor, str(exc))
             raise
         return overrides
+
+    @staticmethod
+    def _journal_refused_override(
+        store: JournalStore, state: SessionState, actor: Actor, what: str
+    ) -> None:
+        """A refused override is journaled as a suppressed move before it raises."""
+        store.append(
+            type="facilitation.move_suppressed",
+            stage=state.stage,
+            actor=actor,
+            payload={
+                "move_id": "config_change_attempt",
+                "trigger": f"config override refused: {what}",
+                "reason": "mode_config",
+            },
+        )
 
     def _terminal_halt(self, state: SessionState, actor: Actor) -> RunResult | None:
         """A resume that would halt on the spot is not journaled: a terminal
@@ -563,9 +568,7 @@ class Runner:
     ) -> RunResult | None:
         """A resume that finds the budget already spent halts before journaling,
         for the same reason as the terminal halts above."""
-        budgets = {**state.config.get("budgets", {}), **(overrides or {}).get("budgets", {})}
-        total = budgets.get("total_tokens")
-        if total is not None and state.tokens_spent() >= total:
+        if budget_exhausted(state, overrides):
             return RunResult("stopped", state.stage, detail="budget_exhausted")
         return None
 
@@ -602,7 +605,7 @@ class Runner:
             halt = halt_result(state)
             if halt is not None:
                 return halt
-            if self._budget_exhausted(state):
+            if budget_exhausted(state):
                 return self._stop_on_budget(store, state)
             if (
                 max_transitions is not None
@@ -633,10 +636,6 @@ class Runner:
             result = self._run_engine(store, state, verdict)
             if result is not None:
                 return result
-
-    def _budget_exhausted(self, state: SessionState) -> bool:
-        total = state.config.get("budgets", {}).get("total_tokens")
-        return total is not None and state.tokens_spent() >= total
 
     def _stop_on_budget(self, store: JournalStore, state: SessionState) -> RunResult:
         store.append(

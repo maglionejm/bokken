@@ -15,7 +15,7 @@ HEX = re.compile(r"\b[0-9a-f]{12,64}\b")
 
 
 @pytest.fixture(scope="module")
-def demo_runs(tmp_path_factory, monkeypatch_module=None):
+def demo_runs(tmp_path_factory):
     home = tmp_path_factory.mktemp("bokken-home")
     mp = pytest.MonkeyPatch()
     mp.setenv("BOKKEN_HOME", str(home))

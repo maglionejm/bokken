@@ -285,8 +285,8 @@ def test_router_actor_claims_no_model(tmp_path: Path) -> None:
         store.append(type="session.created", stage="intake", actor=SYSTEM, payload=payload)
         router = ModelRouter(store, RecordingProvider(ok_result()))
         assert router.routing["cognition"] == "gpt-5"  # routing itself is unchanged
-        assert router.actor("facilitator", "cognition").model is None
-        assert router.actor("novelty", "extraction").model is None
+        assert router.actor("facilitator").model is None
+        assert router.actor("novelty").model is None
         assert router.actor("carmen", persona_id="p1").persona_id == "p1"
 
 

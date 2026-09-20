@@ -84,8 +84,6 @@ MODELS: dict[str, ModelSpec] = {
 }
 MODEL_ALLOWLIST = frozenset(MODELS)
 MODEL_PROVIDERS = {name: spec.provider for name, spec in MODELS.items()}
-ANTHROPIC_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "anthropic")
-OPENAI_MODELS = frozenset(n for n, s in MODELS.items() if s.provider == "openai")
 PROVIDERS = frozenset({"anthropic", "openai"})
 REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 DEFAULT_REASONING_EFFORT = "high"
@@ -240,7 +238,7 @@ def session_model_config(
     config: dict[str, Any] = {"provider": provider}
     if model is not None:
         _validate_class_model("cognition", model, provider)
-        config["routing"] = {routing_class: model for routing_class in FRONTIER_ROUTING_CLASSES}
+        config["routing"] = dict.fromkeys(FRONTIER_ROUTING_CLASSES, model)
     if reasoning_effort is not None:
         _validate_effort(reasoning_effort, resolve_routing(config.get("routing"), provider))
         config["reasoning_effort"] = reasoning_effort
@@ -274,9 +272,7 @@ class ModelRouter:
         self.routing = resolve_routing(state.config.get("routing"), self.provider_name)
         self.reasoning_effort: str | None = state.config.get("reasoning_effort")
 
-    def actor(
-        self, name: str, routing_class: RoutingClass | None = None, *, persona_id: str | None = None
-    ) -> Actor:
+    def actor(self, name: str, *, persona_id: str | None = None) -> Actor:
         """An agent actor for router-mediated work no single call produced.
 
         It deliberately claims no model. Before a call returns the router knows
@@ -287,9 +283,6 @@ class ModelRouter:
         opposite of what the ledger is for. Anything a call did produce takes
         its actor from that call - ``outcome.attribution`` or
         ``Attributed.actor()`` - so the served model travels with the payload.
-
-        ``routing_class`` is accepted for callers that still pass it and is
-        ignored: there is nothing correct to look up before the call.
         """
         return UNATTRIBUTED.actor(name, persona_id=persona_id)
 
@@ -377,22 +370,14 @@ class ModelRouter:
             web_search=web_search,
             served_model=result.model,
         )
-        if status != "ok":
-            return ModelOutcome(
-                status=status,
-                text=result.text,
-                usage=result.usage,
-                model=result.model or model,
-                request_id=result.request_id,
-                detail=detail,
-            )
         return ModelOutcome(
-            status="ok",
+            status=status,
             text=result.text,
-            data=data,
+            data=data if status == "ok" else None,
             usage=result.usage,
             model=result.model or model,
             request_id=result.request_id,
+            detail=detail,
         )
 
     def _journal_call(

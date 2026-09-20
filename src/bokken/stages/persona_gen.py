@@ -37,8 +37,7 @@ class RouterTurnGenerator:
         need not answer identically - would hand each persona turn a different
         corpus prefix, turning its cache block into N writes and no reads.
         """
-        threshold = DELEGATE_THRESHOLD_CHARS
-        if len(context) <= threshold:
+        if len(context) <= DELEGATE_THRESHOLD_CHARS:
             return context
         key = hashlib.sha256(f"{len(question)}:{question}{context}".encode()).hexdigest()
         if key in self._slices:

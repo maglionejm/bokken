@@ -73,15 +73,14 @@ def can_exit(stage: Stage, state: SessionState) -> CriteriaVerdict:
         if not state.brief:
             unmet.append("intake: a validated brief must exist")
     elif stage == "empathize":
-        segments = state.brief.get("target_segments", [])
-        covered_by_evidence = {e.segment for e in state.evidence.values() if e.segment}
-        covered_by_debt = {d.segment for d in state.research_debt if d.segment}
-        for segment in segments:
-            if segment not in covered_by_evidence and segment not in covered_by_debt:
-                unmet.append(
-                    f"empathize: segment '{segment}' has neither evidence nor a "
-                    "research-debt abstention"
-                )
+        covered = {e.segment for e in state.evidence.values() if e.segment} | {
+            d.segment for d in state.research_debt if d.segment
+        }
+        unmet.extend(
+            f"empathize: segment '{segment}' has neither evidence nor a research-debt abstention"
+            for segment in state.brief.get("target_segments", [])
+            if segment not in covered
+        )
         if not state.evidence and not state.research_debt:
             unmet.append("empathize: no evidence captured")
     elif stage == "define":

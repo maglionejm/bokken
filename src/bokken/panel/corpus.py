@@ -164,6 +164,14 @@ def confine_path(raw: str, roots: Sequence[Path]) -> Path:
     return resolved
 
 
+# The brief ``inputs`` keys that name text paths, and the source kind each ingests as.
+_INPUT_KINDS: tuple[tuple[str, SourceKind], ...] = (
+    ("metrics", "metrics"),
+    ("discussions", "discussion"),
+    ("documents", "document"),
+)
+
+
 def confine_inputs(inputs: dict, roots: Sequence[Path]) -> dict:
     """Rewrite a brief's ``inputs`` block to resolved paths inside ``roots``.
 
@@ -172,7 +180,7 @@ def confine_inputs(inputs: dict, roots: Sequence[Path]) -> dict:
     discovered halfway through a run.
     """
     confined = dict(inputs)
-    for key in ("metrics", "discussions", "documents"):
+    for key, _ in _INPUT_KINDS:
         declared = inputs.get(key) or []
         resolved = [confine_path(raw, roots) for raw in declared]
         for path in resolved:
@@ -296,17 +304,10 @@ class Corpus:
 
         sources: list[Source] = []
         skipped: list[SkippedInput] = []
-        for kind, key in (
-            ("metrics", "metrics"),
-            ("discussion", "discussions"),
-            ("document", "documents"),
-        ):
+        for key, kind in _INPUT_KINDS:
             paths = [resolve(p) for p in inputs.get(key, [])]
             files, left_out = _expand(paths, TEXT_SUFFIXES, roots=confinement)
-            sources.extend(
-                _read_source(f, f.name, kind)  # type: ignore[arg-type]
-                for f in files
-            )
+            sources.extend(_read_source(f, f.name, kind) for f in files)
             skipped.extend(left_out)
         repo = inputs.get("repo")
         if repo:

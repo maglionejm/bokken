@@ -109,8 +109,6 @@ def list_sessions(base: Path | None = None) -> list[SessionInfo]:
 
 def session_config(session_dir: Path) -> dict:
     """The immutable config snapshot from session.created ({} before creation)."""
-    from bokken.journal.store import read_events
-
     for event in read_events(session_dir):
         if event.type == "session.created":
             return dict(event.payload.get("config", {}))

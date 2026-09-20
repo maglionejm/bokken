@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from bokken.journal import RoutingClass
+from bokken.models.prompts import split_cache_marker
 from bokken.models.router import (
     DEFAULT_REASONING_EFFORT,
     FRONTIER_ROUTING_CLASSES,
@@ -87,8 +88,6 @@ class OpenAIProvider:
         web_search: bool = False,
         reasoning_effort: str | None = None,
     ) -> ProviderResult:
-        from bokken.models.prompts import split_cache_marker
-
         # Anthropic uses the marker for explicit cache blocks; OpenAI caches
         # shared prefixes implicitly, so send the same text with the marker gone.
         kwargs: dict[str, Any] = {

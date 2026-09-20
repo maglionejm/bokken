@@ -318,3 +318,26 @@ def list_result(infos: list[SessionInfo]) -> SessionList:
             for i in infos
         ]
     )
+
+
+def cost_payload(session_dir) -> dict:
+    """The costs payload both surfaces emit (`bokken costs --json` and the
+    `cost_report` tool): list-price rows, total, cache hit rate, the functional
+    rollup, and grounding health. Lane economics are only half the picture: a
+    cheaper sidekick that paraphrases shows up as backstop-forced abstentions
+    in `grounding`, not as savings. Lazy imports keep the dossier/report stack
+    off the CLI startup path."""
+    from bokken.dossier.model import build_model
+    from bokken.panel import grounding_health
+    from bokken.report.context import cost_rows, functional_rollup
+
+    rows = cost_rows(build_model(session_dir))
+    hit = sum(r["cache_read"] for r in rows)
+    raw = sum(r["input"] for r in rows)
+    return {
+        "rows": rows,
+        "total_usd": round(sum(r["cost_usd"] for r in rows), 2),
+        "cache_hit_rate": round(hit / (hit + raw), 3) if hit + raw else 0.0,
+        "rollup": functional_rollup(rows),
+        "grounding": grounding_health(read_events(session_dir)),
+    }

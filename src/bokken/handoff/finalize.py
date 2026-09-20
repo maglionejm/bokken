@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from bokken.dossier import generate as generate_dossier
 from bokken.handoff.generate import (
     HandoffFormatError,
     HandoffGenerationError,
@@ -13,6 +14,9 @@ from bokken.handoff.generate import (
     handoff_exists,
 )
 from bokken.journal import read_events, replay
+from bokken.library import append_learnings
+from bokken.report.generate import generate_report, report_exists
+from bokken.report.theme import ThemeError
 from bokken.stages.base import RouterFactory
 
 
@@ -58,9 +62,7 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
 
     dossier_generated = False
     if not _dossier_exists(session_dir):
-        from bokken.dossier import generate
-
-        generate(session_dir)
+        generate_dossier(session_dir)
         dossier_generated = True
 
     handoff_generated = False
@@ -78,9 +80,6 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
 
     report_generated = False
     report_theme_fallback: str | None = None
-    from bokken.report.generate import generate_report, report_exists
-    from bokken.report.theme import ThemeError
-
     if not report_exists(session_dir):
         try:
             generate_report(session_dir)
@@ -91,8 +90,6 @@ def finalize_session(session_dir: Path, router_factory: RouterFactory) -> Finali
             generate_report(session_dir, theme_spec="bokken")
             report_theme_fallback = str(error)
         report_generated = True
-
-    from bokken.library import append_learnings
 
     append_learnings(session_dir)
 

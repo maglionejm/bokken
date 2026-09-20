@@ -93,19 +93,11 @@ def pack_session(
     # Each file is read exactly once; the same bytes are hashed and archived,
     # so a live session mutating a file mid-pack can never produce a manifest
     # whose sha256 disagrees with the archived copy.
-    blobs: list[tuple[str, bytes]] = []
-    index = []
-    for f in files:
-        data = f.read_bytes()
-        arcname = str(f.relative_to(session_dir))
-        blobs.append((arcname, data))
-        index.append(
-            {
-                "path": arcname,
-                "bytes": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }
-        )
+    blobs = [(str(f.relative_to(session_dir)), f.read_bytes()) for f in files]
+    index = [
+        {"path": arcname, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+        for arcname, data in blobs
+    ]
     manifest = {
         "bokken_version": bokken.__version__,
         **_session_facts(session_dir),

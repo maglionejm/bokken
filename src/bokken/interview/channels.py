@@ -14,7 +14,10 @@ difference.
 
 from __future__ import annotations
 
+import os
+import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import ClassVar, Literal, Protocol
 
 ConsentOutcome = Literal["granted", "declined", "no_response", "ambiguous"]
@@ -117,7 +120,7 @@ class TerminalChannel:
         print(f"\nINTERVIEWER: {text}")
 
     def receive(self) -> str:
-        return input(f"{'PARTICIPANT'}: ").strip()
+        return input("PARTICIPANT: ").strip()
 
     def close(self, farewell: str) -> None:
         print(f"\nINTERVIEWER: {farewell}\n--- interview ended ---")
@@ -150,8 +153,6 @@ class TwilioChannel:
     }
 
     def __init__(self, to_number: str) -> None:
-        import os
-
         try:
             from twilio.rest import Client
         except ImportError as exc:  # pragma: no cover - import guard
@@ -171,8 +172,6 @@ class TwilioChannel:
         return self.client.messages.create(to=self.to_number, from_=self.from_number, body=body)
 
     def open(self, participant: str) -> Consent:
-        from datetime import UTC, datetime
-
         self._last_poll = datetime.now(UTC)
         sent = self._send(self.CONSENT)
         # Anchor freshness to Twilio's clock when it reports one: a skewed
@@ -191,9 +190,6 @@ class TwilioChannel:
         self._send(text)
 
     def receive(self) -> str:
-        import time
-        from datetime import UTC
-
         deadline = time.monotonic() + self.ANSWER_TIMEOUT_SECONDS
         while time.monotonic() < deadline:
             inbound = self.client.messages.list(from_=self.to_number, to=self.from_number, limit=5)

@@ -160,6 +160,7 @@ class EmpathizeEngine:
 
     def _dojo_interviews(self, ctx: StageContext, router, program: InterviewProgram) -> None:
         config = ctx.state.config.get("panel", {})
+        seed = config.get("seed", 7)
         corpus = self._corpus(ctx)
         journal_rejected_inputs(ctx.store, corpus, stage="empathize")
         capabilities_text = run_code_exploration(corpus, ctx.store, router)
@@ -168,7 +169,7 @@ class EmpathizeEngine:
         personas = cast_panel(
             brief=ctx.state.brief,
             size=config.get("size", 6),
-            seed=config.get("seed", 7),
+            seed=seed,
             grounding_sources=corpus.source_ids,
         )
         # Feasibility and viability voices ground on the product and the numbers.
@@ -185,7 +186,7 @@ class EmpathizeEngine:
             ctx.store,
             personas=scoped,
             panel_kind="interview",
-            seed=config.get("seed", 7),
+            seed=seed,
             stage="empathize",
         )
         interviewer = Interviewer(corpus, RouterTurnGenerator(router), ctx.store)

@@ -101,9 +101,10 @@ def prior_learnings_text(brief: dict, *, exclude_session: str = "") -> str:
     lines: list[str] = []
     for r in records[-4:]:
         lines.append(f"Run '{r.get('session')}' ended {r.get('verdict') or 'incomplete'}:")
-        for a in r.get("assumptions", []):
-            if a.get("score") in ("supported", "contradicted"):
-                lines.append(f"  - [{a['score']}] {a.get('statement', '')}")
-        for finding in r.get("ui_broken", [])[:2]:
-            lines.append(f"  - [ui broken] {finding}")
+        lines.extend(
+            f"  - [{a['score']}] {a.get('statement', '')}"
+            for a in r.get("assumptions", [])
+            if a.get("score") in ("supported", "contradicted")
+        )
+        lines.extend(f"  - [ui broken] {finding}" for finding in r.get("ui_broken", [])[:2])
     return "\n".join(lines) or "(prior runs recorded no scored learnings)"

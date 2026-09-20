@@ -4,14 +4,17 @@ from pathlib import Path
 
 import pytest
 
+from bokken.handoff.generate import generate_handoff
 from bokken.journal import Actor, read_events, replay
 from bokken.kata import MVP_MOVES, Kata
-from bokken.models import ModelRouter
+from bokken.models import ModelRouter, session_model_config
+from bokken.models.router import MODELS
 from bokken.orchestrator import Answer, Runner, create_session
 from bokken.stages import engine_suite
+from bokken.stages import schemas as s
 from bokken.stages.base import FOUNDER
 from tests.panel.test_inputs import make_repo
-from tests.stages.fake_provider import FallbackProvider, ScriptedProvider
+from tests.stages.fake_provider import FallbackProvider, PromptCapture, ScriptedProvider
 
 
 @pytest.fixture(autouse=True)
@@ -286,8 +289,6 @@ def test_founder_run_with_repo_maps_current_capabilities(tmp_path: Path) -> None
 
 def test_glossary_threads_into_cluster_and_specify(tmp_path: Path) -> None:
     """The product's own vocabulary, mined once, reaches define and handoff."""
-    from bokken.handoff.generate import generate_handoff
-    from tests.stages.fake_provider import PromptCapture
 
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(
@@ -307,9 +308,6 @@ def test_glossary_threads_into_cluster_and_specify(tmp_path: Path) -> None:
 def test_ungrounded_glossary_terms_stay_out_of_threaded_prompts(tmp_path: Path) -> None:
     """define/cluster and handoff/specify frame the glossary as cited from the
     corpus; a term no code span grounds must not ride under that label."""
-    from bokken.handoff.generate import generate_handoff
-    from bokken.stages import schemas as s
-    from tests.stages.fake_provider import PromptCapture
 
     class UngroundedGlossaryProvider(PromptCapture):
         def _dispatch(self, prompt_id, rendered):
@@ -344,7 +342,6 @@ def test_ungrounded_glossary_terms_stay_out_of_threaded_prompts(tmp_path: Path) 
 
 
 def test_missing_glossary_renders_an_honest_placeholder(tmp_path: Path) -> None:
-    from tests.stages.fake_provider import PromptCapture
 
     session_dir = create_session("no-glossary-e2e", brief=BRIEF, mode="founder")
     provider = PromptCapture()
@@ -398,8 +395,6 @@ def test_openai_session_attributes_agents_to_openai_models(tmp_path: Path) -> No
     """Provider isolation holds through a fallback: an OpenAI session's actors
     name the OpenAI model that answered, never a Claude model and never a model
     that only got asked."""
-    from bokken.models import session_model_config
-    from bokken.models.router import MODELS
 
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(

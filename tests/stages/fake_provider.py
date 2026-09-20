@@ -6,6 +6,13 @@ import re
 from collections import defaultdict
 from dataclasses import replace
 
+from bokken.handoff.schema import (
+    CapabilityDraft,
+    RequirementDraft,
+    ScenarioDraft,
+    SpecPackage,
+    TaskGroupDraft,
+)
 from bokken.models.router import MODELS, ProviderResult
 from bokken.panel.corpus import Citation
 from bokken.stages import schemas as s
@@ -391,14 +398,6 @@ class ScriptedProvider:
                 else s.Rescoring()
             )
         if prompt_id == "handoff/specify":
-            from bokken.handoff.schema import (
-                CapabilityDraft,
-                RequirementDraft,
-                ScenarioDraft,
-                SpecPackage,
-                TaskGroupDraft,
-            )
-
             return SpecPackage(
                 why="Commuters cannot plan around unpredictable arrivals.",
                 what_changes=["Introduce schedule publication for shuttle operators."],

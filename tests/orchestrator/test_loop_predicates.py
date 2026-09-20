@@ -282,9 +282,9 @@ def test_rework_pending_needs_work_by_the_target_stage() -> None:
 
 
 def test_loopback_with_only_a_refused_call_does_not_fast_forward() -> None:
-    """The live bug: the refused call alone pushed events_since_transition past
-    zero, so the loop fast-forwarded on exactly the evidence the human looped
-    back to replace. The human's intervention must not become a no-op."""
+    """The live bug: the refused call alone counted as post-loop-back work, so
+    the loop fast-forwarded on exactly the evidence the human looped back to
+    replace. The human's intervention must not become a no-op."""
     session_dir = create_session("rework-refused", brief=BRIEF, mode="founder")
     runner = Runner(session_dir, engines=full_engine_suite())
     runner.step()  # -> empathize

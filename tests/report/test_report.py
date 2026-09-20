@@ -6,10 +6,27 @@ from pathlib import Path
 import pytest
 from pptx import Presentation
 
-from bokken.dossier.model import build_model
-from bokken.journal import read_events
-from bokken.report.context import build_context, first_sentence
+from bokken.dossier.model import InsightNode, build_model
+from bokken.handoff import finalize_session
+from bokken.journal import Actor, JournalStore, read_events
+from bokken.models import ModelRouter
+from bokken.orchestrator import create_session
+from bokken.report.context import (
+    PRICE_PER_MTOK,
+    _is_demo_session,
+    build_context,
+    build_opportunity_matrix,
+    call_cost_usd,
+    cost_rows,
+    first_sentence,
+    opportunity_score,
+    ulwick_score,
+)
+from bokken.report.deck import ACCENT, AMBER, Deck
 from bokken.report.generate import generate_report, report_exists
+from bokken.report.page import render_page
+from bokken.report.theme import BUILTIN, css_override
+from tests.dossier.test_dossier import append_disputed_capability
 from tests.stages.fake_provider import ScriptedProvider
 from tests.stages.test_engines_e2e import BRIEF, make_inputs, make_runner
 
@@ -22,7 +39,6 @@ def home(tmp_path: Path, monkeypatch):
 
 @pytest.fixture
 def dojo_session(tmp_path: Path) -> Path:
-    from bokken.orchestrator import create_session
 
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(
@@ -40,7 +56,6 @@ def dojo_session(tmp_path: Path) -> Path:
 def two_segment_session(tmp_path: Path) -> Path:
     """A completed dojo run whose personas span two segments and scored the
     desired outcomes, so the segment x outcome matrix has real cells."""
-    from bokken.orchestrator import create_session
 
     brief = {
         **BRIEF,
@@ -59,16 +74,15 @@ def two_segment_session(tmp_path: Path) -> Path:
 
 
 def deck_text(path: Path) -> str:
-    chunks = []
-    for slide in Presentation(str(path)).slides:
-        for shape in slide.shapes:
-            if shape.has_text_frame:
-                chunks.append(shape.text_frame.text)
-    return "\n".join(chunks)
+    return "\n".join(
+        shape.text_frame.text
+        for slide in Presentation(str(path)).slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+    )
 
 
 def test_openai_models_have_explicit_list_prices() -> None:
-    from bokken.report.context import PRICE_PER_MTOK
 
     assert PRICE_PER_MTOK["gpt-5"] == (1.25, 10.0)
     assert PRICE_PER_MTOK["gpt-5-mini"] == (0.25, 2.0)
@@ -86,7 +100,6 @@ CACHE_HEAVY_USAGE = {
 def test_cache_multipliers_are_per_provider() -> None:
     """Anthropic bills cache writes at a premium over input; OpenAI bills none.
     One vendor's multipliers must not be applied to the other's models."""
-    from bokken.report.context import call_cost_usd
 
     # claude-fable-5 lists at $10/$50 per Mtok: 5k input + 500 output +
     # 195k cache reads at 0.1x input + 10k cache writes at 1.25x input.
@@ -99,8 +112,6 @@ def test_cache_multipliers_are_per_provider() -> None:
 def test_one_trace_prices_identically_through_cost_and_report_paths(dojo_session: Path) -> None:
     """The `costs` verb and the report appendix are two views of one journal, so
     a cache-heavy call must be quoted at the same number by both."""
-    from bokken.journal import Actor, JournalStore
-    from bokken.report.context import call_cost_usd, cost_rows
 
     with JournalStore.open(dojo_session) as store:
         store.append(
@@ -177,8 +188,6 @@ def test_full_process_coverage_in_html(dojo_session: Path) -> None:
 
 
 def test_capability_map_block_in_html_with_quotes_and_flags(dojo_session: Path) -> None:
-    from bokken.report.page import render_page
-    from tests.dossier.test_dossier import append_disputed_capability
 
     append_disputed_capability(dojo_session)
     model = build_model(dojo_session)
@@ -194,7 +203,6 @@ def test_capability_map_block_in_html_with_quotes_and_flags(dojo_session: Path) 
 
 
 def test_no_capabilities_means_no_block(dojo_session: Path) -> None:
-    from bokken.report.page import render_page
 
     model = build_model(dojo_session)
     stripped = model.model_copy(
@@ -215,12 +223,9 @@ def test_honesty_banner_in_both_formats(dojo_session: Path) -> None:
 
 
 def test_appendix_lists_specs_after_handoff(dojo_session: Path) -> None:
-    from bokken.cli import wiring
-    from bokken.handoff import finalize_session
 
-    result = finalize_session(dojo_session, lambda store: wiring_router(store))
+    result = finalize_session(dojo_session, wiring_router)
     assert result.handoff_generated and result.report_generated
-    del wiring  # only imported to mirror production call sites
     model = build_model(dojo_session)
     ctx = build_context(dojo_session, model)
     assert ctx.spec_entries, "handoff specs should be summarized"
@@ -232,7 +237,6 @@ def test_appendix_lists_specs_after_handoff(dojo_session: Path) -> None:
 
 
 def wiring_router(store):
-    from bokken.models import ModelRouter
 
     return ModelRouter(store, ScriptedProvider())
 
@@ -244,7 +248,6 @@ def test_appendix_surfaces_refusal_for_kill(dojo_session: Path) -> None:
     ctx = build_context(dojo_session, model)
     assert ctx.spec_entries == []
     assert "kill" in (ctx.handoff_refusal or "")
-    from bokken.report.page import render_page
 
     assert "Handoff refused" in render_page(ctx) or "kill" in render_page(ctx)
 
@@ -252,9 +255,6 @@ def test_appendix_surfaces_refusal_for_kill(dojo_session: Path) -> None:
 def test_finalize_falls_back_to_default_theme_when_journaled_theme_is_bad(tmp_path: Path) -> None:
     """A corrupt journaled theme must not kill finalization: the report still
     generates, on the default theme, and the summary says so."""
-    from bokken.handoff import finalize_session
-    from bokken.orchestrator import create_session
-    from bokken.report.theme import BUILTIN, css_override
 
     bad = tmp_path / "corrupt-theme.json"
     bad.write_text("{not json")
@@ -275,7 +275,6 @@ def test_finalize_falls_back_to_default_theme_when_journaled_theme_is_bad(tmp_pa
 
 
 def test_finalization_is_idempotent_for_report(dojo_session: Path) -> None:
-    from bokken.handoff import finalize_session
 
     first = finalize_session(dojo_session, wiring_router)
     assert first.report_generated
@@ -335,7 +334,6 @@ def test_legacy_session_reads_as_a_demo() -> None:
 
 
 def test_demo_detection_degrades_on_an_unreadable_journal(tmp_path: Path) -> None:
-    from bokken.report.context import _is_demo_session
 
     assert _is_demo_session(tmp_path) is False  # no journal at all
     (tmp_path / "journal.jsonl").write_text("not json\n", encoding="utf-8")
@@ -346,9 +344,6 @@ def test_opportunity_rank_and_band_come_from_structured_keys() -> None:
     """An outcome whose own prose says "opportunity 99" or "(per quarter)" must
     not leak into the ranking or the band column: the journaled score/band keys
     win; the prose regex remains only for legacy journals without them."""
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
-    from bokken.report.deck import AMBER, Deck
 
     session_dir = create_session("report-ulwick", brief=BRIEF, mode="dojo")
     facilitator = Actor(kind="agent", name="facilitator")
@@ -405,8 +400,6 @@ def test_opportunity_rank_and_band_come_from_structured_keys() -> None:
 
 
 def test_opportunity_score_falls_back_to_prose_for_legacy_journals() -> None:
-    from bokken.dossier.model import InsightNode
-    from bokken.report.context import opportunity_score
 
     legacy = InsightNode(
         id="i-1",
@@ -425,7 +418,6 @@ def test_opportunity_score_falls_back_to_prose_for_legacy_journals() -> None:
 def test_matrix_is_computed_with_per_cell_sample_sizes(two_segment_session: Path) -> None:
     """Cells keyed by (segment, outcome) carry the mean Ulwick score over that
     segment's personas for that outcome and the count n of personas behind it."""
-    from bokken.report.context import build_opportunity_matrix, ulwick_score
 
     model = build_model(two_segment_session)
     matrix = build_opportunity_matrix(two_segment_session, model)
@@ -460,7 +452,6 @@ def test_matrix_is_computed_with_per_cell_sample_sizes(two_segment_session: Path
 def test_cli_matrix_equals_report_derivation(two_segment_session: Path) -> None:
     """One derivation, two surfaces: the report context and the shape the CLI
     emits are the same object, so the numbers cannot diverge for a session."""
-    from bokken.report.context import build_context, build_opportunity_matrix
 
     model = build_model(two_segment_session)
     ctx = build_context(two_segment_session, model)
@@ -469,11 +460,9 @@ def test_cli_matrix_equals_report_derivation(two_segment_session: Path) -> None:
     assert ctx.opportunity_matrix.model_dump() == standalone.model_dump()
 
 
-def _single_persona_segment_session(tmp_path: Path) -> Path:
+def _single_persona_segment_session() -> Path:
     """A hand-authored session where exactly one persona in a segment scored a
     given outcome, so that cell must be flagged low-confidence (n=1)."""
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
 
     brief = {**BRIEF, "target_segments": ["solo"]}
     session_dir = create_session("heatmap-thin", brief=brief, mode="dojo")
@@ -535,12 +524,9 @@ def _single_persona_segment_session(tmp_path: Path) -> Path:
     return session_dir
 
 
-def test_thin_cell_is_flagged_low_confidence_in_both_formats(tmp_path: Path) -> None:
-    from bokken.report.context import build_context
-    from bokken.report.deck import Deck
-    from bokken.report.page import render_page
+def test_thin_cell_is_flagged_low_confidence_in_both_formats() -> None:
 
-    session_dir = _single_persona_segment_session(tmp_path)
+    session_dir = _single_persona_segment_session()
     model = build_model(session_dir)
     ctx = build_context(session_dir, model)
     matrix = ctx.opportunity_matrix
@@ -556,7 +542,6 @@ def test_thin_cell_is_flagged_low_confidence_in_both_formats(tmp_path: Path) -> 
     assert "n=1" in html
     assert "low confidence" in html.lower()
     # The deck slide flags the same cell (asterisk marker in its table cell, red).
-    from bokken.report.deck import ACCENT
 
     deck = Deck(ctx)
     deck.underserved()
@@ -584,7 +569,6 @@ def test_heatmap_derived_without_model_calls(two_segment_session: Path) -> None:
 
 
 def test_heatmap_has_noscript_fallback(two_segment_session: Path) -> None:
-    from bokken.report.page import render_page
 
     ctx = build_context(two_segment_session, build_model(two_segment_session))
     html = render_page(ctx)
@@ -607,13 +591,9 @@ def test_dojo_framing_survives_the_heatmap_section(two_segment_session: Path) ->
     assert "Underserved by segment" in text
 
 
-def test_no_scored_outcomes_omits_the_section(tmp_path: Path) -> None:
+def test_no_scored_outcomes_omits_the_section() -> None:
     """A session that never scored desired outcomes has no matrix, so neither the
     HTML nor the deck carries an Underserved-by-segment section."""
-    from bokken.orchestrator import create_session
-    from bokken.report.context import build_opportunity_matrix
-    from bokken.report.deck import Deck
-    from bokken.report.page import render_page
 
     # A fresh session halted at intake never ran Empathize, so no outcome_score.
     session_dir = create_session("no-scores", brief=BRIEF, mode="dojo")

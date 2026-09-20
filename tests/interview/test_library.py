@@ -1,10 +1,12 @@
 """Cross-run library: learnings compound with provenance."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from bokken.library import append_learnings, prior_learnings_text, read_learnings
+from bokken.library import _library_path, append_learnings, prior_learnings_text, read_learnings
+from bokken.orchestrator import create_session
 from tests.stages.fake_provider import ScriptedProvider
 from tests.stages.test_engines_e2e import BRIEF, make_inputs, make_runner
 
@@ -16,7 +18,6 @@ def home(tmp_path: Path, monkeypatch):
 
 
 def test_learnings_compound_and_seed_the_next_run(tmp_path):
-    from bokken.orchestrator import create_session
 
     inputs = make_inputs(tmp_path)
     brief = {**BRIEF, "inputs": inputs}
@@ -42,9 +43,6 @@ def test_learnings_compound_and_seed_the_next_run(tmp_path):
 
 
 def test_read_learnings_tolerates_torn_and_legacy_lines():
-    import json
-
-    from bokken.library import _library_path
 
     path = _library_path()
     path.parent.mkdir(parents=True, exist_ok=True)

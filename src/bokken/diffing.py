@@ -108,18 +108,12 @@ def _verdict_confidence(model: DossierModel) -> str:
     return "reported"
 
 
-def _opportunities(model: DossierModel) -> dict[str, InsightNode]:
-    # Keyed by (stripped) statement text: the diff matches Ulwick outcomes across
-    # runs by their statement, as the spec requires — surrounding whitespace does
-    # not make two identical statements read as an add+drop. Statements are still
+def _insights_by_statement(model: DossierModel, kind: str) -> dict[str, InsightNode]:
+    # Keyed by (stripped) statement text: the diff matches insights across runs
+    # by their statement, as the spec requires — surrounding whitespace does not
+    # make two identical statements read as an add+drop. Statements are still
     # displayed verbatim (never case-folded). Later insertions win a duplicate.
-    return {i.statement.strip(): i for i in model.insights.values() if i.kind == "opportunity"}
-
-
-def _capabilities(model: DossierModel) -> dict[str, InsightNode]:
-    return {
-        i.statement.strip(): i for i in model.insights.values() if i.kind == "current_capability"
-    }
+    return {i.statement.strip(): i for i in model.insights.values() if i.kind == kind}
 
 
 def _verdict(model: DossierModel) -> str | None:
@@ -127,8 +121,8 @@ def _verdict(model: DossierModel) -> str | None:
 
 
 def _diff_opportunities(old: DossierModel, new: DossierModel) -> list[OpportunityDelta]:
-    old_ops = _opportunities(old)
-    new_ops = _opportunities(new)
+    old_ops = _insights_by_statement(old, "opportunity")
+    new_ops = _insights_by_statement(new, "opportunity")
     rows: list[OpportunityDelta] = []
     for statement, new_node in new_ops.items():
         if statement in old_ops:
@@ -219,8 +213,8 @@ def _diff_assumptions(old: DossierModel, new: DossierModel) -> list[AssumptionFl
 
 
 def _diff_capabilities(old: DossierModel, new: DossierModel) -> list[CapabilityChange]:
-    old_caps = _capabilities(old)
-    new_caps = _capabilities(new)
+    old_caps = _insights_by_statement(old, "current_capability")
+    new_caps = _insights_by_statement(new, "current_capability")
     rows: list[CapabilityChange] = []
     for statement, new_node in new_caps.items():
         if statement not in old_caps:
@@ -267,16 +261,12 @@ def diff_sessions(old_dir: Path, new_dir: Path) -> DiffData:
     old = build_model(old_dir)
     new = build_model(new_dir)
 
-    if old.status != "complete":
-        raise DiffRefused(
-            f"session '{old.name}' is not finalized (stage {old.stage}); "
-            f"finalize it by completing the run with `bokken run {old.name}`"
-        )
-    if new.status != "complete":
-        raise DiffRefused(
-            f"session '{new.name}' is not finalized (stage {new.stage}); "
-            f"finalize it by completing the run with `bokken run {new.name}`"
-        )
+    for model in (old, new):
+        if model.status != "complete":
+            raise DiffRefused(
+                f"session '{model.name}' is not finalized (stage {model.stage}); "
+                f"finalize it by completing the run with `bokken run {model.name}`"
+            )
 
     old_product = _product_key(old.brief)
     new_product = _product_key(new.brief)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from collections.abc import Mapping
@@ -90,7 +91,6 @@ class ReportContext:
     handoff_refusal: str | None
     synthetic_evidence: int
     register_counts: dict[str, int]  # supported / contradicted / untested
-    loopbacks: list[str]
     prototype_artifacts: list[ArtifactNode]
     opportunities: list[InsightNode] = field(default_factory=list)
     current_capabilities: list[InsightNode] = field(default_factory=list)
@@ -143,11 +143,9 @@ def cost_rows(model: DossierModel) -> list[dict]:
         row["output"] += tr.usage.get("output_tokens", 0)
         row["cache_read"] += tr.usage.get("cache_read_tokens", 0)
         row["cache_write"] += tr.usage.get("cache_write_tokens", 0)
-    out = []
     for row in rows.values():
         row["cost_usd"] = round(call_cost_usd(row["model"], row_usage(row)), 4)
-        out.append(row)
-    return sorted(out, key=lambda r: -r["cost_usd"])
+    return sorted(rows.values(), key=lambda r: -r["cost_usd"])
 
 
 def functional_bucket(prompt_id: str) -> str:
@@ -164,8 +162,15 @@ def functional_bucket(prompt_id: str) -> str:
     ):
         return "exploration"
     if (
-        prompt_id.startswith(("empathize/persona", "empathize/interview", "empathize/outcome"))
-        or prompt_id.startswith(("research/", "validate/"))
+        prompt_id.startswith(
+            (
+                "empathize/persona",
+                "empathize/interview",
+                "empathize/outcome",
+                "research/",
+                "validate/",
+            )
+        )
         or prompt_id == "empathize/followup"
     ):
         return "research"
@@ -229,19 +234,21 @@ def _purpose_sentence(spec_file: Path) -> str:
 
 
 def _spec_entries(session_dir: Path) -> list[SpecEntry]:
-    entries: list[SpecEntry] = []
-    for spec_file in sorted((session_dir / "handoff").glob("openspec/changes/*/specs/*/spec.md")):
-        entries.append(
-            SpecEntry(
-                capability=spec_file.parent.name,
-                sentence=_purpose_sentence(spec_file),
-                path=str(spec_file.relative_to(session_dir)),
-            )
+    return [
+        SpecEntry(
+            capability=spec_file.parent.name,
+            sentence=_purpose_sentence(spec_file),
+            path=str(spec_file.relative_to(session_dir)),
         )
-    return entries
+        for spec_file in sorted(
+            (session_dir / "handoff").glob("openspec/changes/*/specs/*/spec.md")
+        )
+    ]
 
 
-_OPP_SCORE = re.compile(r"opportunity (\d+(?:\.\d+)?)")
+# The " - opportunity <score>" suffix Empathize writes into an opportunity
+# statement; the one prose parser every surface falls back to on legacy journals.
+LEGACY_OPPORTUNITY_SCORE = re.compile(r"opportunity (\d+(?:\.\d+)?)")
 
 
 def opportunity_score(node: InsightNode) -> float:
@@ -250,7 +257,7 @@ def opportunity_score(node: InsightNode) -> float:
     whose own text contains the word "opportunity")."""
     if node.score is not None:
         return node.score
-    match = _OPP_SCORE.search(node.statement)
+    match = LEGACY_OPPORTUNITY_SCORE.search(node.statement)
     return float(match.group(1)) if match else 0.0
 
 
@@ -375,7 +382,7 @@ def _stage_digest(model: DossierModel) -> dict[str, dict]:
             {
                 e.agent
                 for e in model.evidence.values()
-                if e.stage == stage and e.agent and e.agent not in ("facilitator",)
+                if e.stage == stage and e.agent and e.agent != "facilitator"
             }
         )
         digest[stage] = {
@@ -408,7 +415,7 @@ def _deliberation(model: DossierModel) -> tuple[list[dict], str | None, list[dic
         (
             e.content
             for e in model.evidence.values()
-            if e.speaker and "skeptic" in (e.speaker or "").lower()
+            if e.speaker and "skeptic" in e.speaker.lower()
         ),
         None,
     )
@@ -446,10 +453,11 @@ def _hill(session_dir: Path, model: DossierModel) -> dict:
 
 
 def _next_actions(model: DossierModel, feature_results: list) -> list[str]:
-    actions = []
-    for r in feature_results:
-        if r.get("verdict") == "broken" and r.get("finding"):
-            actions.append(f"Fix ({r['feature']}): {r['finding']}")
+    actions = [
+        f"Fix ({r['feature']}): {r['finding']}"
+        for r in feature_results
+        if r.get("verdict") == "broken" and r.get("finding")
+    ]
     if model.recommendation:
         confidence = model.recommendation.resolution
         loop = next(
@@ -473,26 +481,23 @@ def _next_actions(model: DossierModel, feature_results: list) -> list[str]:
     return actions[:8]
 
 
-def _ui_feature_results(session_dir: Path, model: DossierModel) -> list:
-    import json as _json
-
+def _json_artifact(session_dir: Path, model: DossierModel, kind: str):
+    """The parsed JSON of the first `kind` artifact still on disk, else None."""
     for artifact in model.artifacts:
-        if artifact.kind == "ui_feature_tests" and artifact.path.endswith(".json"):
+        if artifact.kind == kind and artifact.path.endswith(".json"):
             path = session_dir / artifact.path
             if path.exists():
-                return _json.loads(path.read_text(encoding="utf-8"))
-    return []
+                return json.loads(path.read_text(encoding="utf-8"))
+    return None
+
+
+def _ui_feature_results(session_dir: Path, model: DossierModel) -> list:
+    found = _json_artifact(session_dir, model, "ui_feature_tests")
+    return [] if found is None else found
 
 
 def _market_research(session_dir: Path, model: DossierModel) -> dict | None:
-    import json as _json
-
-    for artifact in model.artifacts:
-        if artifact.kind == "market_research" and artifact.path.endswith(".json"):
-            path = session_dir / artifact.path
-            if path.exists():
-                return _json.loads(path.read_text(encoding="utf-8"))
-    return None
+    return _json_artifact(session_dir, model, "market_research")
 
 
 def _ui_review(session_dir: Path, model: DossierModel) -> str | None:
@@ -573,11 +578,6 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         handoff_refusal=None if spec_entries else _handoff_refusal(model),
         synthetic_evidence=sum(1 for e in model.evidence.values() if e.synthetic),
         register_counts=register_counts,
-        loopbacks=[
-            f"{t.from_stage} -> {t.to_stage}: {t.condition}"
-            for t in model.transitions
-            if t.loopback
-        ],
         prototype_artifacts=[a for a in model.artifacts if a.kind not in EXCLUDED_ARTIFACT_KINDS],
         opportunities=_ranked_opportunities(model),
         current_capabilities=[i for i in model.insights.values() if i.kind == "current_capability"],

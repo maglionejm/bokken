@@ -187,14 +187,16 @@ def _rescore(store, router) -> None:
     }
     if not untested:
         return
+    known_evidence = {eid for eid, _ in real}
     evidence_text = "\n".join(
         f"- {eid}: (from {item.speaker or 'participant'})" for eid, item in real
     )
     # content is not in replay state; feed the journal rows verbatim
-    rows = []
-    for event in store.events():
-        if event.id in dict(real):
-            rows.append(f"- {event.id}: {event.payload['content']}")
+    rows = [
+        f"- {event.id}: {event.payload['content']}"
+        for event in store.events()
+        if event.id in known_evidence
+    ]
     assumptions_text = "\n".join(f"- {aid}: {a.statement}" for aid, a in untested.items())
     outcome = router.invoke(
         "challenge",
@@ -205,7 +207,6 @@ def _rescore(store, router) -> None:
     )
     if not outcome.ok or outcome.data is None:
         return
-    known_evidence = {eid for eid, _ in real}
     for scored in outcome.data.scores:
         if scored.assumption_id not in untested:
             continue
@@ -215,7 +216,7 @@ def _rescore(store, router) -> None:
         store.append(
             type="assumption.scored",
             stage=None,
-            actor=router.actor("validation-interviewer", "challenge"),
+            actor=router.actor("validation-interviewer"),
             payload={"score": scored.score, "rationale": scored.rationale},
             refs=[scored.assumption_id, *refs],
         )

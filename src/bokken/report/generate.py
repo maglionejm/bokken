@@ -8,7 +8,9 @@ from bokken.dossier.model import build_model
 from bokken.journal import Actor, read_events
 from bokken.journal.schema import content_hash
 from bokken.journal.store import JournalStore
+from bokken.journal.workspace import session_config
 from bokken.report.context import build_context
+from bokken.report.theme import load_theme
 
 REPORT_ACTOR = Actor(kind="system", name="report")
 REPORT_KINDS = ("report_deck", "report_page")
@@ -27,6 +29,8 @@ def report_exists(session_dir: Path) -> bool:
 
 def generate_report(session_dir: Path, theme_spec: str | None = None) -> tuple[Path, Path]:
     """Deterministic, journal-only. Writes both files and journals them as artifacts."""
+    # The deck pulls in python-pptx: resolved only when a report is rendered,
+    # so listing or inspecting sessions never pays for it.
     from bokken.report.deck import render_deck
     from bokken.report.page import render_page
 
@@ -34,11 +38,7 @@ def generate_report(session_dir: Path, theme_spec: str | None = None) -> tuple[P
     if not model.transitions and not model.evidence:
         raise ReportError("nothing to report: the session has no substantive events yet")
     ctx = build_context(session_dir, model)
-    from bokken.report.theme import load_theme
-
     if theme_spec is None:
-        from bokken.journal.workspace import session_config
-
         theme_spec = session_config(session_dir).get("report_theme")
     theme = load_theme(theme_spec)
 

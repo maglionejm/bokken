@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from bokken.journal import Event, replay
 from bokken.orchestrator import CONCEPT_SELECTION_QUESTION, StageContext, StageOutcome
 from bokken.panel import (
@@ -67,6 +69,9 @@ class IdeateEngine:
             participants = [("facilitator", None)]
             skeptic = None
 
+        # Empathize's ranking; nothing appended during divergence is an
+        # opportunity, so the entry snapshot serves every batch.
+        outcomes = opportunities_text(state)
         options: list[Event] = []
         clusters: list[str] = []
         novelty: list[bool] = []
@@ -80,7 +85,7 @@ class IdeateEngine:
                 stage="ideate",
                 params={
                     "problem_statement": problem_statement,
-                    "outcomes": opportunities_text(replay(ctx.store.events())),
+                    "outcomes": outcomes,
                     "participant": name,
                     "existing": "; ".join(clusters) or "(none)",
                     "quota": quota,
@@ -340,8 +345,6 @@ class IdeateEngine:
 
     @staticmethod
     def _code_context(ctx: StageContext) -> str:
-        from pathlib import Path
-
         config = ctx.state.config.get("panel", {})
         corpus = Corpus.ingest_inputs(
             ctx.state.brief.get("inputs", {}),

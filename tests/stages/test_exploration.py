@@ -7,6 +7,7 @@ import pytest
 
 from bokken.journal.schema import Actor
 from bokken.journal.store import JournalStore
+from bokken.mcp.server import MailboxPort
 from bokken.models import ModelRouter
 from bokken.models.router import ModelOutcome
 from bokken.orchestrator import Answer, InputRequired
@@ -264,7 +265,6 @@ def test_resumed_exploration_neither_recalls_the_map_nor_reasks(tmp_path):
     """MCP resume idempotency: once capabilities are journaled, a re-entered
     exploration must not re-call the map, re-ask the founder, or duplicate
     interpretation events - it re-renders what the journal already holds."""
-    from bokken.mcp.server import MailboxPort
 
     corpus = Corpus.ingest_inputs(make_inputs(tmp_path))
     session_dir = tmp_path / "s"

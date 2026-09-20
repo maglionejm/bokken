@@ -28,7 +28,11 @@ class DefineEngine:
             method="cluster evidence into insights, reframe, select one problem statement",
             exit_bar="an evidence-linked problem statement is selected with rationale",
         )
-        state = replay(ctx.store.events())
+        # The opportunity ranking and glossary were journaled by Empathize and
+        # nothing this engine appends is one, so the entry snapshot serves every
+        # prompt below; only the final decision needs a fresh replay (its refs
+        # point at insights appended here).
+        state = ctx.state
         clusters = structured(
             router,
             "cognition",
@@ -36,7 +40,7 @@ class DefineEngine:
             ClusterResult,
             stage="define",
             params={
-                "problem_space": ctx.state.brief.get("problem_space", ""),
+                "problem_space": state.brief.get("problem_space", ""),
                 "evidence": evidence_lines(ctx.store),
                 "opportunities": opportunities_text(state),
                 "glossary": glossary_text(state),
@@ -44,7 +48,7 @@ class DefineEngine:
         )
         if clusters is None:
             return None
-        known_evidence = set(ctx.state.evidence)
+        known_evidence = set(state.evidence)
         insight_events = []
         for draft in clusters.data.insights:
             refs = [e for e in draft.evidence_ids if e in known_evidence]
@@ -72,7 +76,7 @@ class DefineEngine:
             stage="define",
             params={
                 "insights": insights_text,
-                "opportunities": opportunities_text(replay(ctx.store.events())),
+                "opportunities": opportunities_text(state),
             },
         )
         if candidates is None:

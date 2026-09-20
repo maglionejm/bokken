@@ -6,11 +6,17 @@ from pathlib import Path
 import pytest
 
 from bokken.journal import read_events
+from bokken.journal.store import JournalStore
+from bokken.models import ModelRouter
+from bokken.models.router import ProviderResult
 from bokken.orchestrator import create_session
 from bokken.report.generate import generate_report
+from bokken.stages import schemas as s
+from bokken.stages import ui_tests
 from bokken.stages import walkthrough as wt
-from tests.stages.fake_provider import ScriptedProvider
-from tests.stages.test_engines_e2e import BRIEF, make_inputs, make_runner
+from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
+from tests.stages.fake_provider import PromptCapture, ScriptedProvider
+from tests.stages.test_engines_e2e import BRIEF, FounderPort, make_inputs, make_runner
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +71,7 @@ class FakeTester:
         assert app_url == "http://fake.local"
 
     def goto(self, url):
-        self.here = url
+        pass
 
     def digest(self):
         return (
@@ -77,8 +83,6 @@ class FakeTester:
         return "ok (navigated to http://fake.local/done)"
 
     def screenshot(self):
-        import base64
-
         return base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg"
             "YAAAAAMAASsJTYQAAAAASUVORK5CYII="
@@ -89,7 +93,6 @@ class FakeTester:
 
 
 def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch) -> None:
-    from bokken.stages import ui_tests
 
     monkeypatch.setattr(ui_tests, "build_tester", lambda: FakeTester())
     monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker())
@@ -108,16 +111,15 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
     review = next(e for e in events if e.payload.get("kind") == "ui_review")
     assert "Functional UI review" in (session_dir / review.payload["path"]).read_text()
 
-    events2 = events
     feature_evidence = [
         e
-        for e in events2
+        for e in events
         if e.type == "evidence.captured" and e.payload.get("source") == "ui_feature_test"
     ]
     assert len(feature_evidence) == 2
     assert all(e.payload["confidence_class"] == "observed" for e in feature_evidence)
-    kinds2 = [e.payload.get("kind") for e in events2 if e.type == "artifact.generated"]
-    assert kinds2.count("ui_feature_tests") == 2
+    kinds = [e.payload.get("kind") for e in events if e.type == "artifact.generated"]
+    assert kinds.count("ui_feature_tests") == 2
     tests_md = (session_dir / "artifacts/ui/ui_feature_tests.md").read_text()
     assert "Schedule upload" in tests_md and "WORKS" in tests_md
 
@@ -131,9 +133,6 @@ def test_walkthrough_journals_observed_evidence_and_review(tmp_path, monkeypatch
 def test_founder_dispute_reaches_the_feature_inventory_prompt(tmp_path, monkeypatch) -> None:
     """The feature-inventory prompt frames capabilities as cited, implemented
     behavior; a founder-disputed one must arrive with the correction attached."""
-    from bokken.stages import ui_tests
-    from tests.stages.fake_provider import PromptCapture
-    from tests.stages.test_engines_e2e import FounderPort
 
     monkeypatch.setattr(ui_tests, "build_tester", lambda: FakeTester())
     monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker())
@@ -164,8 +163,6 @@ def test_missing_app_url_is_honest_research_debt(tmp_path) -> None:
 
 
 def test_concept_research_authorized_path(tmp_path, monkeypatch) -> None:
-    from bokken.journal import read_events
-    from bokken.orchestrator import create_session
 
     inputs = make_inputs(tmp_path)
     session_dir = create_session(
@@ -196,7 +193,6 @@ def test_concept_research_authorized_path(tmp_path, monkeypatch) -> None:
 
 
 def test_concept_research_skipped_without_flag(tmp_path) -> None:
-    from bokken.journal import read_events
 
     session_dir = run_session(tmp_path, app_url=None)  # BRIEF has no flag
     events = list(read_events(session_dir))
@@ -211,10 +207,6 @@ def test_concept_research_skipped_without_flag(tmp_path) -> None:
 
 
 def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> None:
-    from bokken.journal.store import JournalStore
-    from bokken.models import ModelRouter
-    from bokken.orchestrator import create_session
-    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
 
     session_dir = create_session("sidekick-unit", brief=BRIEF, mode="dojo", gate_policy="none")
     provider = ScriptedProvider()
@@ -237,10 +229,6 @@ def test_large_corpus_is_delegated_to_the_sidekick(tmp_path, monkeypatch) -> Non
 def test_retrieval_is_reused_across_personas_asking_the_same_question(tmp_path) -> None:
     """Every persona on the panel asks one question over one corpus: retrieval runs
     once, so all their turns carry a byte-identical cacheable corpus prefix."""
-    from bokken.journal.store import JournalStore
-    from bokken.models import ModelRouter
-    from bokken.orchestrator import create_session
-    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
 
     session_dir = create_session("sidekick-reuse", brief=BRIEF, mode="dojo", gate_policy="none")
     provider = ScriptedProvider()
@@ -256,11 +244,6 @@ def test_retrieval_is_reused_across_personas_asking_the_same_question(tmp_path) 
 
 
 def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkeypatch) -> None:
-    from bokken.journal.store import JournalStore
-    from bokken.models import ModelRouter
-    from bokken.models.router import ProviderResult
-    from bokken.orchestrator import create_session
-    from bokken.stages.persona_gen import DELEGATE_THRESHOLD_CHARS, RouterTurnGenerator
 
     class TruncatingProvider:
         def complete(self, **kw):
@@ -282,11 +265,7 @@ def test_truncated_retrieval_uses_partial_spans_not_full_corpus(tmp_path, monkey
 
 
 def test_wireframe_artifact_generated_on_tokens_and_exercised(tmp_path, monkeypatch) -> None:
-    from bokken.journal import read_events
-    from bokken.orchestrator import create_session
-    from bokken.stages import walkthrough as wt2
-
-    monkeypatch.setattr(wt2, "build_walker", lambda: FakeWalker2())
+    monkeypatch.setattr(wt, "build_walker", lambda: FakeWalker2())
     inputs = make_inputs(tmp_path)
     css = tmp_path / "styles.css"
     css.write_text(":root{--accent:#c00}.card{border:1px solid}")
@@ -314,12 +293,8 @@ def test_wireframe_artifact_generated_on_tokens_and_exercised(tmp_path, monkeypa
 
 class FakeWalker2:
     def visit(self, app_url, *, max_pages=12, seed_paths=None):
-        import base64
-
-        from bokken.stages import walkthrough as wt3
-
         return [
-            wt3.PageObservation(
+            wt.PageObservation(
                 url=app_url,
                 title="Mock",
                 load_ms=5,
@@ -333,11 +308,10 @@ class FakeWalker2:
 
 class WireframeProvider(ScriptedProvider):
     def _dispatch(self, prompt_id, rendered):
-        from bokken.stages import schemas as s2
 
         if prompt_id == "prototype/fidelity":
-            return s2.FidelityChoice(
-                artifacts=[s2.ArtifactPlanItem(kind="wireframe_html", assumption_indexes=[0])],
+            return s.FidelityChoice(
+                artifacts=[s.ArtifactPlanItem(kind="wireframe_html", assumption_indexes=[0])],
                 rationale="a screen mock is the cheapest test of comprehension",
             )
         return super()._dispatch(prompt_id, rendered)

@@ -13,7 +13,9 @@ from __future__ import annotations
 import contextlib
 import json
 import re
+from pathlib import Path
 from typing import Protocol
+from urllib.parse import urljoin
 
 from bokken.journal.schema import content_hash
 from bokken.stages.base import FACILITATOR, structured
@@ -24,6 +26,11 @@ MAX_STEPS = 4  # default; config ui_tests.max_steps
 DESTRUCTIVE = re.compile(
     r"delete|remove|borrar|eliminar|logout|cerrar sesi|sign out|reset|wipe|drop|purge",
     re.IGNORECASE,
+)
+# What the digest indexes and what a bare `target_index` resolves against:
+# one selector, so the model's index always names the element it saw.
+INTERACTIVE_SELECTOR = (
+    "button, a[href], input:not([type=hidden]), select, textarea, [role=tab], [role=button]"
 )
 
 
@@ -66,14 +73,11 @@ class PlaywrightFeatureTester:
         self.page.goto(app_url, wait_until="networkidle", timeout=30000)
 
     def goto(self, url: str) -> None:
-        from urllib.parse import urljoin
-
         self.page.goto(urljoin(self.app_url, url), wait_until="networkidle", timeout=30000)
 
     def _elements(self):
         return self.page.eval_on_selector_all(
-            "button, a[href], input:not([type=hidden]), select, textarea, "
-            "[role=tab], [role=button]",
+            INTERACTIVE_SELECTOR,
             """els => els.slice(0, 60).map((e, i) => ({
                 i, tag: e.tagName.toLowerCase(),
                 text: (e.textContent || e.getAttribute('placeholder')
@@ -109,11 +113,8 @@ class PlaywrightFeatureTester:
                 self.goto(action.value)
             elif action.target_index is None:
                 return "no-op: click/fill without a target_index"
-            elif action.target_index is not None:
-                locator = self.page.locator(
-                    "button, a[href], input:not([type=hidden]), select, textarea, "
-                    "[role=tab], [role=button]"
-                ).nth(action.target_index)
+            else:
+                locator = self.page.locator(INTERACTIVE_SELECTOR).nth(action.target_index)
                 if locator.count() == 0:
                     return "no such element (stale index; take a fresh digest)"
                 # The digest hides destructive controls but the model supplies a
@@ -158,8 +159,6 @@ def build_tester() -> FeatureTester:
 
 def _docs_excerpt(ctx) -> str:
     inputs = ctx.state.brief.get("inputs") or {}
-    from pathlib import Path
-
     chunks = []
     for doc in (inputs.get("documents") or [])[:3]:
         path = Path(doc)
@@ -189,7 +188,7 @@ def run_feature_tests(
         ctx.store.append(
             type="evidence.abstained",
             stage="empathize",
-            actor=router.actor("ui-tester", "research"),
+            actor=router.actor("ui-tester"),
             payload={
                 "question": "Per-feature functional tests of the running product",
                 "gap": f"browser could not open the app: {str(exc)[:160]}",
@@ -287,14 +286,15 @@ def run_feature_tests(
                         "feature": feature.name,
                     },
                 )
-            record = {
-                "feature": feature.name,
-                "verdict": verdict,
-                "steps": steps,
-                "finding": finding,
-                "screenshot": shot_name,
-            }
-            results.append(record)
+            results.append(
+                {
+                    "feature": feature.name,
+                    "verdict": verdict,
+                    "steps": steps,
+                    "finding": finding,
+                    "screenshot": shot_name,
+                }
+            )
             ctx.store.append(
                 type="evidence.captured",
                 stage="empathize",

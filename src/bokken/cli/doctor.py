@@ -30,10 +30,10 @@ def _extra(module: str) -> bool:
 def _chromium_hint() -> bool:
     cache = Path.home() / "Library" / "Caches" / "ms-playwright"
     linux = Path.home() / ".cache" / "ms-playwright"
-    for root in (cache, linux):
-        if root.exists() and any(p.name.startswith("chromium") for p in root.iterdir()):
-            return True
-    return False
+    return any(
+        root.exists() and any(p.name.startswith("chromium") for p in root.iterdir())
+        for root in (cache, linux)
+    )
 
 
 def _reachable(host: str) -> bool:
@@ -123,12 +123,13 @@ def run_checks(*, network: bool = False) -> list[Check]:
             )
         )
 
+    openai = _extra("openai")
     checks.append(
         Check(
             "[openai] extra",
-            _extra("openai"),
-            "installed" if _extra("openai") else "not installed",
-            "" if _extra("openai") else "pip install 'bokken[openai]'",
+            openai,
+            "installed" if openai else "not installed",
+            "" if openai else "pip install 'bokken[openai]'",
         )
     )
 

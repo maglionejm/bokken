@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from bokken.dossier.model import EXCLUDED_ARTIFACT_KINDS, DecisionNode, DossierModel
 
 DOJO_BANNER = (
@@ -18,19 +20,10 @@ def _flat(s: str | None) -> str:
     return " ".join((s or "").split())
 
 
-def _label(synthetic: bool, flagged: bool = False) -> str:
-    parts = []
-    if synthetic:
-        parts.append("[synthetic]")
-    if flagged:
-        parts.append("[requires real validation]")
-    return (" " + " ".join(parts)) if parts else ""
-
-
 def _decision_line(node: DecisionNode | None, fallback: str) -> str:
     if node is None:
         return f"_{fallback}_"
-    label = _label(False, node.requires_real_validation)
+    label = " [requires real validation]" if node.requires_real_validation else ""
     return f"{_flat(node.resolution)}{label} (decision `{node.id}`)"
 
 
@@ -156,6 +149,4 @@ def render_markdown(model: DossierModel, generated_at: str) -> str:
 def render_json(model: DossierModel, generated_at: str) -> str:
     document = model.model_dump(mode="json")
     document["generated_at"] = generated_at
-    import json
-
     return json.dumps(document, sort_keys=True, indent=2) + "\n"

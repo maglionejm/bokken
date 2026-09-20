@@ -91,7 +91,7 @@ CITIES = [
 AGES = list(range(24, 76, 4))
 
 
-def _vivid_identity(rng, segment: str | None) -> dict[str, str]:
+def _vivid_identity(rng: random.Random) -> dict[str, str]:
     """A concrete, human-readable identity (workshop style: 'Carmen, 54, Madrid').
 
     Deterministic under the casting seed - identity is flavor for grounded
@@ -151,9 +151,9 @@ def cast_panel(
 
     n_segment_personas = size - len(ROLE_AGENTS)
     for i in range(n_segment_personas):
-        segment = segments[i % len(segments)] if segments else None
+        segment = segments[i % len(segments)]
         profile = {axis: rng.choice(values) for axis, values in SAMPLING_AXES.items()}
-        identity = _vivid_identity(rng, segment)
+        identity = _vivid_identity(rng)
         profile.update(identity)
         ocean = {t: round(rng.uniform(0.05, 0.95), 3) for t in OCEAN_TRAITS}
         personas.append(

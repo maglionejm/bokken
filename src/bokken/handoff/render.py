@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from bokken.handoff.schema import CapabilityDraft, RequirementDraft, ScenarioDraft, SpecPackage
 
@@ -37,7 +37,6 @@ class HandoffContext:
     validation_items: list[ValidationItem]
     trace_ids: dict[str, str | None]  # problem_statement/concept/recommendation -> event id
     dojo: bool = False
-    extra: dict = field(default_factory=dict)
 
 
 class HandoffFormatError(Exception):
@@ -121,10 +120,10 @@ def _slice_sections(package: SpecPackage) -> str:
     if sliced:
         parts.append("\n## Slice plan\n")
         for c in sliced:
-            for sl in c.slices:
-                parts.append(f"- `{c.name}` slice ({sl.size}): {sl.name} — {sl.what}")
-            for dep in c.dependencies:
-                parts.append(f"- `{c.name}` depends on: {dep}")
+            parts.extend(
+                f"- `{c.name}` slice ({sl.size}): {sl.name} — {sl.what}" for sl in c.slices
+            )
+            parts.extend(f"- `{c.name}` depends on: {dep}" for dep in c.dependencies)
     if package.sequencing:
         parts.append("\n## Sequencing (build order, not importance order)\n")
         parts.extend(f"{i}. {step}" for i, step in enumerate(package.sequencing, 1))
@@ -187,11 +186,9 @@ def render_package(package: SpecPackage, ctx: HandoffContext) -> dict[str, str]:
                 body.append(f"- **THEN** {scenario.then}\n")
         files[f"{change_dir}/specs/{capability.name}/spec.md"] = "\n".join(body)
 
-    groups = list(package.task_groups)
     task_lines: list[str] = [f"# Tasks: {ctx.change_id}\n"]
-    n = 0
-    for group in groups:
-        n += 1
+    n = 0  # the validation group, if any, numbers after the last task group
+    for n, group in enumerate(package.task_groups, start=1):
         task_lines.append(f"## {n}. {group.name}\n")
         for m, task in enumerate(group.tasks, start=1):
             verified = task if "verify" in task.lower() else f"{task}; verify with a test"
@@ -256,7 +253,9 @@ def render_package(package: SpecPackage, ctx: HandoffContext) -> dict[str, str]:
 
 
 _REQUIREMENT = re.compile(r"^### Requirement: .+", re.MULTILINE)
+_REQUIREMENT_SPLIT = re.compile(r"^### Requirement: ", re.MULTILINE)
 _SCENARIO = re.compile(r"^#### Scenario: .+", re.MULTILINE)
+_TASK_LINE = re.compile(r"^- \[ \] \d+\.\d+ ", re.MULTILINE)
 
 
 def validate_package(files: dict[str, str]) -> list[str]:
@@ -274,10 +273,9 @@ def validate_package(files: dict[str, str]) -> list[str]:
         purpose = content.split("## Purpose", 1)[-1].split("##", 1)[0].strip()
         if len(purpose) < 50:
             problems.append(f"{path}: Purpose shorter than 50 characters")
-        requirements = _REQUIREMENT.findall(content)
-        if not requirements:
+        if not _REQUIREMENT.search(content):
             problems.append(f"{path}: no requirements")
-        for block in re.split(r"^### Requirement: ", content, flags=re.MULTILINE)[1:]:
+        for block in _REQUIREMENT_SPLIT.split(content)[1:]:
             name = block.splitlines()[0]
             if "SHALL" not in block:
                 problems.append(f"{path}: requirement {name!r} has no SHALL statement")
@@ -289,6 +287,6 @@ def validate_package(files: dict[str, str]) -> list[str]:
     if "### New Capabilities" not in proposal:
         problems.append("proposal.md: missing New Capabilities section")
     tasks = next((c for p, c in files.items() if p.endswith("tasks.md")), "")
-    if not re.search(r"^- \[ \] \d+\.\d+ ", tasks, re.MULTILINE):
+    if not _TASK_LINE.search(tasks):
         problems.append("tasks.md: no numbered checkbox tasks")
     return problems

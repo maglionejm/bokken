@@ -11,7 +11,7 @@ from bokken.handoff import (
     validate_package,
 )
 from bokken.handoff.render import ensure_shall, kebab
-from bokken.journal import Actor, read_events
+from bokken.journal import Actor, JournalStore, read_events
 from bokken.models import ModelRouter
 from bokken.orchestrator import create_session
 from tests.stages.fake_provider import ScriptedProvider
@@ -115,8 +115,7 @@ def test_validation_debt_becomes_mandatory_tasks(completed_session: Path) -> Non
     assert "SIMULATED VALIDATION" in readme  # dojo banner
 
 
-def test_refusals(tmp_path: Path) -> None:
-    from bokken.journal import JournalStore
+def test_refusals() -> None:
 
     # No convergence decision.
     bare = create_session("bare", brief=BRIEF, mode="founder")

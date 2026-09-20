@@ -8,10 +8,17 @@ appendix). Presentation only - every fact still comes from the Journal.
 
 from __future__ import annotations
 
+import base64
+import json
 import re
 from html import escape
 
-from bokken.report.context import ReportContext, split_losers
+from bokken.report.context import LEGACY_OPPORTUNITY_SCORE, ReportContext, split_losers
+from bokken.report.theme import BUILTIN, css_override
+from bokken.report.vendor import chartjs_source
+
+# The "O<n>:" label Empathize prefixes to every opportunity statement.
+_O_LABEL = re.compile(r"^(O\d+):")
 
 _CSS = """
 :root{--ink:#1f2430;--ink2:#3a4152;--gray:#6b7280;--line:#e6e2d8;--paper:#f7f4ee;
@@ -215,8 +222,6 @@ if(document.readyState==='complete')drawCharts();else window.addEventListener('l
 
 
 def _img_uri(ctx: ReportContext, relative: str) -> str:
-    import base64
-
     path = ctx.session_dir / relative
     if not path.exists():
         return ""
@@ -393,12 +398,8 @@ def render_page(ctx: ReportContext, theme=None) -> str:
             f"<div class='kicker'>{_e(kicker)}</div><h2>{_e(title)}</h2>"
         )
 
-    from bokken.report.theme import BUILTIN, css_override
-
     theme = theme or BUILTIN["bokken"]
     _theme_css = css_override(theme)
-    from bokken.report.vendor import chartjs_source
-
     _chartjs = chartjs_source()
 
     # ---- head + shell + rail ----
@@ -701,9 +702,8 @@ def render_page(ctx: ReportContext, theme=None) -> str:
         if c.ui_feature_results:
             counts_v = {"works": 0, "broken": 0, "unclear": 0}
             for r in c.ui_feature_results:
-                counts_v[r.get("verdict", "unclear")] = (
-                    counts_v.get(r.get("verdict", "unclear"), 0) + 1
-                )
+                v = r.get("verdict", "unclear")
+                counts_v[v] = counts_v.get(v, 0) + 1
             add(
                 _chips(
                     [
@@ -946,8 +946,9 @@ def render_page(ctx: ReportContext, theme=None) -> str:
             add("<div style='margin-left:32px'>")
             for a in list(m.assumptions.values())[:6]:
                 score = a.score or "untested"
+                tag = {"supported": "supported", "contradicted": "loop"}.get(score, "simulated")
                 add(
-                    f"<div class='debt'><span class='tag {score if score in ('supported',) else ('loop' if score == 'contradicted' else 'simulated')}'>{_e(score)}</span> {_e(a.statement[:160])}</div>"
+                    f"<div class='debt'><span class='tag {tag}'>{_e(score)}</span> {_e(a.statement[:160])}</div>"
                 )
             add("</div>")
         add("</details>")
@@ -1055,19 +1056,17 @@ def render_page(ctx: ReportContext, theme=None) -> str:
     add("</section></main></div>")
 
     # ---- chart data ----
-    import json as _json
-
     opp_pairs = []
     for node in c.opportunities[:10]:
-        match = re.search(r"^(O\d+):", node.statement)
+        match = _O_LABEL.search(node.statement)
         if node.score is not None:
             score = node.score
         else:  # legacy journal without the structured score key
-            parsed = re.search(r"opportunity (\d+(?:\.\d+)?)", node.statement)
+            parsed = LEGACY_OPPORTUNITY_SCORE.search(node.statement)
             score = float(parsed.group(1)) if parsed else None
         if score is not None:
             opp_pairs.append((match.group(1) if match else node.statement[:14], score))
-    data_json = _json.dumps(
+    data_json = json.dumps(
         {
             "register": [counts["supported"], counts["contradicted"], counts["untested"]],
             "oppLabels": [x[0] for x in opp_pairs],

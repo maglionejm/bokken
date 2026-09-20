@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from bokken.dossier import DOJO_BANNER, build_model, generate
-from bokken.journal import read_events
+from bokken.dossier import DOJO_BANNER, build_model, generate, render_markdown
+from bokken.journal import Actor, JournalStore, read_events
+from bokken.orchestrator import create_session
 from tests.stages.fake_provider import ScriptedProvider
 from tests.stages.test_engines_e2e import BRIEF, FounderPort, make_inputs, make_runner
 
@@ -18,7 +19,6 @@ def home(tmp_path: Path, monkeypatch):
 
 @pytest.fixture
 def dojo_session(tmp_path: Path) -> Path:
-    from bokken.orchestrator import create_session
 
     brief = {**BRIEF, "inputs": make_inputs(tmp_path)}
     session_dir = create_session(
@@ -73,8 +73,6 @@ def test_part_a_claims_have_receipts_resolvable_in_part_c(dojo_session: Path) ->
 
 def append_disputed_capability(session_dir: Path) -> None:
     """One ungrounded capability the founder disputed, appended post-run."""
-    from bokken.journal.schema import Actor
-    from bokken.journal.store import JournalStore
 
     with JournalStore.open(session_dir) as store:
         disputed = store.append(
@@ -133,8 +131,7 @@ def test_negative_space_lists_debt_and_suppressions(dojo_session: Path) -> None:
         assert debt.question in markdown
 
 
-def test_partial_dossier_for_in_flight_session(tmp_path: Path) -> None:
-    from bokken.orchestrator import create_session
+def test_partial_dossier_for_in_flight_session() -> None:
 
     session_dir = create_session("dossier-partial", brief=BRIEF, mode="founder")
     runner = make_runner(session_dir, ScriptedProvider(), input_port=FounderPort())
@@ -161,8 +158,6 @@ def test_synthetic_propagates_through_interpretation_refs() -> None:
     only in simulated evidence: every link of that chain is synthetic, including
     the ones whose refs never point at evidence directly (the honesty rule says
     confidence classes propagate to everything derived from them)."""
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
 
     session_dir = create_session("dossier-honesty", brief=BRIEF, mode="dojo")
     facilitator = Actor(kind="agent", name="facilitator")
@@ -224,9 +219,6 @@ def test_synthetic_propagates_through_interpretation_refs() -> None:
 def test_markdown_flattens_injected_journal_text() -> None:
     """Journal free text is interpolated into dossier.md: an embedded newline +
     "## " must render as one flat line, never as a real markdown heading."""
-    from bokken.dossier import render_markdown
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
 
     session_dir = create_session("dossier-inject", brief=BRIEF, mode="founder")
     injected = "line one\n## Fake heading\nline two"
@@ -255,8 +247,6 @@ def test_markdown_flattens_injected_journal_text() -> None:
 
 
 def test_prototype_artifacts_hide_bookkeeping_and_empty_assumption_clause() -> None:
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
 
     session_dir = create_session("dossier-artifacts", brief=BRIEF, mode="founder")
     facilitator = Actor(kind="agent", name="facilitator")
@@ -298,7 +288,6 @@ def test_prototype_artifacts_hide_bookkeeping_and_empty_assumption_clause() -> N
                 "content_hash": "c" * 64,
             },
         )
-    from bokken.dossier import render_markdown
 
     markdown = render_markdown(build_model(session_dir), "TS")
     assert f"tests assumptions: `{assumption.id}`" in markdown
@@ -309,8 +298,6 @@ def test_prototype_artifacts_hide_bookkeeping_and_empty_assumption_clause() -> N
 def test_truncated_panel_manifest_degrades_instead_of_crashing() -> None:
     """A bad manifest file is replayed on every future dossier/report build, so
     it must degrade the persona list instead of failing those builds forever."""
-    from bokken.journal import Actor, JournalStore
-    from bokken.orchestrator import create_session
 
     session_dir = create_session("dossier-manifest", brief=BRIEF, mode="dojo")
     truncated = session_dir / "artifacts" / "empathize" / "panel.json"
