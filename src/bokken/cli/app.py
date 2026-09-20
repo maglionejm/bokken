@@ -826,6 +826,61 @@ def costs(name: str, as_json: JsonFlag = False) -> None:
         out.print("demo session: illustrative usage - you were charged $0.00")
 
 
+@app.command("opportunities")
+@guarded
+def opportunities(name: str, as_json: JsonFlag = False) -> None:
+    """Segment x outcome opportunity matrix (Ulwick/ODI), derived from the journal.
+
+    Which segment is most underserved on which desired outcome. A pure derivation
+    from the replayed per-persona outcome scores - no model calls. Each cell shows
+    the mean Ulwick opportunity score and the sample size behind it; a cell with
+    fewer than two personas is flagged low-confidence.
+    """
+    from bokken.dossier.model import build_model
+    from bokken.report.context import build_opportunity_matrix
+
+    session_dir = resolve_session_dir(name)
+    matrix = build_opportunity_matrix(session_dir, build_model(session_dir))
+    if matrix is None:
+        _fail(
+            f"session '{name}' has no scored desired outcomes: "
+            "no opportunity matrix to show (run Empathize to score outcomes first)",
+            2,
+        )
+        return
+
+    def human() -> None:
+        if matrix.simulated:
+            out.print(
+                "simulated run: this matrix is scored by a synthetic persona panel "
+                "and requires validation with real users."
+            )
+        out.print(
+            "Underserved by segment (Ulwick: Opp = Importance + max(Importance - Satisfaction, 0); "
+            "each cell shows score and sample size n; * = low confidence, n<2)"
+        )
+        width = max((len(s) for s in matrix.segments), default=7)
+        width = max(width, 7)
+        header = f"{'segment':<{width}}" + "".join(
+            f"{f'O{i}':>12}" for i in range(len(matrix.outcomes))
+        )
+        out.print(header)
+        for segment in matrix.segments:
+            cells = []
+            for outcome in matrix.outcomes:
+                cell = matrix.cell(segment, outcome)
+                if cell is None:
+                    cells.append(f"{'-':>12}")
+                else:
+                    flag = "*" if cell.low_confidence else ""
+                    cells.append(f"{f'{cell.score} (n{cell.n}){flag}':>12}")
+            out.print(f"{segment:<{width}}" + "".join(cells))
+        for i, outcome in enumerate(matrix.outcomes):
+            out.print(f"O{i}: {outcome}")
+
+    emit(matrix, as_json, human)
+
+
 @app.command("export")
 @guarded
 def export(

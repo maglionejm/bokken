@@ -8,15 +8,21 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from bokken.contract import OpportunityCell, OpportunityMatrix
 from bokken.dossier.model import (
     EXCLUDED_ARTIFACT_KINDS,
     ArtifactNode,
     DossierModel,
     InsightNode,
 )
+from bokken.journal import read_events
 from bokken.journal.schema import SessionCreated, parse_line
 from bokken.models.router import MODELS
 from bokken.orchestrator.machine import CONCEPT_SELECTION_QUESTION
+
+# A cell backed by fewer than this many personas is not a finding: the sample
+# size is too thin to read as one, so it is flagged low-confidence everywhere.
+LOW_CONFIDENCE_N = 2
 
 # List prices per million tokens (input, output); estimates only, labeled as such.
 # Derived from the model registry so every allowlisted model has a price.
@@ -101,6 +107,9 @@ class ReportContext:
     next_actions: list[str] = field(default_factory=list)
     hill: dict = field(default_factory=dict)  # who/what/wow/hypothesis from the one-pager
     dossier_paths: list[str] = field(default_factory=list)
+    # Segment x outcome opportunity landscape; None when no outcomes were scored,
+    # so the report omits the section honestly.
+    opportunity_matrix: OpportunityMatrix | None = None
 
     @property
     def headline(self) -> str:
@@ -248,6 +257,90 @@ def opportunity_score(node: InsightNode) -> float:
 def _ranked_opportunities(model: DossierModel) -> list[InsightNode]:
     records = [i for i in model.insights.values() if i.kind == "opportunity"]
     return sorted(records, key=opportunity_score, reverse=True)
+
+
+def ulwick_score(importance: float, satisfaction: float) -> float:
+    """The Ulwick opportunity algorithm, one definition for every surface.
+
+    Opp = Importance + max(Importance - Satisfaction, 0) - the same arithmetic the
+    Empathize stage journals per outcome, so the segment x outcome matrix and the
+    collapsed opportunity ranking agree number-for-number."""
+    return importance + max(importance - satisfaction, 0)
+
+
+def build_opportunity_matrix(session_dir: Path, model: DossierModel) -> OpportunityMatrix | None:
+    """Group the replayed per-persona `outcome_score` interpretations by
+    `(segment, outcome)` into a segment x outcome Ulwick opportunity matrix.
+
+    A pure derivation - no model calls: it reads the journal Empathize already
+    wrote. Each `outcome_score` carries `persona_id`, `importance`, and
+    `satisfaction` as extension keys (the DossierModel's `InsightNode` drops
+    them), and refs its `desired_outcome`, whose statement names the column; the
+    persona's `segment` (from the panel manifest) names the row. Cells hold the
+    mean Ulwick score and the sample size behind it; a cell with fewer than two
+    personas is flagged low-confidence. Returns `None` when no outcomes were
+    scored so the report omits the section honestly."""
+    segment_of = {p.persona_id: p.segment for p in model.personas}
+    # (segment, outcome_statement) -> list of per-persona Ulwick scores; the
+    # outcome axis order follows first appearance so it mirrors the journal.
+    grouped: dict[tuple[str, str], list[float]] = {}
+    outcome_order: list[str] = []
+    segment_order: list[str] = []
+    outcome_seen: set[str] = set()
+    segment_seen: set[str] = set()
+    outcome_statement: dict[str, str] = {}
+
+    for event in read_events(session_dir):
+        if event.type != "interpretation.derived":
+            continue
+        payload = event.payload
+        if payload.get("kind") == "desired_outcome":
+            outcome_statement[event.id] = payload.get("statement", "")
+            continue
+        if payload.get("kind") != "outcome_score":
+            continue
+        persona_id = event.extension("persona_id")
+        importance = event.extension("importance")
+        satisfaction = event.extension("satisfaction")
+        if persona_id is None or importance is None or satisfaction is None:
+            continue
+        segment = segment_of.get(persona_id)
+        if not segment:  # a role-agent score, or a persona not in any manifest
+            continue
+        outcome_ref = next((r for r in event.refs if r in outcome_statement), None)
+        if outcome_ref is None:
+            continue
+        outcome = outcome_statement[outcome_ref]
+        grouped.setdefault((segment, outcome), []).append(
+            ulwick_score(float(importance), float(satisfaction))
+        )
+        if outcome not in outcome_seen:
+            outcome_seen.add(outcome)
+            outcome_order.append(outcome)
+        if segment not in segment_seen:
+            segment_seen.add(segment)
+            segment_order.append(segment)
+
+    if not grouped:
+        return None
+
+    cells = [
+        OpportunityCell(
+            segment=segment,
+            outcome=outcome,
+            score=round(sum(scores) / len(scores), 1),
+            n=len(scores),
+            low_confidence=len(scores) < LOW_CONFIDENCE_N,
+        )
+        for (segment, outcome), scores in grouped.items()
+    ]
+    return OpportunityMatrix(
+        name=model.name,
+        segments=sorted(segment_order),
+        outcomes=outcome_order,
+        cells=cells,
+        simulated=model.dojo_banner,
+    )
 
 
 STAGE_PROCESS = {
@@ -500,4 +593,5 @@ def build_context(session_dir: Path, model: DossierModel) -> ReportContext:
         next_actions=_next_actions(model, feature_results),
         hill=_hill(session_dir, model),
         dossier_paths=dossier_paths,
+        opportunity_matrix=build_opportunity_matrix(session_dir, model),
     )
