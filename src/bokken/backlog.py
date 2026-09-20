@@ -22,7 +22,7 @@ import io
 from pathlib import Path
 
 from bokken.contract import BacklogItem, BacklogResult
-from bokken.dossier.render import DOJO_BANNER
+from bokken.dossier.render import DOJO_BANNER, _flat
 from bokken.journal import read_events, replay
 from bokken.journal.replay import SessionState
 
@@ -104,16 +104,16 @@ def build_backlog(session_dir: Path, name: str) -> BacklogResult:
     # abstention's confidence framing (a dojo run's research gaps are simulated
     # framing) and lands after the ranked assumptions — an open question has no
     # impact x uncertainty score to rank against.
-    for debt in state.research_debt:
-        items.append(
-            BacklogItem(
-                rank=0,
-                kind="research_debt",
-                confidence_class=fallback,
-                source=f"research debt {debt.id}",
-                statement=debt.question,
-            )
+    items.extend(
+        BacklogItem(
+            rank=0,
+            kind="research_debt",
+            confidence_class=fallback,
+            source=f"research debt {debt.id}",
+            statement=debt.question,
         )
+        for debt in state.research_debt
+    )
 
     for i, item in enumerate(items, start=1):
         item.rank = i
@@ -126,7 +126,7 @@ def build_backlog(session_dir: Path, name: str) -> BacklogResult:
     # then the whole artifact must not be read as validated fact.
     simulated_only = bool(items) and all(it.confidence_class == "simulated" for it in items)
     requires_real_validation = dojo or simulated_only
-    banner = DOJO_BANNER if (dojo or simulated_only) else None
+    banner = DOJO_BANNER if requires_real_validation else None
 
     return BacklogResult(
         name=name,
@@ -209,8 +209,7 @@ def to_csv(result: BacklogResult) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(_HEADER)
-    for row in _rows(result):
-        writer.writerow(row)
+    writer.writerows(_rows(result))
     return buffer.getvalue()
 
 
@@ -239,8 +238,3 @@ def _md_detail(it: BacklogItem) -> str:
     tags.append(it.confidence_class)
     tags.append(it.source)
     return f" ({', '.join(tags)})"
-
-
-def _flat(s: str) -> str:
-    """Collapse free text onto one line so a checklist row stays one item."""
-    return " ".join((s or "").split())

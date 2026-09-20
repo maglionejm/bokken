@@ -109,9 +109,8 @@ class Estimate:
     caveat: str
 
 
-def _class_tokens(routing_class: RoutingClass) -> int:
-    """All billed tokens the profile ascribes to one call on this class."""
-    usage = USAGE_BY_CLASS.get(routing_class, {})
+def _usage_tokens(usage: dict[str, int]) -> int:
+    """All billed tokens the profile ascribes to one call with this usage."""
     return sum(int(v or 0) for v in usage.values())
 
 
@@ -147,10 +146,9 @@ def estimate_run(
         lane = functional_bucket(entry.prompt_id)
         served_model = routing[entry.routing_class]
         usage = USAGE_BY_CLASS.get(entry.routing_class, {})
-        per_call_cost = call_cost_usd(served_model, usage)
         lane_calls[lane] += calls
-        lane_tokens[lane] += calls * _class_tokens(entry.routing_class)
-        lane_cost[lane] += calls * per_call_cost
+        lane_tokens[lane] += calls * _usage_tokens(usage)
+        lane_cost[lane] += calls * call_cost_usd(served_model, usage)
 
     lanes = tuple(
         LaneEstimate(
